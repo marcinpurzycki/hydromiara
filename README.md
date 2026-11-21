@@ -36,7 +36,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/fastapi dev app/main.py        # http://127.0.0.1:8000/api/docs
 .venv/bin/python -m pytest               # testy bez dostępu do sieci
 .venv/bin/python -m tests.smoke.parcels_smoke   # sprawdzenie na żywej usłudze działek (wymaga sieci)
-.venv/bin/python -m tests.smoke.satellite_smoke # sprawdzenie na żywym katalogu scen satelitarnych (wymaga sieci)
+.venv/bin/python -m tests.smoke.satellite_smoke # sprawdzenie na żywych usługach scen satelitarnych, w tym przełączenia (wymaga sieci)
 ```
 
 Lokalnie w Dockerze (API na `http://127.0.0.1:8000`):
@@ -50,6 +50,35 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up --build api
 Na serwerze za Traefikiem (istniejąca sieć `proxy`): `docker compose up -d --build`. Ruch dla `DOMAIN` trafia do
 usługi `web`, a dla `DOMAIN` ze ścieżką `/api` do usługi `api`. Raporty są zapisywane w wolumenie `reports`,
 a pliki wskaźnika suszy są czytane z katalogu `EDO_DATA_PATH` (domyślnie `./data/edo`).
+
+## Konfiguracja
+
+Ustawienia wdrożenia są w pliku `.env` (wzór: `.env.example`); usługa `api` dostaje je jako zmienne środowiskowe.
+
+| Zmienna | Wartość domyślna | Znaczenie |
+|---|---|---|
+| `SATELLITE_PRIMARY` | `planetary-computer` | usługa danych satelitarnych pytana jako pierwsza: `planetary-computer` albo `earth-search` |
+| `SATELLITE_SECONDARY` | `earth-search` | usługa zapasowa; `none` wyłącza przełączanie |
+| `SATELLITE_FALLBACK_AFTER_S` | `4` | po tylu sekundach bez pierwszego odczytu z usługi podstawowej analiza przechodzi na zapasową |
+
+### Dane satelitarne: dwie wymienne usługi
+
+- **Decyzja projektu:** podstawowa jest Planetary Computer, zapasowa Earth Search. Obie udostępniają to samo archiwum
+  Sentinel-2 L2A i są wymienne: zamiana kolejności wymaga tylko zmiany dwóch zmiennych, bez zmian w kodzie.
+  Dla tych samych dat odczyty NDVI i NDMI z obu usług różnią się o ok. 0,01–0,02 (inna wersja przetworzenia
+  lub inny kafel tej samej sceny).
+- **Przełączenie:** gdy usługa podstawowa zgłosi błąd albo w ciągu `SATELLITE_FALLBACK_AFTER_S` sekund nie dostarczy
+  żadnego odczytu, jej praca jest porzucana, a zapytanie trafia do usługi zapasowej z pozostałym czasem
+  (cały etap ma limit 15 s). Usługa, która odpowiedziała, że nie ma czystych scen, nie jest zastępowana.
+  W danych źródłowych raportu zapisana jest usługa, z której pochodzi odczyt.
+- **Skąd kolejność:** pomiar z serwera docelowego (21.11.2026, `scripts/probes/satellite_probe.py`): odczyt 16 scen
+  po 5 pasm trwał 1,2 s z Planetary Computer i 5,5 s z Earth Search; archiwum Planetary Computer sięga lipca 2015 r.,
+  Earth Search listopada 2016 r.
+- **Obecnie używany jest dostęp bezpłatny** do obu usług: bez konta, bez klucza, bez gwarancji dostępności
+  i z limitami zapytań, których dostawcy nie podają liczbowo. To wystarcza dla prototypu.
+- **Przed wdrożeniem produkcyjnym trzeba przejść na płatny plan** z gwarancją dostępności i znanymi limitami
+  (u dostawcy usługi podstawowej, a najlepiej obu) i dodać w adapterze przekazywanie klucza dostępu;
+  obecna wersja klucza nie obsługuje. Do tego czasu ochroną przed niedostępnością jest wyłącznie usługa zapasowa.
 
 ## Biblioteki
 
@@ -75,7 +104,7 @@ a pliki wskaźnika suszy są czytane z katalogu `EDO_DATA_PATH` (domyślnie `./d
 | Ukształtowanie terenu: siatka wysokości ok. 30 m wokół działki | Copernicus DEM GLO-30 (model pokrycia terenu z misji TanDEM-X, pomiary z lat 2011–2015; wysokości obejmują budynki i roślinność), pliki z `https://registry.opendata.aws/copernicus-dem/`, arkusz wyszukiwany w katalogu Earth Search (`https://earth-search.aws.element84.com/v1`, kolekcja `cop-dem-glo-30`) | na żywo | bezpłatnie dla każdego na warunkach licencji Copernicus DEM (GLO-30 Public), bez rejestracji; wymagane podanie źródła i informacji o prawach autorskich |
 | Parametry wodne Upraw: współczynniki Kc, głębokość korzeni, dopuszczalne wyczerpanie wody w glebie (p) | Allen R.G., Pereira L.S., Raes D., Smith M. (1998), „Crop evapotranspiration: guidelines for computing crop water requirements”, FAO Irrigation and Drainage Paper 56, tabele 12 i 22 | wartości wpisane w kodzie (`backend/app/catalog/crop_data.py`), każda ze wskazaniem tabeli; wartości bez źródła są tam oznaczone jako robocze | publikacja FAO; wartości liczbowe przytoczone z podaniem źródła |
 | Gleba w punkcie działki, warstwy do 100 cm: piasek, pył, ił, węgiel organiczny, zawartość wody przy 33 i 1500 kPa; z nich pojemność wodna (różnica zawartości wody, niezweryfikowana pomiarem na działce) | ISRIC – World Soil Information, SoilGrids 2.0 (model globalny, siatka 250 m), `https://rest.isric.org/soilgrids/v2.0/properties/query` | na żywo | CC BY 4.0, wymagane podanie źródła; usługa w fazie beta, bez gwarancji dostępności; limit 5 zapytań na minutę; zmierzony czas odpowiedzi 11–35 s |
-| Obserwacje satelitarne do Daty analizy: klasyfikacja sceny (SCL) oraz pasma czerwone, bliskiej podczerwieni i krótkofalowej podczerwieni nad działką; z nich udział czystych pikseli, NDVI i NDMI | Copernicus Sentinel-2, poziom L2A (ESA / Komisja Europejska); wyszukiwanie scen: Earth Search (Element 84), `https://earth-search.aws.element84.com/v1`, kolekcja `sentinel-2-l2a`; pliki pasm (COG) w rejestrze otwartych danych AWS | na żywo | bezpłatny, pełny i otwarty dostęp na warunkach noty prawnej danych Sentinel (`https://sentinel.esa.int/documents/247904/690755/Sentinel_Data_Legal_Notice`); wymagane podanie źródła i zaznaczenie przetworzenia danych; bez klucza |
+| Obserwacje satelitarne do Daty analizy: klasyfikacja sceny (SCL) oraz pasma czerwone, bliskiej podczerwieni i krótkofalowej podczerwieni nad działką; z nich udział czystych pikseli, NDVI i NDMI | Copernicus Sentinel-2, poziom L2A (ESA / Komisja Europejska), z dwóch wymiennych usług (kolejność w konfiguracji): podstawowa Microsoft Planetary Computer, `https://planetarycomputer.microsoft.com/api/stac/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w Azure West Europe, odczyt z bezpłatnym tokenem pobieranym bez konta; zapasowa Earth Search (Element 84), `https://earth-search.aws.element84.com/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w rejestrze otwartych danych AWS | na żywo | bezpłatny, pełny i otwarty dostęp do danych na warunkach noty prawnej danych Sentinel (`https://sentinel.esa.int/documents/247904/690755/Sentinel_Data_Legal_Notice`); wymagane podanie źródła i zaznaczenie przetworzenia danych; obie usługi obecnie w dostępie bezpłatnym, bez klucza i bez gwarancji dostępności (patrz „Konfiguracja”) |
 
 Źródło: Główny Urząd Geodezji i Kartografii (GUGiK), Usługa Lokalizacji Działek Katastralnych (ULDK).
 

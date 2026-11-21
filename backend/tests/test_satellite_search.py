@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from app.sources import satellite_params as params
+from app.sources.satellite_providers import EARTH_SEARCH
 from app.sources.satellite_search import (
     SatelliteSearchError,
     SearchWindow,
@@ -27,7 +28,7 @@ GEOMETRY = OUTLINE.model_dump()
 def search(transport: httpx.MockTransport, window: SearchWindow = JUNE):
     async def run():
         async with httpx.AsyncClient(transport=transport) as client:
-            return await find_scenes(client, GEOMETRY, window)
+            return await find_scenes(client, EARTH_SEARCH, GEOMETRY, window)
 
     return asyncio.run(run())
 
@@ -47,7 +48,7 @@ def test_leap_day_falls_back_to_28_february_in_other_years():
 
 
 def test_request_carries_only_the_outline_the_dates_and_the_collection():
-    body = search_body(GEOMETRY, JUNE)
+    body = search_body(EARTH_SEARCH, GEOMETRY, JUNE)
     assert body["collections"] == ["sentinel-2-l2a"]
     assert body["intersects"] == GEOMETRY
     assert body["datetime"] == "2023-06-05T00:00:00Z/2023-06-20T23:59:59Z"
@@ -55,7 +56,7 @@ def test_request_carries_only_the_outline_the_dates_and_the_collection():
 
 
 def test_recorded_answer_is_reduced_to_days_and_file_addresses():
-    items = parse_items(recorded_answer(), JUNE)
+    items = parse_items(recorded_answer(), JUNE, EARTH_SEARCH)
     assert len(items) == 12
     assert {item.date for item in items} == {date(2023, 6, d) for d in (6, 9, 11, 14, 16, 19)}
     assert all(set(item.hrefs) == set(params.REQUIRED_ASSETS) for item in items)
@@ -64,7 +65,7 @@ def test_recorded_answer_is_reduced_to_days_and_file_addresses():
 
 
 def test_copies_of_one_day_are_grouped_newest_day_first():
-    items = parse_items(recorded_answer(), JUNE)
+    items = parse_items(recorded_answer(), JUNE, EARTH_SEARCH)
     days = group_by_day(items + items[:3])  # the same scene listed twice is one copy
     assert [copies[0].date for copies in days] == [
         date(2023, 6, d) for d in (19, 16, 14, 11, 9, 6)
@@ -79,21 +80,23 @@ def test_copies_of_one_day_are_grouped_newest_day_first():
 
 def test_scenes_outside_the_window_are_dropped():
     window = SearchWindow(start=date(2023, 5, 13), end=date(2023, 6, 12))
-    items = parse_items(recorded_answer(), window)
+    items = parse_items(recorded_answer(), window, EARTH_SEARCH)
     assert {item.date for item in items} == {date(2023, 6, d) for d in (6, 9, 11)}
 
 
 def test_scene_without_a_needed_file_is_skipped():
     payload = recorded_answer()
     del payload["features"][0]["assets"]["swir16"]
-    assert len(parse_items(payload, JUNE)) == 11
+    assert len(parse_items(payload, JUNE, EARTH_SEARCH)) == 11
 
 
 def test_unreadable_answer_is_an_error():
     with pytest.raises(SatelliteSearchError):
-        parse_items({"type": "FeatureCollection"}, JUNE)
+        parse_items({"type": "FeatureCollection"}, JUNE, EARTH_SEARCH)
     with pytest.raises(SatelliteSearchError):
-        parse_items({"features": [{"id": "x", "properties": {"datetime": "yesterday"}}]}, JUNE)
+        parse_items(
+            {"features": [{"id": "x", "properties": {"datetime": "yesterday"}}]}, JUNE, EARTH_SEARCH
+        )
 
 
 def test_search_stops_on_a_page_that_is_not_full():
@@ -106,7 +109,7 @@ def test_search_stops_on_a_page_that_is_not_full():
     days = search(httpx.MockTransport(handler))
     assert len(days) == 6
     assert len(seen) == 1  # the answer links a next page although there is none
-    assert seen[0].method == "POST" and str(seen[0].url) == params.SEARCH_URL
+    assert seen[0].method == "POST" and str(seen[0].url) == EARTH_SEARCH.search_url
 
 
 def test_search_follows_the_next_link_when_the_page_is_full(monkeypatch):

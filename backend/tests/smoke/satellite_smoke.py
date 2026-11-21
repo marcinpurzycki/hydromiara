@@ -2,7 +2,10 @@
 
 Run from the backend directory:  python -m tests.smoke.satellite_smoke
 For one parcel outline and three analysis dates (two historical, today) runs
-the adapter and prints the time taken, the scenes read and what is missing.
+the adapter and prints the time taken, the service that answered, the scenes
+read and what is missing. This is done for the configured order of services,
+for each service alone, and with a fallback time too short for the primary
+service, so that the switch to the secondary one is exercised.
 Exits with 1 when a call returns neither scenes nor a reason, returns a scene
 after the analysis date, or takes clearly longer than its time budget.
 """
@@ -14,6 +17,7 @@ from datetime import date
 from app.contracts.common import GeoJsonGeometry
 from app.sources import satellite_params as params
 from app.sources.satellite import SatelliteSource
+from app.sources.satellite_providers import PROVIDERS, configured_chain
 
 # Outline of an arable parcel of about 2.5 ha (longitude, latitude).
 OUTLINE = GeoJsonGeometry(
@@ -37,7 +41,10 @@ BUDGET_SLACK_S = 1.0
 async def check(source: SatelliteSource, analysis_date: date) -> bool:
     data, outcome, limitations = await source.fetch(OUTLINE, analysis_date)
     scenes = data.scenes if data else []
-    print(f"analysis date {analysis_date}  {outcome.duration_s:5.2f} s  {len(scenes)} scene(s)")
+    print(
+        f"analysis date {analysis_date}  {outcome.duration_s:5.2f} s  {len(scenes)} scene(s)  "
+        f"step {outcome.chain_step}: {outcome.source_name}"
+    )
     for scene in scenes:
         print(
             f"  {scene.date}  clear {scene.clear_share_pct:5.1f}%  "
@@ -52,9 +59,16 @@ async def check(source: SatelliteSource, analysis_date: date) -> bool:
 
 
 async def main() -> int:
-    source = SatelliteSource()
     days = (date(2023, 6, 20), date(2019, 6, 15), date.today())
-    results = [await check(source, day) for day in days]
+    chain = configured_chain()
+    runs = {"configured order: " + " -> ".join(p.name for p in chain): SatelliteSource()}
+    for provider in PROVIDERS.values():
+        runs[f"{provider.name} alone"] = SatelliteSource(providers=[provider])
+    runs["fallback after 0.05 s"] = SatelliteSource(fallback_after_s=0.05)
+    results = []
+    for title, source in runs.items():
+        print(f"== {title}")
+        results += [await check(source, day) for day in days]
     print("OK" if all(results) else "FAILED")
     return 0 if all(results) else 1
 

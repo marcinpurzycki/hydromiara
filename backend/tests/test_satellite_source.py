@@ -13,6 +13,7 @@ from app.contracts.common import GeoJsonGeometry
 from app.sources import satellite_params as params
 from app.sources.satellite import SatelliteSource
 from app.sources.satellite_limitations import TOO_SMALL_TEXT
+from app.sources.satellite_providers import EARTH_SEARCH
 from tests.satellite_helpers import OUTLINE, SceneFiles, catalogue, scene_id
 
 ANALYSIS_DATE = date(2023, 6, 20)
@@ -26,7 +27,10 @@ def files(tmp_path) -> SceneFiles:
 
 def fetch(files: SceneFiles, analysis_date: date = ANALYSIS_DATE, outline=OUTLINE, **kwargs):
     source = SatelliteSource(
-        transport=kwargs.pop("transport", None) or catalogue(), opener=files.opener, **kwargs
+        transport=kwargs.pop("transport", None) or catalogue(),
+        opener=files.opener,
+        providers=[EARTH_SEARCH],
+        **kwargs,
     )
     return asyncio.run(source.fetch(outline, analysis_date))
 
@@ -39,7 +43,7 @@ def test_newest_clear_scene_is_read_with_its_indices(files):
         (date(2023, 6, 19), 100.0, 0.5, 0.2)
     ]
     assert (outcome.topic, outcome.ok, outcome.chain_step) == ("satellite", True, 1)
-    assert outcome.source_name == params.SOURCE_NAME
+    assert outcome.source_name == EARTH_SEARCH.source_name
     assert outcome.data_date == "2023-06-19/2023-06-19"
     # The recorded answer has no scenes for the three earlier years.
     assert [limitation.affects for limitation in limitations] == ["multiyear"] * 3
@@ -144,7 +148,9 @@ def test_time_budget_cuts_the_reading_short(files):
         with files.opener(href) as dataset:
             yield dataset
 
-    source = SatelliteSource(transport=catalogue(), opener=slow_opener, time_budget_s=0.2)
+    source = SatelliteSource(
+        transport=catalogue(), opener=slow_opener, time_budget_s=0.2, providers=[EARTH_SEARCH]
+    )
     started = time.monotonic()
     data, outcome, limitations = asyncio.run(source.fetch(OUTLINE, ANALYSIS_DATE))
     assert time.monotonic() - started < 0.55  # returned before the slow read ended
@@ -167,7 +173,9 @@ def test_scenes_finished_within_the_budget_are_kept(files, monkeypatch):
         with files.opener(href) as dataset:
             yield dataset
 
-    source = SatelliteSource(transport=catalogue(), opener=opener, time_budget_s=0.5)
+    source = SatelliteSource(
+        transport=catalogue(), opener=opener, time_budget_s=0.5, providers=[EARTH_SEARCH]
+    )
     data, outcome, limitations = asyncio.run(source.fetch(OUTLINE, ANALYSIS_DATE))
     assert [s.date for s in data.scenes] == [date(2023, 6, 19)]
     assert outcome.ok

@@ -123,10 +123,11 @@ def test_no_usable_pixel_gives_no_indices():
     assert (result.ndvi, result.ndmi, result.pixel_count) == (None, None, 0)
 
 
-def test_reflectance_offset_enters_the_indices(monkeypatch):
-    monkeypatch.setattr(params, "REFLECTANCE_OFFSET", -0.1)
+def test_reflectance_offset_enters_the_indices():
     grid = np.ones((2, 2))
-    result = compute_indices(coarse([[4]]), fine(2000 * grid), fine(4000 * grid), coarse([[3000]]))
+    result = compute_indices(
+        coarse([[4]]), fine(2000 * grid), fine(4000 * grid), coarse([[3000]]), -0.1
+    )
     assert result.ndvi == pytest.approx((0.3 - 0.1) / (0.3 + 0.1))
 
 
