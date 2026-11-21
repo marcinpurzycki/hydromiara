@@ -23,8 +23,9 @@ Szczegółowy wykaz narzędzi i modeli AI oraz zakres ich użycia zostanie uzupe
 
 ## Uruchomienie
 
-Usługa `api` (FastAPI) wystawia wszystkie trasy pod `/api`. Na obecnym etapie odpowiada danymi przykładowymi
-(atrapą) o docelowym kształcie; gotowy raport przykładowy jest pod `/api/reports/demo`.
+Usługa `api` (FastAPI) wystawia wszystkie trasy pod `/api`. Wyszukiwanie działek (`/api/parcels/...`) korzysta
+na żywo z usługi ULDK; pozostałe trasy na obecnym etapie odpowiadają danymi przykładowymi (atrapą) o docelowym
+kształcie; gotowy raport przykładowy jest pod `/api/reports/demo`.
 Opis interfejsu: `/api/docs` (Swagger UI) i `/api/openapi.json`.
 
 Lokalnie, bez Dockera:
@@ -34,6 +35,7 @@ cd backend
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/fastapi dev app/main.py        # http://127.0.0.1:8000/api/docs
 .venv/bin/python -m pytest               # testy bez dostępu do sieci
+.venv/bin/python -m tests.smoke.parcels_smoke   # sprawdzenie na żywej usłudze działek (wymaga sieci)
 ```
 
 Lokalnie w Dockerze (API na `http://127.0.0.1:8000`):
@@ -56,7 +58,17 @@ a pliki wskaźnika suszy są czytane z katalogu `EDO_DATA_PATH` (domyślnie `./d
 | Pydantic | modele kontraktu i walidacja | MIT |
 | Uvicorn | serwer aplikacji | BSD-3-Clause |
 | pytest | testy | MIT |
-| HTTPX | klient testowy | BSD-3-Clause |
+| HTTPX | zapytania do źródeł danych, klient testowy | BSD-3-Clause |
+| Shapely | geometria działki (WKT, GeoJSON, powierzchnia) | BSD-3-Clause |
+| pyproj | przeliczenie układów współrzędnych (EPSG:4326 → EPSG:2180) | MIT |
+
+## Źródła danych
+
+| Dane | Źródło | Tryb | Warunki wykorzystania |
+|---|---|---|---|
+| Działki ewidencyjne: identyfikator, położenie administracyjne, geometria | Główny Urząd Geodezji i Kartografii (GUGiK), Usługa Lokalizacji Działek Katastralnych (ULDK), `https://uldk.gugik.gov.pl/` | na żywo | bezpłatnie, bez rejestracji; wymagane podanie źródła; limit zapytań na adres IP |
+
+Źródło: Główny Urząd Geodezji i Kartografii (GUGiK), Usługa Lokalizacji Działek Katastralnych (ULDK).
 
 ## Dokumentacja
 
