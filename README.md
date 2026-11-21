@@ -24,8 +24,11 @@ Szczegółowy wykaz narzędzi i modeli AI oraz zakres ich użycia zostanie uzupe
 ## Uruchomienie
 
 Usługa `api` (FastAPI) wystawia wszystkie trasy pod `/api`. Wyszukiwanie działek (`/api/parcels/...`) korzysta
-na żywo z usługi ULDK; pozostałe trasy na obecnym etapie odpowiadają danymi przykładowymi (atrapą) o docelowym
-kształcie; gotowy raport przykładowy jest pod `/api/reports/demo`.
+na żywo z usługi ULDK. Analiza (`POST /api/analyses`, postęp pod `/api/analyses/{report_id}/status`, wynik pod
+`/api/reports/{report_id}`) pobiera na żywo działkę i pogodę, liczy bilans wodny i zapisuje raport razem z danymi
+źródłowymi; części raportu, których jeszcze nie liczy żaden moduł, są w nim opisane wprost jako nieocenione.
+Lista upraw, przykłady, symulacja, raport pochodny i analiza na okres krytyczny odpowiadają na obecnym etapie danymi
+przykładowymi (atrapą) i działają tylko dla raportu przykładowego `/api/reports/demo`.
 Opis interfejsu: `/api/docs` (Swagger UI) i `/api/openapi.json`.
 
 Lokalnie, bez Dockera:
@@ -33,10 +36,11 @@ Lokalnie, bez Dockera:
 ```bash
 cd backend
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
-.venv/bin/fastapi dev app/main.py        # http://127.0.0.1:8000/api/docs
+REPORTS_DB_PATH=./data/reports.sqlite3 .venv/bin/fastapi dev app/main.py   # http://127.0.0.1:8000/api/docs
 .venv/bin/python -m pytest               # testy bez dostępu do sieci
 .venv/bin/python -m tests.smoke.parcels_smoke   # sprawdzenie na żywej usłudze działek (wymaga sieci)
 .venv/bin/python -m tests.smoke.satellite_smoke # sprawdzenie na żywych usługach scen satelitarnych, w tym przełączenia (wymaga sieci)
+.venv/bin/python -m tests.smoke.analysis_smoke  # cała analiza jednej działki na żywych źródłach, z czasem każdego źródła (wymaga sieci)
 ```
 
 Lokalnie w Dockerze (API na `http://127.0.0.1:8000`):
@@ -50,6 +54,12 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up --build api
 Na serwerze za Traefikiem (istniejąca sieć `proxy`): `docker compose up -d --build`. Ruch dla `DOMAIN` trafia do
 usługi `web`, a dla `DOMAIN` ze ścieżką `/api` do usługi `api`. Raporty są zapisywane w wolumenie `reports`,
 a pliki wskaźnika suszy są czytane z katalogu `EDO_DATA_PATH` (domyślnie `./data/edo`).
+
+Raporty są przechowywane w jednym pliku SQLite; jego ścieżkę podaje zmienna środowiskowa `REPORTS_DB_PATH`
+(domyślnie `/data/reports/reports.sqlite3`, czyli wolumen `reports` kontenera). Raport ma losowy adres, nie zmienia
+się po zapisaniu i jest usuwany po 30 dniach (wartość robocza). Usługa działa w jednym procesie: analiza przerwana
+ponownym uruchomieniem usługi kończy się stanem `failed` i trzeba ją uruchomić ponownie. W bazie i w logach nie ma
+danych osobowych; zapisywany jest identyfikator działki, który da się powiązać z właścicielem w rejestrach publicznych.
 
 ## Konfiguracja
 
