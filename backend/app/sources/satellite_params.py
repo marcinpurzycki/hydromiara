@@ -2,13 +2,12 @@
 
 from app.sources.raster import DEFAULT_INWARD_BUFFER_M
 
-SEARCH_URL = "https://earth-search.aws.element84.com/v1/search"
 COLLECTION = "sentinel-2-l2a"
-SOURCE_NAME = "Copernicus Sentinel-2 L2A, katalog Earth Search"
 USER_AGENT = "hydro-analysis/0.1"
 
-# Asset names of the collection: red and near infrared on a 10 m grid,
-# short-wave infrared and the scene classification on a 20 m grid.
+# Layers read from a scene: red and near infrared on a 10 m grid, short-wave
+# infrared and the scene classification on a 20 m grid. Each catalogue has
+# its own file names for them (see satellite_providers.py).
 ASSET_RED = "red"
 ASSET_NIR = "nir"
 ASSET_SWIR = "swir16"
@@ -42,11 +41,9 @@ CLEAR_SCL_CLASSES = (4, 5)
 # where the value is marked as provisional).
 INWARD_BUFFER_M = DEFAULT_INWARD_BUFFER_M
 
-# reflectance = stored value * scale + offset.
-# PROVISIONAL: values declared by the collection description; single scenes
-# declare other offsets, and which one applies is not settled yet.
+# reflectance = stored value * scale + offset. The offset depends on the
+# catalogue and on the processing version of the scene (satellite_providers.py).
 REFLECTANCE_SCALE = 0.0001
-REFLECTANCE_OFFSET = 0.0
 
 # Decimal places of the reported index means.
 INDEX_DECIMALS = 4
@@ -73,11 +70,14 @@ SCL_BATCH_SIZE = 3
 # of the 10 m window whatever the alignment of the two grids.
 COARSE_MARGIN_M = 20.0
 
+# A read token is asked for again when it expires sooner than this.
+TOKEN_MARGIN_S = 300.0
+
 # GDAL settings for reading single windows of remote cloud-optimised files:
-# no directory listing, only .tif requests, bounded waiting.
+# no directory listing, bounded waiting. File addresses may end with a read
+# token, so requests are not limited by file extension.
 GDAL_OPTIONS = {
     "GDAL_DISABLE_READDIR_ON_OPEN": "EMPTY_DIR",
-    "CPL_VSIL_CURL_ALLOWED_EXTENSIONS": ".tif",
     "GDAL_HTTP_CONNECTTIMEOUT": 5,
     "GDAL_HTTP_TIMEOUT": 10,
 }

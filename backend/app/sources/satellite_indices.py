@@ -20,6 +20,7 @@ from rasterio.io import DatasetReader
 
 from app.sources import satellite_params as params
 from app.sources.raster import EmptyReason, RasterWindow, read_window
+from app.sources.satellite_search import SceneItem
 
 # Opens the raster behind a file address; replaced by local files in tests.
 RasterOpener = Callable[[str], AbstractContextManager[DatasetReader]]
@@ -124,8 +125,23 @@ def to_grid(source: RasterWindow, target: RasterWindow) -> np.ma.MaskedArray:
     )
 
 
-def _reflectance(values: np.ndarray) -> np.ndarray:
-    return values.astype("float64") * params.REFLECTANCE_SCALE + params.REFLECTANCE_OFFSET
+def check_day(
+    opener: RasterOpener, copies: list[SceneItem], geometry: Any
+) -> tuple[SceneItem, ClearCheck] | None:
+    """Clear-pixel check of one acquisition day: the first copy covering the parcel."""
+    for item in copies:
+        try:
+            check = check_clear(opener, item.hrefs[params.ASSET_SCL], geometry)
+        except SceneReadError:
+            continue
+        if check.empty_reason in ("outside_raster", "no_valid_data"):
+            continue  # the parcel lies off this tile; another copy may cover it
+        return item, check
+    return None
+
+
+def _reflectance(values: np.ndarray, offset: float) -> np.ndarray:
+    return values.astype("float64") * params.REFLECTANCE_SCALE + offset
 
 
 def _normalised_difference(first: np.ndarray, second: np.ndarray) -> np.ndarray:
@@ -133,7 +149,11 @@ def _normalised_difference(first: np.ndarray, second: np.ndarray) -> np.ndarray:
 
 
 def compute_indices(
-    scl: RasterWindow, red: RasterWindow, nir: RasterWindow, swir: RasterWindow
+    scl: RasterWindow,
+    red: RasterWindow,
+    nir: RasterWindow,
+    swir: RasterWindow,
+    reflectance_offset: float = 0.0,
 ) -> SceneIndices:
     """NDVI and NDMI per pixel on the red band grid, averaged over the parcel.
 
@@ -149,7 +169,9 @@ def compute_indices(
     usable = red.inside & is_clear(classes)
     for layer in layers:
         usable &= ~np.ma.getmaskarray(layer)
-    red_r, nir_r, swir_r = (_reflectance(np.ma.getdata(layer)[usable]) for layer in layers)
+    red_r, nir_r, swir_r = (
+        _reflectance(np.ma.getdata(layer)[usable], reflectance_offset) for layer in layers
+    )
     usable_values = (nir_r + red_r != 0) & (nir_r + swir_r != 0)
     red_r, nir_r, swir_r = red_r[usable_values], nir_r[usable_values], swir_r[usable_values]
     if red_r.size == 0:

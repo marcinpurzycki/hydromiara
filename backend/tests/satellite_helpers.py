@@ -90,7 +90,16 @@ class SceneFiles:
         crs: str | None = None, shift_m: float = 0.0,
     ) -> None:
         """Write the four files of a scene; values are constants or whole arrays."""
-        crs = crs or TILE_CRS[scene.split("_")[1]]
+        self.add_hrefs(
+            hrefs_of(scene), crs or TILE_CRS[scene.split("_")[1]],
+            scl=scl, red=red, nir=nir, swir=swir, shift_m=shift_m, label=scene,
+        )  # fmt: skip
+
+    def add_hrefs(
+        self, hrefs: dict[str, str], crs: str, *, scl=4, red=1000, nir=3000, swir=2000,
+        shift_m: float = 0.0, label: str = "scene",
+    ) -> None:
+        """Write the four files of a scene given its file addresses by layer name."""
         origin = grid_origin(crs, shift_m)
         layers = {
             "scl": (scl, COARSE_PIXELS, 20.0, "uint8"),
@@ -98,9 +107,9 @@ class SceneFiles:
             "nir": (nir, FINE_PIXELS, 10.0, "uint16"),
             "swir16": (swir, COARSE_PIXELS, 20.0, "uint16"),
         }
-        for name, href in hrefs_of(scene).items():
+        for name, href in hrefs.items():
             values, pixels, pixel_m, dtype = layers[name]
-            path = self._directory / f"{scene}_{name}.tif"
+            path = self._directory / f"{label}_{name}.tif"
             self._paths[href] = _write(path, values, pixels, pixel_m, crs, origin, dtype)
 
     @contextmanager

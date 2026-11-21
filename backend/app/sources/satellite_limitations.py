@@ -55,6 +55,17 @@ def _window_text(state: WindowState, time_budget_s: float) -> str:
     )
 
 
+def gave_no_result(states: list[WindowState]) -> bool:
+    """True when a service delivered no reading and did not finish its work.
+
+    This is the case for asking the next service. A service that answered
+    for every window, even with nothing usable, has given its result.
+    """
+    delivered = any(state.scenes for state in states)
+    stuck = any(state.status in ("unfinished", "search_failed") for state in states)
+    return stuck and not delivered
+
+
 def find_limitations(states: list[WindowState], time_budget_s: float) -> list[Limitation]:
     """One limitation per window without a reading, in the order of the windows.
 
