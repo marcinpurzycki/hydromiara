@@ -11,14 +11,13 @@ filled from the crop season alone.
 
 from app.contracts.causes import Cause, Irrigation
 from app.contracts.report import Limitation, Summary
-from app.contracts.verdicts import ConsistencyCheck, HistoricalCourse
+from app.contracts.verdicts import HistoricalCourse
 
 # Names of the parts below as they appear in the limitation shown to the user.
 PENDING_PARTS = (
     "Przyczyn niedoboru",
     "Rekomendacji",
     "zaleceń nawadniania",
-    "Sprawdzenia zgodności",
     "podsumowania słownego",
 )
 
@@ -50,18 +49,6 @@ def pending_irrigation(in_season: bool) -> Irrigation:
         amount_m3_ha=None,
         timing=None,
         reason_if_none=text,
-    )
-
-
-def pending_consistency_check() -> ConsistencyCheck:
-    return ConsistencyCheck(
-        result="brak danych",
-        sentence=(
-            "Sprawdzenie zgodności nie jest jeszcze wykonywane w tej wersji: niezależny "
-            "wskaźnik suszy i odczyty satelitarne są pobierane i zapisywane z Raportem, "
-            "ale werdykty nie są jeszcze z nimi zestawiane."
-        ),
-        items=[],
     )
 
 

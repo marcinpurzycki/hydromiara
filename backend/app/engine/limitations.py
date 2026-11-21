@@ -15,12 +15,12 @@ Pure: the same inputs always give the same list. Order: limitations of this
 analysis first, the permanent ones last.
 """
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Sequence
 from datetime import date
 from typing import Literal
 
 from app.contracts.report import Limitation
-from app.contracts.source_data import SourceData
+from app.contracts.source_data import SourceData, SourceTopic
 from app.engine.assessment import WaterAssessment
 from app.engine.findings import POINTS_DIVERGENT, POINTS_STAND_IN, Finding, plain
 from app.engine.source_limitations import (
@@ -208,12 +208,16 @@ def report_findings(
     source_limitations: Sequence[Limitation] = (),
     consistency: ConsistencyResult | None = None,
     consistency_affects: Affects = "current",
+    consistency_gaps: Sequence[Finding] = (),
+    replaced_missing: Collection[SourceTopic] = (),
     first: Sequence[Limitation] = (),
     last: Sequence[Limitation] = (),
 ) -> tuple[Finding, ...]:
     """Every limitation of the Report with its weight for the confidence.
 
-    `consistency` is the result of the consistency check, when it was made.
+    `consistency` is the result of the consistency check, when it was made;
+    `consistency_gaps` are the gaps in its comparison data, which replace the
+    general limitation of the missing categories in `replaced_missing`.
     `first` and `last` are limitations of the caller placed before and after
     those found here. A text is kept once, at its first position.
     """
@@ -221,10 +225,11 @@ def report_findings(
         [
             *(plain(limitation) for limitation in first),
             *consistency_findings(consistency, consistency_affects),
+            *consistency_gaps,
             *soil_findings(assessment),
             *weather_findings(assessment),
             *step_down_findings(source_data.outcomes),
-            *missing_source_findings(source_data),
+            *missing_source_findings(source_data, replaced_missing),
             *(plain(limitation) for limitation in source_limitations),
             *(plain(limitation) for limitation in last),
             *(plain(limitation) for limitation in PERMANENT_LIMITATIONS),

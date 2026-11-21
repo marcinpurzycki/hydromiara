@@ -37,7 +37,7 @@ przed końcem czasu na pobieranie. Usługa gleby odpowiada wolno (zmierzone 11�
 bez gleby. Dane o wodach (cieki, rowy, zbiorniki) nie są jeszcze pobierane: w postępie analizy to źródło ma stan
 `missing`. Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego pozycji jest stała); jest na liście
 źródeł raportu. Części raportu, których jeszcze nie liczy żaden moduł (przyczyny, rekomendacje, nawadnianie,
-sprawdzenie zgodności, podsumowanie), są w nim opisane wprost jako nieocenione.
+podsumowanie), są w nim opisane wprost jako nieocenione.
 Lista upraw, przykłady, symulacja, raport pochodny i analiza na okres krytyczny odpowiadają na obecnym etapie danymi
 przykładowymi (atrapą) i działają tylko dla raportu przykładowego `/api/reports/demo`.
 Opis interfejsu: `/api/docs` (Swagger UI) i `/api/openapi.json`.
@@ -83,6 +83,20 @@ Pewność werdyktu obniżają tylko Ograniczenia, które go dotyczą. Reguła je
 Ograniczenie liczy się za 1 punkt, pojemność wodna przyjęta zastępczo i wynik „rozbieżne” Sprawdzenia zgodności
 za 2; od 1 punktu Pewność jest średnia, od 3 niska; werdykt bez oceny ma Pewność niską. Wagi i progi są nazwanymi
 parametrami w `backend/app/engine/findings.py`.
+
+Każdy raport zawiera Sprawdzenie zgodności: Bieżąca sytuacja wodna jest zestawiana z niezależnym wskaźnikiem suszy
+CDI (European Drought Observatory) i pokazywana obok odczytu satelitarnego z tego samego okresu. Wynik to „zgodne”,
+„rozbieżne” albo „brak danych”, ze zdaniem opisującym, co z czym porównano, i z listą pozycji (źródło, okres, wartość,
+znaczenie). Używana jest ostatnia dekada wskaźnika zakończona nie później niż Data analizy: dekada, która w tym dniu
+jeszcze trwa, powstaje z późniejszych obserwacji, więc nie jest czytana. Reguły są robocze i nie mają źródła naukowego
+(nazwane parametry w `backend/app/engine/consistency_params.py`): niedobór to Stopień niedoboru od „lekki niedobór”
+wzwyż; klasy wskaźnika 1–3 (obserwacja, ostrzeżenie, alarm) wskazują suszę, klasa 0 jej nie wskazuje, a klasy 4–6
+(powrót do normy, chwilowa poprawa) nie są zestawiane; wynik jest „zgodne”, gdy oba wskazują to samo. Odczyt
+satelitarny (NDVI, NDMI z najnowszej sceny z 30 dni przed Datą analizy) jest podawany opisowo i nie zmienia wyniku;
+poza Sezonem uprawy i dla Pola bez uprawy opisuje tylko pokrywę pola. Wynik „rozbieżne” obniża Pewność oceny Bieżącej
+sytuacji wodnej i jest Ograniczeniem raportu; Ograniczeniem jest też brak wartości wskaźnika dla potrzebnej dekady
+(wskaźnik jest dostępny od 2016 r. i ukazuje się z opóźnieniem). Podatność wieloletnia nie jest zestawiana. Werdykt
+bez Stopnia niedoboru (Pole bez uprawy) daje „brak danych” z podaniem powodu.
 
 ## Konfiguracja
 
