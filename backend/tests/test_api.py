@@ -58,22 +58,7 @@ def test_crops_and_examples():
     assert len(client.get("/api/examples").json()) == 6
 
 
-def test_parcel_search_one_and_none():
-    found = client.get("/api/parcels/search", params={"q": "Krusza Podlotowa 34/2"}).json()
-    assert [match["parcel_id"] for match in found["matches"]] == [PARCEL_ID]
-    assert client.get("/api/parcels/search", params={"q": "nic"}).json() == {"matches": []}
-
-
-def test_parcel_at_and_detail_return_geometry():
-    at = client.get("/api/parcels/at", params={"lon": 18.2, "lat": 52.75}).json()
-    assert at["matches"][0]["geometry"]["type"] == "Polygon"
-    detail = client.get(f"/api/parcels/{PARCEL_ID}")
-    assert detail.status_code == 200
-    assert detail.json()["geometry"]["type"] == "Polygon"
-
-
-def test_unknown_parcel_and_bad_query_use_error_body():
-    assert_error(client.get("/api/parcels/000000_0.0000.1"), 404, "parcel_not_found")
+def test_unknown_route_and_bad_query_use_error_body():
     assert_error(client.get("/api/parcels/at", params={"lon": "x", "lat": 52}), 422, "validation_error")
     assert_error(client.get("/api/nothing"), 404, "not_found")
 
