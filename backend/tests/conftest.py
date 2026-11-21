@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.orchestrator.sources import get_weather_source
+from app.orchestrator.sources import OptionalSources, get_optional_sources, get_weather_source
 from app.sources.parcels import ParcelSource, get_parcel_source
 from app.sources.weather import WeatherSource
 from app.storage.params import DB_PATH_ENV
@@ -108,6 +108,38 @@ def no_network_weather(weather: RecordedWeather):
     app.dependency_overrides[get_weather_source] = lambda: WeatherSource(transport=weather)
     yield
     app.dependency_overrides.pop(get_weather_source, None)
+
+
+class OptionalSourcesInUse:
+    """The optional sources new analyses get; a test may replace `current`."""
+
+    def __init__(self, directory: Path) -> None:
+        self._directory = directory
+        self.current: OptionalSources | None = None
+
+    def recorded(self) -> OptionalSources:
+        """Real adapters on recorded answers and on rasters written for this test."""
+        from tests.recorded_sources import recorded_optional_sources
+
+        return recorded_optional_sources(self._directory)
+
+    def __call__(self) -> OptionalSources:
+        if self.current is None:
+            self.current = self.recorded()
+        return self.current
+
+
+@pytest.fixture
+def optional_sources(tmp_path) -> OptionalSourcesInUse:
+    return OptionalSourcesInUse(tmp_path)
+
+
+@pytest.fixture(autouse=True)
+def no_network_optional_sources(optional_sources: OptionalSourcesInUse):
+    """Soil, terrain, satellite and drought background never touch the network."""
+    app.dependency_overrides[get_optional_sources] = optional_sources
+    yield
+    app.dependency_overrides.pop(get_optional_sources, None)
 
 
 @pytest.fixture(autouse=True)

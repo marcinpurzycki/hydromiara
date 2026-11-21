@@ -11,6 +11,7 @@ from app.engine.limitations import PERMANENT_LIMITATIONS
 from app.main import app
 from app.orchestrator.sources import (
     AnalysisSources,
+    OptionalSources,
     SourceFetch,
     SourceSpec,
     default_specs,
@@ -62,11 +63,22 @@ def test_report_of_an_analysis_has_confidence_and_the_permanent_limitations(clie
     report = finished_report(client)
     assert tuple(report.limitations[-len(PERMANENT_LIMITATIONS):]) == PERMANENT_LIMITATIONS
     assert len(set(texts(report))) == len(report.limitations)
+    # Every source answered: nothing of this analysis concerns the current status.
+    assert report.current_status.confidence.level == "wysoka"
+    # The recorded catalogue has no scenes for the three earlier years.
+    multiyear = report.multiyear_susceptibility.confidence
+    assert multiyear.level == "niska"
+    assert multiyear.why.startswith("Pewność oceny obniżają: Katalog nie zawiera scen")
+    assert not any("Pewności oceny" in text for text in texts(report))
+
+
+def test_without_the_optional_sources_both_confidences_are_low(client, optional_sources):
+    optional_sources.current = OptionalSources()
+    report = finished_report(client)
     for verdict in (report.current_status, report.multiyear_susceptibility):
         assert verdict.confidence.level == "niska"
         assert verdict.confidence.why.startswith("Pewność oceny obniżają: ")
-        assert "nie jest jeszcze wyznaczana" not in verdict.confidence.why
-    assert not any("Pewności oceny" in text for text in texts(report))
+        assert "pojemność wodną gleby przyjęto zastępczo" in verdict.confidence.why
 
 
 def test_weather_ending_before_the_date_is_named_once(client, weather):

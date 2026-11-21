@@ -24,6 +24,8 @@ from tests.analysis_helpers import (
 )
 
 SOURCE_ORDER = ["weather", "soil", "terrain", "satellite", "hydro"]
+# The drought background is stored and listed in the Report without a progress entry.
+STORED_TOPICS = ["parcel", "weather", "soil", "terrain", "satellite", "drought_background"]
 
 
 def test_analysis_runs_in_the_background_then_the_report_is_ready(client, weather):
@@ -49,20 +51,23 @@ def test_analysis_runs_in_the_background_then_the_report_is_ready(client, weathe
     assert report.meta.parcel.area_ha > 0
     assert report.meta.analysis_date.isoformat() == ANALYSIS["analysis_date"]
     assert report.multiyear_susceptibility.total_years == 10
-    assert [source.topic for source in report.sources] == ["parcel", "weather"]
+    assert [source.topic for source in report.sources] == STORED_TOPICS
 
 
-def test_sources_that_are_not_connected_are_missing_from_the_start(client, weather):
+def test_source_that_is_not_connected_is_missing_from_the_start(client, weather):
     weather.hold = True
     report_id = start(client)
     while_running = status_of(client, report_id)
     weather.hold = False
-    for status in (while_running, wait_finished(client, report_id)):
-        others = [source for source in status["sources"] if source["id"] != "weather"]
-        assert len(others) == 4
-        for source in others:
-            assert source["state"] == "missing"
-            assert "nie jest jeszcze używane" in source["note"]
+    finished = wait_finished(client, report_id)
+    for status in (while_running, finished):
+        hydro = next(source for source in status["sources"] if source["id"] == "hydro")
+        assert hydro["state"] == "missing"
+        assert "nie jest jeszcze używane" in hydro["note"]
+    assert source_states(finished) == {
+        "weather": "done", "soil": "done", "terrain": "done",
+        "satellite": "done", "hydro": "missing",
+    }
 
 
 def test_unknown_report(client):
@@ -132,8 +137,13 @@ def test_source_data_are_stored_completely_with_the_report(client, reports_db):
     assert inputs.source_data.parcel.parcel_id == PARCEL_ID
     assert len(inputs.source_data.weather.days) > 3900
     assert inputs.source_data.weather.days[-1].date.isoformat() == ANALYSIS["analysis_date"]
-    assert [outcome.topic for outcome in inputs.source_data.outcomes] == ["parcel", "weather"]
-    assert inputs.source_data.soil is None
+    assert [outcome.topic for outcome in inputs.source_data.outcomes] == STORED_TOPICS
+    assert all(outcome.ok for outcome in inputs.source_data.outcomes)
+    assert len(inputs.source_data.soil.layers) == 5
+    assert inputs.source_data.terrain.elevations_m
+    assert inputs.source_data.satellite.scenes[-1].date.isoformat() == "2023-06-19"
+    assert inputs.source_data.drought_background.dekads[-1].date.isoformat() == "2023-06-11"
+    assert inputs.source_data.hydro is None
 
 
 def test_report_survives_a_restart(client, weather, uldk):

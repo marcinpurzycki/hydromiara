@@ -10,6 +10,7 @@ import contextlib
 import logging
 import os
 from collections.abc import AsyncIterator
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -67,6 +68,11 @@ async def _purge_periodically(orchestrator: Orchestrator) -> None:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     global _orchestrator
     configure_logging()
+    # Blocking work (files, rasters, the engine, the database) runs in threads
+    # of the default executor; its size is set here instead of left to chance.
+    asyncio.get_running_loop().set_default_executor(
+        ThreadPoolExecutor(max_workers=params.WORKER_THREADS, thread_name_prefix="analysis")
+    )
     orchestrator = Orchestrator(ReportStore(database_path()))
     interrupted = await orchestrator.recover()
     deleted = await orchestrator.purge()

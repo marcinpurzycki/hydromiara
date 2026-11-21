@@ -25,8 +25,19 @@ Szczegółowy wykaz narzędzi i modeli AI oraz zakres ich użycia zostanie uzupe
 
 Usługa `api` (FastAPI) wystawia wszystkie trasy pod `/api`. Wyszukiwanie działek (`/api/parcels/...`) korzysta
 na żywo z usługi ULDK. Analiza (`POST /api/analyses`, postęp pod `/api/analyses/{report_id}/status`, wynik pod
-`/api/reports/{report_id}`) pobiera na żywo działkę i pogodę, liczy bilans wodny i zapisuje raport razem z danymi
-źródłowymi; części raportu, których jeszcze nie liczy żaden moduł, są w nim opisane wprost jako nieocenione.
+`/api/reports/{report_id}`) pobiera na żywo działkę, a potem równolegle pogodę, glebę, ukształtowanie terenu
+i obserwacje satelitarne oraz czyta z plików lokalnych tło suszowe; liczy bilans wodny i zapisuje raport razem
+z wszystkimi pobranymi danymi źródłowymi. Pojemność wodna gleby w bilansie pochodzi z pobranego profilu glebowego;
+gdy gleby nie ma, przyjmowana jest wartość zastępcza, a raport podaje to jako Ograniczenie i obniża Pewność oceny.
+Bez działki i pogody raport nie powstaje; każde inne źródło, które nie odpowie, zgłosi błąd albo przekroczy swój
+limit czasu, jest w raporcie i w postępie oznaczone jako brak, a analiza biegnie dalej. Limity czasu
+(`backend/app/orchestrator/params.py`): całość 30 s, z czego 3 s rezerwy na obliczenia i zapis; pogoda 12 s,
+gleba 24 s, teren i satelita po 17 s, tło suszowe 5 s; żadne źródło poza pogodą nie czeka dłużej niż do sekundy
+przed końcem czasu na pobieranie. Usługa gleby odpowiada wolno (zmierzone 11–35 s), więc część analiz kończy się
+bez gleby. Dane o wodach (cieki, rowy, zbiorniki) nie są jeszcze pobierane: w postępie analizy to źródło ma stan
+`missing`. Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego pozycji jest stała); jest na liście
+źródeł raportu. Części raportu, których jeszcze nie liczy żaden moduł (przyczyny, rekomendacje, nawadnianie,
+sprawdzenie zgodności, podsumowanie), są w nim opisane wprost jako nieocenione.
 Lista upraw, przykłady, symulacja, raport pochodny i analiza na okres krytyczny odpowiadają na obecnym etapie danymi
 przykładowymi (atrapą) i działają tylko dla raportu przykładowego `/api/reports/demo`.
 Opis interfejsu: `/api/docs` (Swagger UI) i `/api/openapi.json`.
@@ -41,6 +52,7 @@ REPORTS_DB_PATH=./data/reports.sqlite3 .venv/bin/fastapi dev app/main.py   # htt
 .venv/bin/python -m tests.smoke.parcels_smoke   # sprawdzenie na żywej usłudze działek (wymaga sieci)
 .venv/bin/python -m tests.smoke.satellite_smoke # sprawdzenie na żywych usługach scen satelitarnych, w tym przełączenia (wymaga sieci)
 .venv/bin/python -m tests.smoke.analysis_smoke  # cała analiza jednej działki na żywych źródłach, z czasem każdego źródła (wymaga sieci)
+EDO_DATA_PATH=./data/edo .venv/bin/python -m tests.smoke.full_analysis_smoke  # analizy trzech działek, dwie daty, kilka przebiegów: tabela czasów i wyników każdego źródła (wymaga sieci; kilka minut)
 ```
 
 Lokalnie w Dockerze (API na `http://127.0.0.1:8000`):

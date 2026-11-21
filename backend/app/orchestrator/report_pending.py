@@ -57,8 +57,9 @@ def pending_consistency_check() -> ConsistencyCheck:
     return ConsistencyCheck(
         result="brak danych",
         sentence=(
-            "Sprawdzenie zgodności nie jest jeszcze wykonywane w tej wersji: analiza nie "
-            "korzysta z niezależnego wskaźnika suszy ani z odczytu satelitarnego."
+            "Sprawdzenie zgodności nie jest jeszcze wykonywane w tej wersji: niezależny "
+            "wskaźnik suszy i odczyty satelitarne są pobierane i zapisywane z Raportem, "
+            "ale werdykty nie są jeszcze z nimi zestawiane."
         ),
         items=[],
     )
