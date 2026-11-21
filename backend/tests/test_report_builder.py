@@ -3,13 +3,15 @@
 import json
 
 from app.catalog.crops import get_crop
-from app.contracts.report import Report
+from app.contracts.report import Limitation, Report
+from app.engine.limitations import PERMANENT_LIMITATIONS
 from app.mock import data as mock_data
 from app.orchestrator import report_pending as pending
 from app.orchestrator.report_builder import ReportInputs, build_report
 from app.orchestrator.report_verdicts import NOT_ASSESSED_LABEL
 from tests.analysis_helpers import ANALYSIS_DATE, NOW, stored_source_data
 from tests.engine_helpers import recorded_soil
+from tests.limitation_helpers import complete_source_data
 
 
 def build(crop_id: str = "winter_wheat", **changes) -> Report:
@@ -70,8 +72,7 @@ def test_parts_without_a_module_are_marked_as_not_assessed():
     assert report.summary.source == "template"
     assert report.current_status.reason == pending.REASON_PENDING
     assert report.multiyear_susceptibility.typical_period is None
-    for verdict in (report.current_status, report.multiyear_susceptibility):
-        assert verdict.confidence == pending.pending_confidence()
+    assert "Pewności oceny" not in pending.pending_limitation().text
     assert pending.pending_limitation() in report.limitations
     assert report.map.retention_sites == [] and report.map.downhill_direction is None
 
@@ -82,7 +83,9 @@ def test_nothing_is_copied_from_the_placeholder_report():
     assert report.summary.text != mock.summary.text
     assert report.irrigation.text != mock.irrigation.text
     assert report.current_status.reason != mock.current_status.reason
-    assert not {limitation.text for limitation in mock.limitations} & set(texts(report))
+    # Only a permanent limitation may read the same: it is a fixed sentence.
+    shared = {limitation.text for limitation in mock.limitations} & set(texts(report))
+    assert shared <= {limitation.text for limitation in PERMANENT_LIMITATIONS}
 
 
 def test_missing_soil_is_a_limitation():
@@ -95,12 +98,41 @@ def test_missing_soil_is_a_limitation():
 
 
 def test_source_limitations_are_kept_and_absent_data_are_named():
-    limitation = mock_data.report_for("r1").limitations[0]
-    report = build(source_limitations=(limitation,))
-    assert report.limitations[0] == limitation
-    absent = next(text for text in texts(report) if text.startswith("Analiza nie korzysta"))
-    for label in ("ukształtowanie terenu", "cieki", "satelitarne", "wskaźnik suszy"):
-        assert label in absent
+    limitation = Limitation(
+        text="Brak zgłoszony przez źródło.", affects="multiyear", permanent=False
+    )
+    report = build(source_limitations=(limitation, limitation))
+    assert report.limitations.count(limitation) == 1
+    for start in (
+        "Brak danych o ukształtowaniu terenu", "Brak danych o ciekach, rowach i zbiornikach",
+        "Brak odczytów satelitarnych", "Brak niezależnego wskaźnika suszy",
+    ):
+        assert sum(text.startswith(start) for text in texts(report)) == 1
+    assert "Brak zgłoszony przez źródło" in report.multiyear_susceptibility.confidence.why
+    assert "Brak zgłoszony przez źródło" not in report.current_status.confidence.why
+
+
+def test_permanent_limitations_close_every_report():
+    for report in (build(), build("bare_field"), build(source_data=complete_source_data())):
+        assert tuple(report.limitations[-len(PERMANENT_LIMITATIONS):]) == PERMANENT_LIMITATIONS
+        assert len(set(texts(report))) == len(report.limitations)
+
+
+def test_confidence_follows_the_limitations_of_each_verdict():
+    # Weather only, as the analysis runs today: stand-in capacity, no comparison data.
+    report = build()
+    current = report.current_status.confidence
+    multiyear = report.multiyear_susceptibility.confidence
+    assert (current.level, multiyear.level) == ("niska", "niska")
+    assert "przyjęto zastępczo" in current.why and "przyjęto zastępczo" in multiyear.why
+    assert "wskaźnika suszy" in current.why and "wskaźnika suszy" not in multiyear.why
+
+    report = build(source_data=complete_source_data())
+    assert Report.model_validate_json(report.model_dump_json()) == report
+    for verdict in (report.current_status, report.multiyear_susceptibility):
+        assert verdict.confidence.level == "wysoka"
+    own = [limitation for limitation in report.limitations if not limitation.permanent]
+    assert own == [pending.pending_limitation()]
 
 
 def test_field_without_a_crop_is_not_assessed_and_says_so():
@@ -113,7 +145,10 @@ def test_field_without_a_crop_is_not_assessed_and_says_so():
     assert (multiyear.deficit_level, multiyear.total_years, multiyear.years) == (0, 0, [])
     assert report.headline.count(NOT_ASSESSED_LABEL) == 2
     assert "w normie" not in report.headline
-    assert any(NOT_ASSESSED_LABEL in text and "Pola bez uprawy" in text for text in texts(report))
+    assert NOT_ASSESSED_LABEL in texts(report)[0] and "Pola bez uprawy" in texts(report)[0]
+    for verdict in (current, multiyear):
+        assert verdict.confidence.level == "niska"
+        assert "Pola bez uprawy" in verdict.confidence.why
     assert not report.season.in_season and report.season.last_season is None
     assert not report.irrigation.applicable
     assert json.loads(report.model_dump_json())["trace"][1]["result"] == NOT_ASSESSED_LABEL

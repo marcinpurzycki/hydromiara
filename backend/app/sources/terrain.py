@@ -9,26 +9,30 @@ Only the grid is fetched here. Slope and flow direction are computed from it
 elsewhere.
 """
 
-import asyncio
 import time
 from collections.abc import Sequence
-from datetime import UTC, datetime
 from typing import NamedTuple, Protocol
 
 from shapely.errors import ShapelyError
 from shapely.geometry.base import BaseGeometry
 
 from app.contracts.source_data import SourceOutcome, TerrainData
+from app.sources.chain import ChainTexts, LinkFailed, no_data, run_chain
 from app.sources.raster import OutlineInput, as_geometry
 
-_NO_DATA = "Nie udało się pobrać danych o ukształtowaniu terenu."
-_TIMED_OUT = "źródło nie odpowiedziało w wyznaczonym czasie"
+_TEXTS = ChainTexts(
+    no_data="Nie udało się pobrać danych o ukształtowaniu terenu.",
+    stepped_down=(
+        "Dokładniejsze źródło wysokości terenu nie dało danych "
+        "({failures}); użyto zamiennika: {name}."
+    ),
+)
 _WRONG_OUTLINE = (
     "Obrys działki nie jest wielokątem, więc nie można wyznaczyć siatki wysokości."
 )
 
 
-class TerrainLinkError(Exception):
+class TerrainLinkError(LinkFailed):
     """A link has no grid for this parcel; the text says why, in Polish."""
 
 
@@ -82,52 +86,10 @@ class TerrainSource:
             "Polygon",
             "MultiPolygon",
         ):
-            return TerrainFetch(None, _outcome(started, None, None, None, _WRONG_OUTLINE))
+            return TerrainFetch(None, no_data("terrain", _WRONG_OUTLINE, started))
 
-        failures: list[str] = []
-        for step, link in enumerate(self._links, start=1):
-            try:
-                reading = await asyncio.wait_for(link.read(outline), timeout=link.timeout_s)
-            except TimeoutError:
-                failures.append(f"{link.name}: {_TIMED_OUT}")
-                continue
-            except TerrainLinkError as exc:
-                failures.append(f"{link.name}: {exc}")
-                continue
-            notes = []
-            if failures:
-                notes.append(
-                    f"Dokładniejsze źródło wysokości terenu nie dało danych "
-                    f"({'; '.join(failures)}); użyto zamiennika: {link.name}."
-                )
-            if reading.note:
-                notes.append(reading.note)
-            outcome = _outcome(
-                started, link.name, step, reading.data_date, " ".join(notes) or None
-            )
-            return TerrainFetch(reading.data, outcome)
-
-        message = " ".join([_NO_DATA, *(f"{failure}." for failure in failures)])
-        return TerrainFetch(None, _outcome(started, None, None, None, message))
-
-
-def _outcome(
-    started: float,
-    source_name: str | None,
-    chain_step: int | None,
-    data_date: str | None,
-    message: str | None,
-) -> SourceOutcome:
-    return SourceOutcome(
-        topic="terrain",
-        source_name=source_name,
-        chain_step=chain_step,
-        ok=chain_step is not None,
-        duration_s=round(time.monotonic() - started, 3),
-        data_date=data_date,
-        fetched_at=datetime.now(UTC),
-        message=message,
-    )
+        result = await run_chain("terrain", self._links, outline, texts=_TEXTS)
+        return TerrainFetch(result.data, result.outcome)
 
 
 def get_terrain_source() -> TerrainSource:

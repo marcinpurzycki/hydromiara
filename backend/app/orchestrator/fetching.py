@@ -113,6 +113,8 @@ async def fetch_source_data(
         if result.data is None and spec.required:
             raise AnalysisFailed(f"{spec.topic}_unavailable", result.outcome.message)
         parts[spec.topic] = result.data
-        limitations.extend(result.limitations)
+        # A source without data is named by the engine as one missing category.
+        if result.data is not None:
+            limitations.extend(result.limitations)
     outcomes = [parcel_outcome, *(result.outcome for result in results)]
     return SourceData(parcel=parcel, outcomes=outcomes, **parts), limitations
