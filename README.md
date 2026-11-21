@@ -36,6 +36,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/fastapi dev app/main.py        # http://127.0.0.1:8000/api/docs
 .venv/bin/python -m pytest               # testy bez dostępu do sieci
 .venv/bin/python -m tests.smoke.parcels_smoke   # sprawdzenie na żywej usłudze działek (wymaga sieci)
+.venv/bin/python -m tests.smoke.satellite_smoke # sprawdzenie na żywym katalogu scen satelitarnych (wymaga sieci)
 ```
 
 Lokalnie w Dockerze (API na `http://127.0.0.1:8000`):
@@ -74,6 +75,7 @@ a pliki wskaźnika suszy są czytane z katalogu `EDO_DATA_PATH` (domyślnie `./d
 | Ukształtowanie terenu: siatka wysokości ok. 30 m wokół działki | Copernicus DEM GLO-30 (model pokrycia terenu z misji TanDEM-X, pomiary z lat 2011–2015; wysokości obejmują budynki i roślinność), pliki z `https://registry.opendata.aws/copernicus-dem/`, arkusz wyszukiwany w katalogu Earth Search (`https://earth-search.aws.element84.com/v1`, kolekcja `cop-dem-glo-30`) | na żywo | bezpłatnie dla każdego na warunkach licencji Copernicus DEM (GLO-30 Public), bez rejestracji; wymagane podanie źródła i informacji o prawach autorskich |
 | Parametry wodne Upraw: współczynniki Kc, głębokość korzeni, dopuszczalne wyczerpanie wody w glebie (p) | Allen R.G., Pereira L.S., Raes D., Smith M. (1998), „Crop evapotranspiration: guidelines for computing crop water requirements”, FAO Irrigation and Drainage Paper 56, tabele 12 i 22 | wartości wpisane w kodzie (`backend/app/catalog/crop_data.py`), każda ze wskazaniem tabeli; wartości bez źródła są tam oznaczone jako robocze | publikacja FAO; wartości liczbowe przytoczone z podaniem źródła |
 | Gleba w punkcie działki, warstwy do 100 cm: piasek, pył, ił, węgiel organiczny, zawartość wody przy 33 i 1500 kPa; z nich pojemność wodna (różnica zawartości wody, niezweryfikowana pomiarem na działce) | ISRIC – World Soil Information, SoilGrids 2.0 (model globalny, siatka 250 m), `https://rest.isric.org/soilgrids/v2.0/properties/query` | na żywo | CC BY 4.0, wymagane podanie źródła; usługa w fazie beta, bez gwarancji dostępności; limit 5 zapytań na minutę; zmierzony czas odpowiedzi 11–35 s |
+| Obserwacje satelitarne do Daty analizy: klasyfikacja sceny (SCL) oraz pasma czerwone, bliskiej podczerwieni i krótkofalowej podczerwieni nad działką; z nich udział czystych pikseli, NDVI i NDMI | Copernicus Sentinel-2, poziom L2A (ESA / Komisja Europejska); wyszukiwanie scen: Earth Search (Element 84), `https://earth-search.aws.element84.com/v1`, kolekcja `sentinel-2-l2a`; pliki pasm (COG) w rejestrze otwartych danych AWS | na żywo | bezpłatny, pełny i otwarty dostęp na warunkach noty prawnej danych Sentinel (`https://sentinel.esa.int/documents/247904/690755/Sentinel_Data_Legal_Notice`); wymagane podanie źródła i zaznaczenie przetworzenia danych; bez klucza |
 
 Źródło: Główny Urząd Geodezji i Kartografii (GUGiK), Usługa Lokalizacji Działek Katastralnych (ULDK).
 
@@ -82,6 +84,8 @@ Dane pogodowe: Open-Meteo.com (CC BY 4.0). Zawierają informacje usługi Coperni
 Wysokości terenu: produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved. Copernicus Digital Elevation Model (DEM) was accessed on 21.11.2026 from https://registry.opendata.aws/copernicus-dem.
 
 Dane o glebie: ISRIC – World Soil Information, SoilGrids 2.0 (CC BY 4.0); Poggio, L. i in. (2021), SOIL 7, 217–240, doi:10.5194/soil-7-217-2021.
+
+Obserwacje satelitarne: zawiera zmodyfikowane dane Copernicus Sentinel (2015–2026).
 
 ## Dokumentacja
 
