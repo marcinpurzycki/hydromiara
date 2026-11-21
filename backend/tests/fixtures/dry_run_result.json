@@ -1,0 +1,331 @@
+{
+ "analysis_date": "2023-06-20",
+ "parcel": {
+  "id": "040704_2.0020.34/2",
+  "voivodeship": "kujawsko-pomorskie",
+  "county": "powiat inowrocławski",
+  "commune": "Inowrocław",
+  "region": "Krusza Podlotowa",
+  "parcel": "34/2",
+  "area_ha": 2.452,
+  "centroid": [
+   18.20085436232132,
+   52.74926592298579
+  ]
+ },
+ "crop": "Pszenica ozima",
+ "soil": {
+  "taw_mm": 216.0,
+  "sand_pct": 70.2,
+  "clay_pct": 9.4,
+  "silt_pct": 20.3,
+  "soc_g_kg": 19.1
+ },
+ "now": {
+  "level": 3,
+  "depletion_mm": 181,
+  "raw_mm": 119,
+  "taw_mm": 216,
+  "depletion_pct": 84,
+  "ks": 0.36,
+  "stress_run_days": 22,
+  "p30_mm": 13,
+  "et0_30_mm": 144,
+  "irrigation_mm": [
+   62,
+   181
+  ]
+ },
+ "years": [
+  {
+   "year": 2014,
+   "stress_days": 20,
+   "crit_days": 47,
+   "deficit": true,
+   "kbw_iv_vii_mm": -263,
+   "p_iv_vii_mm": 174,
+   "partial": false
+  },
+  {
+   "year": 2015,
+   "stress_days": 37,
+   "crit_days": 47,
+   "deficit": true,
+   "kbw_iv_vii_mm": -256,
+   "p_iv_vii_mm": 174,
+   "partial": false
+  },
+  {
+   "year": 2016,
+   "stress_days": 39,
+   "crit_days": 47,
+   "deficit": true,
+   "kbw_iv_vii_mm": -216,
+   "p_iv_vii_mm": 226,
+   "partial": false
+  },
+  {
+   "year": 2017,
+   "stress_days": 8,
+   "crit_days": 47,
+   "deficit": false,
+   "kbw_iv_vii_mm": -60,
+   "p_iv_vii_mm": 311,
+   "partial": false
+  },
+  {
+   "year": 2018,
+   "stress_days": 41,
+   "crit_days": 47,
+   "deficit": true,
+   "kbw_iv_vii_mm": -235,
+   "p_iv_vii_mm": 254,
+   "partial": false
+  },
+  {
+   "year": 2019,
+   "stress_days": 26,
+   "crit_days": 47,
+   "deficit": true,
+   "kbw_iv_vii_mm": -319,
+   "p_iv_vii_mm": 166,
+   "partial": false
+  },
+  {
+   "year": 2020,
+   "stress_days": 33,
+   "crit_days": 47,
+   "deficit": true,
+   "kbw_iv_vii_mm": -167,
+   "p_iv_vii_mm": 261,
+   "partial": false
+  },
+  {
+   "year": 2021,
+   "stress_days": 14,
+   "crit_days": 47,
+   "deficit": true,
+   "kbw_iv_vii_mm": -149,
+   "p_iv_vii_mm": 276,
+   "partial": false
+  },
+  {
+   "year": 2022,
+   "stress_days": 44,
+   "crit_days": 47,
+   "deficit": true,
+   "kbw_iv_vii_mm": -245,
+   "p_iv_vii_mm": 224,
+   "partial": false
+  },
+  {
+   "year": 2023,
+   "stress_days": 22,
+   "crit_days": 37,
+   "deficit": true,
+   "kbw_iv_vii_mm": -193,
+   "p_iv_vii_mm": 87,
+   "partial": true
+  }
+ ],
+ "deficit_years": 9,
+ "terrain": {
+  "slope_pct": 1.4,
+  "downhill": "północny wschód",
+  "z_min": 80.7,
+  "z_max": 87.9,
+  "pixels": 132
+ },
+ "satellite": [
+  {
+   "date": "2023-06-11",
+   "scene_cloud_pct": 7.3,
+   "parcel_clear_pct": 0
+  },
+  {
+   "date": "2023-06-11",
+   "scene_cloud_pct": 6.0,
+   "parcel_clear_pct": 0
+  },
+  {
+   "date": "2023-06-04",
+   "scene_cloud_pct": 7.1,
+   "parcel_clear_pct": 100,
+   "ndvi": 0.83,
+   "ndmi": 0.5
+  },
+  {
+   "date": "2023-06-04",
+   "scene_cloud_pct": 7.6,
+   "parcel_clear_pct": 100,
+   "ndvi": 0.83,
+   "ndmi": 0.51
+  }
+ ],
+ "s2_count": 514,
+ "s2_first": "2016-11-12",
+ "edo": {
+  "20230101": 0,
+  "20230111": 0,
+  "20230121": 0,
+  "20230201": 0,
+  "20230211": 0,
+  "20230221": 0,
+  "20230301": 0,
+  "20230311": 0,
+  "20230321": 0,
+  "20230401": 0,
+  "20230411": 0,
+  "20230421": 0,
+  "20230501": 0,
+  "20230511": 0,
+  "20230521": 0,
+  "20230601": 1,
+  "20230611": 2
+ },
+ "edo_tags": {
+  "01_PROD_CODE": "cdinx",
+  "02_GROUP_ID": "13",
+  "03_SCALE_ID": "edo",
+  "04_TITLE": "Combined Drought Indicator (CDI)",
+  "05_ABSTRACT": "The Combined Drought Indicator (CDI) is an indicator for drought early warning, specifically designed to monitor agricultural drought. Through the combination of spatial patterns of precipitation, soil moisture and greenness vegetation anomalies, the CDI identifies areas at risk of agricultural drought, areas where the vegetation has already been affected by drought and areas in the process of recovery to normal conditions. Accordingly, the CDI classification scheme defines three primary drought classes (Watch, Warning and Alert) and three recovery classes (Temporary Soil Moisture Recovery, Temporary Vegetation Recovery and Recovery).",
+  "06_DATA_TYPE": "raster",
+  "07_DATA_UOM": "dimensionless",
+  "08_VALUES_LEGEND": "0: No drought, 1: Watch. Precipitation deficit, 2: Warning. Soil moisture deficit following precipitation deficit, 3: Alert. Vegetation stress following precipitation / soil moisture deficit, 4: Recovery to normal condition, 5: Temporary soil moisture recovery, 6: Temporary vegetation recovery, 7: No data inside LISFLOOD domain, 8: Outside LISFLOOD domain",
+  "09_LICENSE": "Creative Commons Attribution v4",
+  "10_CITATION_STATEMENT": "The proprietary rights and copyright of these data remain with the European Commission, Joint Research Centre (JRC). Reproduction for non-commercial purposes is authorised, provided the source is acknowledged. Reports, articles, papers, scientific and non-scientific works of any form, including tables, maps, or any other kind of output, in printed or electronic form, based in whole or in part on the data supplied, must contain an acknowledgement of the form: European Drought Observatory, https://drought.emergency.copernicus.eu (C) European Commission - JRC, 2012 - 202x. The following reference must be mentioned as well: C. Cammalleri, P. Barbosa, J. V. Vogt. (2020) Evaluating simulated daily discharge for operational hydrological drought monitoring in the Global Drought Observatory (GDO). Hydrological Sciences Journal 65:8, pages 1316-1325..",
+  "11_DATA_SRS": "EPSG:4326",
+  "12_RESOLUTION": "0.04166666667",
+  "13_RESOLUTION_UOM": "decimal degree",
+  "14_EXTENT_WKT": "POLYGON ((-25.0 22.0, 51.0 22.0, 51.0 72.0, -25.0 72.0, -25.0 22.0))",
+  "15_FREQUENCY": "t",
+  "16_START_DAY": "2012-01-01",
+  "17_ORGANISATION": "European Commission DG Joint Research Centre (JRC)",
+  "19_REF_PUBLICATION": "Cammalleri, C., Arias-Muñoz, C., Barbosa, P., de Jager, A., Magni, D., Masante, D., Mazzeschi, M., McCormick, N., Naumann, G., Spinoni, J., and Vogt, J.: A revision of the Combined Drought Indicator (CDI) used in the European Drought Observatory (EDO), Nat.Hazards Earth Syst. Sci., 21, 481-495, https://doi.org/10.5194/nhess-21-481-2021, 2021.",
+  "20_REF_PUBLICATION_URL": "https://doi.org/10.5194/nhess-21-481-2021",
+  "21_FACTSHEET_URL": "https://edo.jrc.ec.europa.eu/documents/factsheets/factsheet_combined_drought_indicator.pdf",
+  "22_JRC_DATA_CAT_URL": "https://data.jrc.ec.europa.eu/dataset/",
+  "23_JRC_DATA_ID": "afa8a5ee-5473-439a-b062-ffdaedc38b2d",
+  "24_GRID": "grid_0416dd_mask_sm",
+  "25_SAMPLE_URL": "https://drought.emergency.copernicus.eu/data/Drought_Observatories_datasets/map_samples/cdinx_edo_sample.png",
+  "26_FTP_URL": "https://drought.emergency.copernicus.eu/data/Drought_Observatories_datasets/",
+  "27_FTP_FOLDER_NAME": "EDO_Combined_Drought_Indicator",
+  "28_PRODUCT_VERSION": "4.1.0",
+  "29_SW_VERSION": "v2.1.1",
+  "30_SW_RUN_TIME": "2026-02-25 13:02:23",
+  "31_UPDATE_STATUS": "final",
+  "32_CHECKSUM_VALUE": "11205730.0",
+  "33_CHECKSUM_METHOD": "sum of abs values",
+  "34_RUN_IMG_REF": "5ad6dd759919113e29f7d1b16292005aad84b255",
+  "35_START_PERIOD": "2023-12-21",
+  "36_END_PERIOD": "2023-12-21",
+  "37_published_on_mapviewer": "Y",
+  "38_published_on_ftp": "Y",
+  "name": "cdinx_m_edo_t_410_z01",
+  "source_key": "archive/cdinx/edo/ver4-1-0/2023/cdinx_m_edo_20231221_t_410_z01.tif",
+  "time": "2023-12-21",
+  "time_produced": "2026-02-25 13:08:47",
+  "AREA_OR_POINT": "Area"
+ },
+ "causes": {
+  "opady": {
+   "found": true,
+   "value": -193
+  },
+  "gleba": {
+   "found": false,
+   "value": 216
+  },
+  "odplyw": {
+   "found": false,
+   "value": 1.4
+  }
+ },
+ "timings": {
+  "uldk_xy": {
+   "s": 0.29,
+   "ok": true
+  },
+  "uldk_id": {
+   "s": 0.57,
+   "ok": true
+  },
+  "open_meteo_10lat": {
+   "s": 0.27,
+   "ok": true
+  },
+  "soilgrids": {
+   "s": 10.96,
+   "ok": true
+  },
+  "overpass_wody_500m": {
+   "s": 40.19,
+   "ok": false,
+   "err": "ReadTimeout(ReadTimeoutError(\"HTTPSConnectionPool(host='overpass-api.de', port=443): Read timed out. (read timeout=40)\"))"
+  },
+  "nmt_wcs": {
+   "s": 60.08,
+   "ok": false,
+   "err": "ReadTimeout(ReadTimeoutError(\"HTTPSConnectionPool(host='mapy.geoportal.gov.pl', port=443): Read timed out. (read timeout=60)\"))"
+  },
+  "stac_szukanie_10lat": {
+   "s": 6.02,
+   "ok": true
+  },
+  "s2_scena_1_4pasma": {
+   "s": 5.34,
+   "ok": true
+  },
+  "s2_scena_2_4pasma": {
+   "s": 4.63,
+   "ok": true
+  },
+  "s2_scena_3_4pasma": {
+   "s": 5.55,
+   "ok": true
+  },
+  "s2_scena_4_4pasma": {
+   "s": 6.25,
+   "ok": true
+  },
+  "edo_lokalnie_1rok": {
+   "s": 0.06,
+   "ok": true
+  }
+ },
+ "meteo_grid": [
+  52.759224,
+  18.202248
+ ],
+ "params": {
+  "crop": {
+   "name": "Pszenica ozima",
+   "kc_winter": 0.4,
+   "kc_mid": 1.15,
+   "kc_end": 0.3,
+   "p": 0.55,
+   "root_m": 1.0,
+   "critical": [
+    [
+     5,
+     15
+    ],
+    [
+     6,
+     30
+    ]
+   ],
+   "season": [
+    [
+     9,
+     25
+    ],
+    [
+     7,
+     31
+    ]
+   ]
+  },
+  "deficit_days": 10
+ }
+}

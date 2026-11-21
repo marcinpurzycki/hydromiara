@@ -1,0 +1,183 @@
+{
+  "meta": {
+    "report_id": "demo",
+    "created_at": "2026-11-21T12:29:00Z",
+    "parcel": {
+      "parcel_id": "040704_2.0020.34/2",
+      "number": "34/2",
+      "region": "Krusza Podlotowa",
+      "commune": "Inowrocław",
+      "county": "powiat inowrocławski",
+      "voivodeship": "kujawsko-pomorskie",
+      "area_ha": 2.452
+    },
+    "crop": {"id": "winter_wheat", "name": "Pszenica ozima"},
+    "analysis_date": "2023-06-20",
+    "derived_from": null,
+    "changed_from_date": null
+  },
+  "headline": "20 czerwca 2023 r. pszenicy ozimej na tej działce wyraźnie brakowało wody (silny niedobór), a w ostatnich 10 latach wody brakowało w 9 z nich.",
+  "summary": {
+    "text": "Dane przykładowe (atrapa). W dniu analizy gleba była wyczerpana w 84%, a przez ostatnie 30 dni spadło 13 mm deszczu przy 144 mm parowania. W okresie największego zapotrzebowania pszenicy na wodę niedobór wystąpił w 9 z 10 ostatnich lat. Główna stwierdzona przyczyna to za mało opadów względem parowania.",
+    "source": "template"
+  },
+  "season": {
+    "in_season": true,
+    "last_season": {"start": "2022-09-25", "end": "2023-07-31"},
+    "note": null
+  },
+  "current_status": {
+    "deficit_level": 3,
+    "label": "silny niedobór",
+    "reason": "Roślina od 22 dni pobiera mniej wody, niż potrzebuje; z zapasu dostępnego w glebie zużyte jest 84%.",
+    "confidence": {"level": "średnia", "why": "Brak danych o ciekach i rowach; teren z mniej dokładnego źródła (30 m)."},
+    "details": {
+      "depletion_mm": 181,
+      "readily_available_water_mm": 119,
+      "total_available_water_mm": 216,
+      "depletion_pct": 84,
+      "stress_coefficient": 0.36,
+      "stress_run_days": 22,
+      "precipitation_30d_mm": 13,
+      "et0_30d_mm": 144
+    }
+  },
+  "multiyear_susceptibility": {
+    "deficit_years": 9,
+    "total_years": 10,
+    "deficit_level": 3,
+    "typical_period": "15 maja – 30 czerwca",
+    "confidence": {"level": "średnia", "why": "Pojemność wodna gleby niezweryfikowana; rok 2023 liczony tylko do Daty analizy."},
+    "years": [
+      {"year": 2014, "deficit": true, "partial": false, "values": {"stress_days": 20, "critical_period_days": 47, "climatic_water_balance_apr_jul_mm": -263, "precipitation_apr_jul_mm": 174}},
+      {"year": 2015, "deficit": true, "partial": false, "values": {"stress_days": 37, "critical_period_days": 47, "climatic_water_balance_apr_jul_mm": -256, "precipitation_apr_jul_mm": 174}},
+      {"year": 2016, "deficit": true, "partial": false, "values": {"stress_days": 39, "critical_period_days": 47, "climatic_water_balance_apr_jul_mm": -216, "precipitation_apr_jul_mm": 226}},
+      {"year": 2017, "deficit": false, "partial": false, "values": {"stress_days": 8, "critical_period_days": 47, "climatic_water_balance_apr_jul_mm": -60, "precipitation_apr_jul_mm": 311}},
+      {"year": 2018, "deficit": true, "partial": false, "values": {"stress_days": 41, "critical_period_days": 47, "climatic_water_balance_apr_jul_mm": -235, "precipitation_apr_jul_mm": 254}},
+      {"year": 2019, "deficit": true, "partial": false, "values": {"stress_days": 26, "critical_period_days": 47, "climatic_water_balance_apr_jul_mm": -319, "precipitation_apr_jul_mm": 166}},
+      {"year": 2020, "deficit": true, "partial": false, "values": {"stress_days": 33, "critical_period_days": 47, "climatic_water_balance_apr_jul_mm": -167, "precipitation_apr_jul_mm": 261}},
+      {"year": 2021, "deficit": true, "partial": false, "values": {"stress_days": 14, "critical_period_days": 47, "climatic_water_balance_apr_jul_mm": -149, "precipitation_apr_jul_mm": 276}},
+      {"year": 2022, "deficit": true, "partial": false, "values": {"stress_days": 44, "critical_period_days": 47, "climatic_water_balance_apr_jul_mm": -245, "precipitation_apr_jul_mm": 224}},
+      {"year": 2023, "deficit": true, "partial": true, "values": {"stress_days": 22, "critical_period_days": 37, "climatic_water_balance_apr_jul_mm": -193, "precipitation_apr_jul_mm": 87}}
+    ],
+    "history_assumption": "Przyjęto, że pszenica ozima rosła na tej działce w każdym roku."
+  },
+  "historical_course": null,
+  "causes": [
+    {
+      "id": "precipitation",
+      "found": true,
+      "finding": "Za mało opadów względem parowania.",
+      "indicator": {"name": "Klimatyczny bilans wodny, kwiecień–lipiec (do Daty analizy)", "value": -193, "unit": "mm", "threshold": null},
+      "facts": [
+        {"text": "Od kwietnia do 20 czerwca 2023 r. spadło 87 mm deszczu, a parowanie przewyższyło opad o 193 mm.", "source": "Open-Meteo, archiwum pogody"},
+        {"text": "W ostatnich 30 dniach: 13 mm opadu przy 144 mm ewapotranspiracji wskaźnikowej.", "source": "Open-Meteo, archiwum pogody"}
+      ],
+      "recommendations": [
+        {
+          "id": "mock_soil_cover",
+          "group": "retencja glebowa",
+          "text": "Atrapa rekomendacji: utrzymuj okrywę gleby (mulcz, międzyplon), żeby ograniczyć parowanie z powierzchni pola.",
+          "gain": "Mniejsze straty wody z gleby między opadami.",
+          "rule": "Stwierdzona przyczyna „za mało opadów” oraz niedobór w co najmniej 3 z 10 lat",
+          "inputs": {"deficit_years": 9, "climatic_water_balance_apr_jul_mm": -193},
+          "citation": "Atrapa: źródło zostanie uzupełnione wraz z katalogiem rekomendacji.",
+          "retention_site": null,
+          "link": null
+        },
+        {
+          "id": "mock_crop_change",
+          "group": "agrotechnika",
+          "text": "Atrapa rekomendacji: rozważ uprawę mniej narażoną na niedobór wody na tej działce; omów z doradcą.",
+          "gain": "Mniej lat z niedoborem wody w okresie krytycznym.",
+          "rule": "Podatność wieloletnia: silny niedobór",
+          "inputs": {"deficit_years": 9, "total_years": 10},
+          "citation": "Atrapa: źródło zostanie uzupełnione wraz z katalogiem rekomendacji.",
+          "retention_site": null,
+          "link": "simulation"
+        }
+      ]
+    },
+    {
+      "id": "soil",
+      "found": false,
+      "finding": "Gleba magazynuje wodę wystarczająco.",
+      "indicator": {"name": "Woda dostępna dla roślin w warstwie 0–100 cm", "value": 216, "unit": "mm/m", "threshold": 140},
+      "facts": [{"text": "Uziarnienie warstwy 0–30 cm: 70% piasku, 20% pyłu, 9% iłu.", "source": "ISRIC SoilGrids"}],
+      "recommendations": []
+    },
+    {
+      "id": "runoff",
+      "found": false,
+      "finding": "Woda nie odpływa szybko z pola.",
+      "indicator": {"name": "Średni spadek terenu", "value": 1.4, "unit": "%", "threshold": 2},
+      "facts": [{"text": "Wysokość terenu od 80,7 do 87,9 m n.p.m.; spadek w kierunku północno-wschodnim.", "source": "Copernicus DEM GLO-30"}],
+      "recommendations": []
+    },
+    {
+      "id": "crop_demand",
+      "found": false,
+      "finding": "Potrzeby wodne uprawy nie są wyróżniającą się przyczyną.",
+      "indicator": {"name": "Współczynnik uprawy Kc w pełni rozwoju", "value": 1.15, "unit": "", "threshold": null},
+      "facts": [],
+      "recommendations": []
+    }
+  ],
+  "irrigation": {
+    "applicable": true,
+    "text": "Jeżeli masz dostęp do wody i w najbliższych dniach nie spadnie deszcz, nawodnienie jest uzasadnione: od 62 do 181 mm (620–1810 m³/ha), jak najszybciej.",
+    "justified": true,
+    "amount_mm": [62, 181],
+    "amount_m3_ha": [620, 1810],
+    "timing": "jak najszybciej",
+    "reason_if_none": null
+  },
+  "consistency_check": {
+    "result": "zgodne",
+    "sentence": "Niezależny wskaźnik suszy dla tej samej dekady również wskazuje niedobór wody w glebie.",
+    "items": [
+      {"source": "EDO, Combined Drought Indicator", "period": "dekada od 11.06.2023", "value": "klasa 2", "meaning": "Ostrzeżenie: niedobór wilgoci w glebie po niedoborze opadów."},
+      {"source": "Sentinel-2", "period": "04.06.2023", "value": "NDVI 0,83; NDMI 0,50", "meaning": "Roślinność jeszcze zielona; odczyt sprzed 16 dni."}
+    ]
+  },
+  "sources": [
+    {"topic": "parcel", "name": "ULDK GUGiK", "license": "do uzupełnienia", "mode": "na żywo", "data_date": null, "fetched_at": "2026-11-21T12:29:00Z", "chain_step": 1, "missing": false},
+    {"topic": "weather", "name": "Open-Meteo, archiwum pogody", "license": "do uzupełnienia", "mode": "na żywo", "data_date": "2013-01-01 – 2023-06-20", "fetched_at": "2026-11-21T12:29:00Z", "chain_step": 1, "missing": false},
+    {"topic": "soil", "name": "ISRIC SoilGrids", "license": "do uzupełnienia", "mode": "na żywo", "data_date": null, "fetched_at": "2026-11-21T12:29:00Z", "chain_step": 1, "missing": false},
+    {"topic": "terrain", "name": "Copernicus DEM GLO-30", "license": "do uzupełnienia", "mode": "na żywo", "data_date": null, "fetched_at": "2026-11-21T12:29:00Z", "chain_step": 2, "missing": false},
+    {"topic": "satellite", "name": "Sentinel-2 L2A (Earth Search)", "license": "do uzupełnienia", "mode": "na żywo", "data_date": "2023-06-04", "fetched_at": "2026-11-21T12:29:00Z", "chain_step": 1, "missing": false},
+    {"topic": "drought_background", "name": "European Drought Observatory, Combined Drought Indicator", "license": "CC BY 4.0", "mode": "plik lokalny", "data_date": "2023-06-11", "fetched_at": null, "chain_step": 1, "missing": false},
+    {"topic": "hydro", "name": "Cieki, rowy i zbiorniki", "license": "do uzupełnienia", "mode": "na żywo", "data_date": null, "fetched_at": null, "chain_step": 1, "missing": true}
+  ],
+  "limitations": [
+    {"text": "Raport nie jest urzędowym stwierdzeniem suszy rolniczej.", "affects": "all", "permanent": true},
+    {"text": "Raport nie ocenia nadmiaru wody (podtopień, zastoisk).", "affects": "all", "permanent": true},
+    {"text": "Raport nie korzysta z prognozy pogody; opisuje stan na Datę analizy.", "affects": "recommendations", "permanent": true},
+    {"text": "Publiczne dane o rowach są niekompletne.", "affects": "recommendations", "permanent": true},
+    {"text": "Brak danych o ciekach, rowach i zbiornikach: źródło nie odpowiedziało. Rekomendacje zależne od wód nie powstały.", "affects": "recommendations", "permanent": false},
+    {"text": "Teren z modelu o rozdzielczości 30 m zamiast 1 m: spadek i kierunek spływu są przybliżone.", "affects": "recommendations", "permanent": false},
+    {"text": "Pojemność wodna gleby niezweryfikowana.", "affects": "multiyear", "permanent": false}
+  ],
+  "map": {
+    "parcel_geometry": {
+      "type": "Polygon",
+      "coordinates": [[
+        [18.2024467151364, 52.749196783764],
+        [18.2003168413755, 52.7502632828683],
+        [18.1991119805698, 52.7494166763537],
+        [18.201060596431, 52.7484852200819],
+        [18.2016203684626, 52.7482176279139],
+        [18.2024467151364, 52.749196783764]
+      ]]
+    },
+    "downhill_direction": {"label": "północny wschód", "azimuth_deg": 45},
+    "retention_sites": [],
+    "water_objects": []
+  },
+  "trace": [
+    {"rule_id": "current_status.level", "condition": "współczynnik stresu Ks < 0,4", "values": {"stress_coefficient": 0.36}, "result": "silny niedobór"},
+    {"rule_id": "multiyear.deficit_year", "condition": "co najmniej 10 dni stresu w Okresie krytycznym", "values": {"deficit_years": 9, "total_years": 10}, "result": "9 z 10 lat z niedoborem"},
+    {"rule_id": "cause.soil", "condition": "woda dostępna < 140 mm/m", "values": {"total_available_water_mm": 216}, "result": "nie stwierdzono"},
+    {"rule_id": "cause.runoff", "condition": "spadek > 2%", "values": {"slope_pct": 1.4}, "result": "nie stwierdzono"}
+  ]
+}
