@@ -61,6 +61,8 @@ a pliki wskaźnika suszy są czytane z katalogu `EDO_DATA_PATH` (domyślnie `./d
 | HTTPX | zapytania do źródeł danych, klient testowy | BSD-3-Clause |
 | Shapely | geometria działki (WKT, GeoJSON, powierzchnia) | BSD-3-Clause |
 | pyproj | przeliczenie układów współrzędnych (EPSG:4326 → EPSG:2180) | MIT |
+| Rasterio (z biblioteką GDAL) | odczyt fragmentu rastra nad działką, maska obrysu | BSD-3-Clause (GDAL: MIT) |
+| NumPy | tablice wartości rastra | BSD-3-Clause |
 
 ## Źródła danych
 
