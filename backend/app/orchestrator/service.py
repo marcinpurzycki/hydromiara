@@ -118,9 +118,11 @@ class Orchestrator:
         progress: Progress,
         tag: str,
     ) -> None:
+        deadline = time.monotonic() + self._fetch_budget_s
         async with asyncio.timeout(self._fetch_budget_s):
             source_data, limitations = await fetch_source_data(
-                sources, request.parcel_id.strip(), request.analysis_date, progress, tag
+                sources, request.parcel_id.strip(), request.analysis_date, progress, tag,
+                deadline,
             )
         # From here on a crop history sent by the user is answered with "too late".
         history = await asyncio.to_thread(self.store.begin_finalize, report_id)

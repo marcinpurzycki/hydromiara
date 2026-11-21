@@ -55,17 +55,34 @@ def _log(tag: str, outcome: SourceOutcome) -> None:
     )
 
 
+def time_limit(spec: SourceSpec, deadline: float | None) -> float:
+    """The limit of a source: its own, cut for an optional one by the fetch deadline.
+
+    A required source keeps its own limit: without it there is no Report, so
+    nothing is gained by ending it early.
+    """
+    if deadline is None or spec.required:
+        return spec.timeout_s
+    left = deadline - time.monotonic() - params.SOURCE_DEADLINE_MARGIN_S
+    return max(0.0, min(spec.timeout_s, left))
+
+
 async def fetch_one(
-    spec: SourceSpec, context: FetchContext, progress: Progress, tag: str
+    spec: SourceSpec,
+    context: FetchContext,
+    progress: Progress,
+    tag: str,
+    deadline: float | None = None,
 ) -> SourceFetch:
-    """One source within its own time limit; never raises for a source problem."""
+    """One source within its time limit; never raises for a source problem."""
     progress.set(spec.status_id, "run")
     started = time.monotonic()
+    limit_s = time_limit(spec, deadline)
     try:
-        async with asyncio.timeout(spec.timeout_s):
+        async with asyncio.timeout(limit_s):
             result = await spec.fetch(context)
     except TimeoutError:
-        note = params.SOURCE_TIMEOUT_NOTE.format(seconds=spec.timeout_s)
+        note = params.SOURCE_TIMEOUT_NOTE.format(seconds=limit_s)
         result = _no_answer(spec, started, note)
     except Exception as exc:  # a broken source must not break the analysis
         logger.warning("analysis %s source=%s raised %s", tag, spec.topic, type(exc).__name__)
@@ -98,13 +115,17 @@ async def fetch_source_data(
     analysis_date: date,
     progress: Progress,
     tag: str,
+    deadline: float | None = None,
 ) -> tuple[SourceData, list[Limitation]]:
-    """Complete source data of an analysis and the limitations the sources reported."""
+    """Complete source data of an analysis and the limitations the sources reported.
+
+    `deadline` is the moment (monotonic clock) by which fetching has to end.
+    """
     parcel, parcel_outcome = await fetch_parcel(sources, parcel_id, tag)
     context = FetchContext(parcel=parcel, analysis_date=analysis_date)
     connected = [spec for spec in sources.specs if spec.connected]
     results = await asyncio.gather(
-        *(fetch_one(spec, context, progress, tag) for spec in connected)
+        *(fetch_one(spec, context, progress, tag, deadline) for spec in connected)
     )
 
     parts: dict[str, object] = {}

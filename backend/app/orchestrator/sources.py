@@ -6,59 +6,57 @@ parallel, each with its own time limit. An entry without a `fetch` function is
 a source that is known to the API contract but not used by the analysis yet;
 it is reported as missing, never as done.
 
-Connecting a source: write an `async def fetch(context) -> SourceFetch` that
-calls its adapter and put it into the entry of its topic in `default_specs`.
+Connecting a source: write a function in `source_fetches.py` that calls its
+adapter and put it into the entry of its topic in `default_specs`.
+
+The drought background has no identifier among the sources of the progress
+shown to the user, so it is fetched without a progress entry; its outcome is
+stored with the source data and listed among the sources of the Report.
 """
 
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
-from datetime import date
-from typing import Annotated, Any
+from dataclasses import dataclass
+from typing import Annotated
 
 from fastapi import Depends
 
-from app.contracts.analyses import SourceId
-from app.contracts.report import Limitation
-from app.contracts.source_data import ParcelData, SourceOutcome, SourceTopic
 from app.orchestrator import params
+from app.orchestrator.source_fetches import (
+    drought_background_fetch,
+    satellite_fetch,
+    soil_fetch,
+    terrain_fetch,
+    weather_fetch,
+)
+from app.orchestrator.source_types import Fetch, FetchContext, SourceFetch, SourceSpec
+from app.sources.drought_background import DroughtBackgroundSource
 from app.sources.parcels import ParcelSource, get_parcel_source
+from app.sources.satellite import SatelliteSource
+from app.sources.soil import SoilSource
+from app.sources.terrain import TerrainSource
 from app.sources.weather import WeatherSource
 
-
-@dataclass(frozen=True)
-class FetchContext:
-    """What a source may use: the parcel and the analysis date, nothing else."""
-
-    parcel: ParcelData
-    analysis_date: date
-
-
-@dataclass(frozen=True)
-class SourceFetch:
-    """Answer of one source: its part of the source data, how it went, what is missing."""
-
-    data: Any | None
-    outcome: SourceOutcome
-    limitations: list[Limitation] = field(default_factory=list)
-
-
-Fetch = Callable[[FetchContext], Awaitable[SourceFetch]]
+__all__ = [
+    "AnalysisSources",
+    "Fetch",
+    "FetchContext",
+    "OptionalSources",
+    "SourceFetch",
+    "SourceSpec",
+    "default_specs",
+    "get_analysis_sources",
+    "get_optional_sources",
+    "get_weather_source",
+]
 
 
 @dataclass(frozen=True)
-class SourceSpec:
-    # Name of the field of `SourceData` the answer goes into.
-    topic: SourceTopic
-    # Identifier in the progress shown to the user; None for a source without one.
-    status_id: SourceId | None
-    timeout_s: float
-    # Without a required source there is no Report.
-    required: bool = False
-    fetch: Fetch | None = None
+class OptionalSources:
+    """Adapters an analysis can do without; None leaves the category not connected."""
 
-    @property
-    def connected(self) -> bool:
-        return self.fetch is not None
+    soil: SoilSource | None = None
+    terrain: TerrainSource | None = None
+    satellite: SatelliteSource | None = None
+    drought_background: DroughtBackgroundSource | None = None
 
 
 @dataclass(frozen=True)
@@ -70,20 +68,13 @@ class AnalysisSources:
     parcel_timeout_s: float = params.PARCEL_TIMEOUT_S
 
 
-def weather_fetch(source: WeatherSource) -> Fetch:
-    async def fetch(context: FetchContext) -> SourceFetch:
-        parcel = context.parcel
-        # The adapter also reports gaps of the series; they are left out here,
-        # because the engine names the same gaps from the series itself.
-        data, outcome, _ = await source.fetch(
-            parcel.centroid_lat, parcel.centroid_lon, context.analysis_date
-        )
-        return SourceFetch(data=data, outcome=outcome)
-
-    return fetch
+def _fetch(make, adapter) -> Fetch | None:
+    return None if adapter is None else make(adapter)
 
 
-def default_specs(weather: WeatherSource) -> tuple[SourceSpec, ...]:
+def default_specs(
+    weather: WeatherSource, optional: OptionalSources = OptionalSources()
+) -> tuple[SourceSpec, ...]:
     """The registry in the order the progress is shown to the user."""
     return (
         SourceSpec(
@@ -93,16 +84,40 @@ def default_specs(weather: WeatherSource) -> tuple[SourceSpec, ...]:
             required=True,
             fetch=weather_fetch(weather),
         ),
+        SourceSpec(
+            topic="soil",
+            status_id="soil",
+            timeout_s=params.SOIL_TIMEOUT_S + params.ADAPTER_GRACE_S,
+            fetch=_fetch(soil_fetch, optional.soil),
+        ),
+        SourceSpec(
+            topic="terrain",
+            status_id="terrain",
+            timeout_s=params.TERRAIN_TIMEOUT_S,
+            fetch=_fetch(terrain_fetch, optional.terrain),
+        ),
+        SourceSpec(
+            topic="satellite",
+            status_id="satellite",
+            timeout_s=params.SATELLITE_TIMEOUT_S,
+            fetch=_fetch(satellite_fetch, optional.satellite),
+        ),
         # Not connected yet: no fetch function, so reported as missing.
-        SourceSpec(topic="soil", status_id="soil", timeout_s=0.0),
-        SourceSpec(topic="terrain", status_id="terrain", timeout_s=0.0),
-        SourceSpec(topic="satellite", status_id="satellite", timeout_s=0.0),
         SourceSpec(topic="hydro", status_id="hydro", timeout_s=0.0),
-        SourceSpec(topic="drought_background", status_id=None, timeout_s=0.0),
+        SourceSpec(
+            topic="drought_background",
+            status_id=None,
+            timeout_s=params.DROUGHT_BACKGROUND_TIMEOUT_S,
+            fetch=_fetch(drought_background_fetch, optional.drought_background),
+        ),
     )
 
 
 _default_weather = WeatherSource()
+# One instance per process: the satellite adapter keeps its read token.
+_default_soil = SoilSource(timeout_s=params.SOIL_TIMEOUT_S)
+_default_terrain = TerrainSource()
+_default_satellite = SatelliteSource()
 
 
 def get_weather_source() -> WeatherSource:
@@ -110,9 +125,21 @@ def get_weather_source() -> WeatherSource:
     return _default_weather
 
 
+def get_optional_sources() -> OptionalSources:
+    """Dependency of the analysis routes; tests replace it with recorded sources."""
+    return OptionalSources(
+        soil=_default_soil,
+        terrain=_default_terrain,
+        satellite=_default_satellite,
+        # Made per analysis: reads the configured directory of the drought files.
+        drought_background=DroughtBackgroundSource(),
+    )
+
+
 def get_analysis_sources(
     parcels: Annotated[ParcelSource, Depends(get_parcel_source)],
     weather: Annotated[WeatherSource, Depends(get_weather_source)],
+    optional: Annotated[OptionalSources, Depends(get_optional_sources)],
 ) -> AnalysisSources:
     """Dependency of the analysis routes: the sources a new analysis will use."""
-    return AnalysisSources(parcels=parcels, specs=default_specs(weather))
+    return AnalysisSources(parcels=parcels, specs=default_specs(weather, optional))
