@@ -61,6 +61,17 @@ się po zapisaniu i jest usuwany po 30 dniach (wartość robocza). Usługa dzia�
 ponownym uruchomieniem usługi kończy się stanem `failed` i trzeba ją uruchomić ponownie. W bazie i w logach nie ma
 danych osobowych; zapisywany jest identyfikator działki, który da się powiązać z właścicielem w rejestrach publicznych.
 
+Każdy raport podaje Pewność oceny osobno dla Bieżącej sytuacji wodnej i dla Podatności wieloletniej (wysoka, średnia,
+niska) razem z powodami oraz pełną listę Ograniczeń raportu. Ograniczenia stałe (raport nie jest urzędowym stwierdzeniem
+suszy rolniczej, nie ocenia nadmiaru wody, nie korzysta z prognozy pogody, publiczne dane o rowach są niekompletne) są
+w każdym raporcie i Pewności nie obniżają. Pozostałe wynikają z danych tej analizy: brak kategorii danych, dane
+z mniej dokładnego zamiennika (Łańcuch zamienników: źródło podstawowe, zamiennik, brak danych), pojemność wodna gleby
+przyjęta zastępczo, dane pogodowe kończące się przed Datą analizy, dni bez pogody, niepełne Okno wieloletnie.
+Pewność werdyktu obniżają tylko Ograniczenia, które go dotyczą. Reguła jest robocza i nie ma źródła naukowego:
+Ograniczenie liczy się za 1 punkt, pojemność wodna przyjęta zastępczo i wynik „rozbieżne” Sprawdzenia zgodności
+za 2; od 1 punktu Pewność jest średnia, od 3 niska; werdykt bez oceny ma Pewność niską. Wagi i progi są nazwanymi
+parametrami w `backend/app/engine/findings.py`.
+
 ## Konfiguracja
 
 Ustawienia wdrożenia są w pliku `.env` (wzór: `.env.example`); usługa `api` dostaje je jako zmienne środowiskowe.

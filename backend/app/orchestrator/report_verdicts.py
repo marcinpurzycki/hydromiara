@@ -12,6 +12,7 @@ from datetime import date
 
 from app.catalog.crop_model import CatalogCrop
 from app.catalog.crops import in_season, last_season
+from app.contracts.common import Confidence
 from app.contracts.report import Limitation, TraceEntry
 from app.contracts.verdicts import (
     CurrentStatus,
@@ -22,7 +23,9 @@ from app.contracts.verdicts import (
 )
 from app.engine.assessment import WaterAssessment
 from app.engine.params import DEFICIT_LEVEL_LABELS, EngineParams
-from app.orchestrator.report_pending import REASON_PENDING, pending_confidence
+from app.engine.susceptibility import SusceptibilityVerdict
+from app.engine.verdicts import CurrentVerdict
+from app.orchestrator.report_pending import REASON_PENDING
 
 NOT_ASSESSED_LABEL = "nie oceniono"
 NOT_ASSESSED_LEVEL = 0
@@ -51,7 +54,14 @@ def season(crop: CatalogCrop, analysis_date: date) -> Season:
     )
 
 
-def current_status(assessment: WaterAssessment) -> CurrentStatus:
+def not_assessed_sentence(verdict: CurrentVerdict | SusceptibilityVerdict) -> str | None:
+    """Why the verdict has no deficit level; None for an assessed verdict."""
+    if verdict.assessed:
+        return None
+    return _NOT_ASSESSED_REASONS[verdict.not_assessed_reason]
+
+
+def current_status(assessment: WaterAssessment, confidence: Confidence) -> CurrentStatus:
     verdict = assessment.current_status
     details = {**verdict.details(), "assessed": verdict.assessed}
     if verdict.state_date is not None:
@@ -61,7 +71,7 @@ def current_status(assessment: WaterAssessment) -> CurrentStatus:
             deficit_level=verdict.deficit_level,
             label=verdict.label,
             reason=REASON_PENDING,
-            confidence=pending_confidence(),
+            confidence=confidence,
             details=details,
         )
     details["not_assessed_reason"] = verdict.not_assessed_reason
@@ -69,13 +79,13 @@ def current_status(assessment: WaterAssessment) -> CurrentStatus:
         deficit_level=NOT_ASSESSED_LEVEL,
         label=NOT_ASSESSED_LABEL,
         reason=_NOT_ASSESSED_REASONS[verdict.not_assessed_reason],
-        confidence=pending_confidence(),
+        confidence=confidence,
         details=details,
     )
 
 
 def multiyear_susceptibility(
-    assessment: WaterAssessment, crop: CatalogCrop
+    assessment: WaterAssessment, crop: CatalogCrop, confidence: Confidence
 ) -> MultiyearSusceptibility:
     verdict = assessment.multiyear_susceptibility
     # Years without weather are left out, so the list matches `total_years`.
@@ -96,7 +106,7 @@ def multiyear_susceptibility(
         total_years=verdict.total_years,
         deficit_level=verdict.deficit_level if verdict.assessed else NOT_ASSESSED_LEVEL,
         typical_period=None,
-        confidence=pending_confidence(),
+        confidence=confidence,
         years=years,
         history_assumption=assumption,
     )

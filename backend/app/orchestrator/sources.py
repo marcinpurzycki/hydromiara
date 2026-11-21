@@ -73,10 +73,12 @@ class AnalysisSources:
 def weather_fetch(source: WeatherSource) -> Fetch:
     async def fetch(context: FetchContext) -> SourceFetch:
         parcel = context.parcel
-        data, outcome, limitations = await source.fetch(
+        # The adapter also reports gaps of the series; they are left out here,
+        # because the engine names the same gaps from the series itself.
+        data, outcome, _ = await source.fetch(
             parcel.centroid_lat, parcel.centroid_lon, context.analysis_date
         )
-        return SourceFetch(data=data, outcome=outcome, limitations=list(limitations))
+        return SourceFetch(data=data, outcome=outcome)
 
     return fetch
 

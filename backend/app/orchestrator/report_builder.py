@@ -5,6 +5,11 @@ from what is stored with it. The identifier and the creation time are inputs.
 
 Adding a part of the Report: compute it in its own module from `ReportInputs`
 and the engine assessment, and replace the matching `pending_*` call below.
+
+The limitations and the confidence of both verdicts come from the engine: the
+limitations are collected once and the confidence is derived from them. The
+result of the consistency check, once it is made, is passed to
+`report_findings` as `consistency`.
 """
 
 from dataclasses import dataclass
@@ -16,6 +21,8 @@ from app.contracts.report import Limitation, Report, ReportMap, ReportMeta, Repo
 from app.contracts.source_data import SourceData
 from app.contracts.verdicts import CropRef
 from app.engine.assessment import assess_water
+from app.engine.confidence import verdict_confidences
+from app.engine.limitations import limitations_of, report_findings
 from app.engine.params import DEFAULT_PARAMS, EngineParams
 from app.orchestrator import report_pending as pending
 from app.orchestrator import report_sources as sources
@@ -57,26 +64,36 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
     assessment = assess_water(source_data, crop, analysis_date, params)
     season = verdicts.season(crop, analysis_date)
 
-    limitations = [
-        *inputs.source_limitations,
-        sources.soil_limitation(assessment.root_zone),
-        verdicts.not_assessed_limitation(assessment),
-        sources.absent_data_limitation(source_data),
-        pending.pending_limitation(),
-    ]
+    not_assessed = verdicts.not_assessed_limitation(assessment)
+    findings = report_findings(
+        source_data,
+        assessment,
+        source_limitations=inputs.source_limitations,
+        first=() if not_assessed is None else (not_assessed,),
+        last=(pending.pending_limitation(),),
+    )
+    confidence = verdict_confidences(
+        findings,
+        current_not_assessed=verdicts.not_assessed_sentence(assessment.current_status),
+        multiyear_not_assessed=verdicts.not_assessed_sentence(
+            assessment.multiyear_susceptibility
+        ),
+    )
     return Report(
         meta=_meta(inputs),
         headline=verdicts.headline(assessment, analysis_date),
         summary=pending.pending_summary(),
         season=season,
-        current_status=verdicts.current_status(assessment),
-        multiyear_susceptibility=verdicts.multiyear_susceptibility(assessment, crop),
+        current_status=verdicts.current_status(assessment, confidence.current),
+        multiyear_susceptibility=verdicts.multiyear_susceptibility(
+            assessment, crop, confidence.multiyear
+        ),
         historical_course=pending.pending_historical_course(),
         causes=pending.pending_causes(),
         irrigation=pending.pending_irrigation(season.in_season),
         consistency_check=pending.pending_consistency_check(),
         sources=sources.report_sources(source_data),
-        limitations=[limitation for limitation in limitations if limitation is not None],
+        limitations=limitations_of(findings),
         map=ReportMap(
             parcel_geometry=source_data.parcel.geometry,
             downhill_direction=None,
