@@ -1,0 +1,8 @@
+# Local use without Traefik: publishes the API on localhost.
+#   docker network create proxy   (once)
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up --build api
+
+services:
+  api:
+    ports:
+      - 127.0.0.1:${API_PORT:-8000}:8000

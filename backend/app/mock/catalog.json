@@ -1,0 +1,83 @@
+{
+  "crops": [
+    {
+      "id": "winter_wheat",
+      "name": "Pszenica ozima",
+      "name_genitive": "pszenicy ozimej",
+      "tile": true,
+      "season": {"start": {"month": 9, "day": 25}, "end": {"month": 7, "day": 31}},
+      "critical_period": {"start": {"month": 5, "day": 15}, "end": {"month": 6, "day": 30}}
+    },
+    {
+      "id": "maize",
+      "name": "Kukurydza",
+      "name_genitive": "kukurydzy",
+      "tile": true,
+      "season": {"start": {"month": 4, "day": 25}, "end": {"month": 10, "day": 15}},
+      "critical_period": {"start": {"month": 7, "day": 1}, "end": {"month": 8, "day": 15}}
+    },
+    {
+      "id": "winter_rapeseed",
+      "name": "Rzepak ozimy",
+      "name_genitive": "rzepaku ozimego",
+      "tile": true,
+      "season": {"start": {"month": 8, "day": 20}, "end": {"month": 7, "day": 15}},
+      "critical_period": {"start": {"month": 4, "day": 20}, "end": {"month": 6, "day": 10}}
+    },
+    {
+      "id": "potato",
+      "name": "Ziemniak",
+      "name_genitive": "ziemniaka",
+      "tile": false,
+      "season": {"start": {"month": 4, "day": 20}, "end": {"month": 9, "day": 20}},
+      "critical_period": {"start": {"month": 6, "day": 15}, "end": {"month": 7, "day": 31}}
+    },
+    {
+      "id": "bare_field",
+      "name": "Pole bez uprawy",
+      "name_genitive": "pola bez uprawy",
+      "tile": true,
+      "season": null,
+      "critical_period": null
+    }
+  ],
+  "examples": [
+    {"label": "Atrapa: pszenica ozima, czerwiec 2023", "parcel_id": "040704_2.0020.34/2", "crop_id": "winter_wheat", "analysis_date": "2023-06-20", "kind": "deficit"},
+    {"label": "Atrapa: pszenica ozima, czerwiec 2019", "parcel_id": "040704_2.0020.34/2", "crop_id": "winter_wheat", "analysis_date": "2019-06-20", "kind": "deficit"},
+    {"label": "Atrapa: kukurydza, lipiec 2018", "parcel_id": "040704_2.0020.34/2", "crop_id": "maize", "analysis_date": "2018-07-20", "kind": "deficit"},
+    {"label": "Atrapa: pszenica ozima, czerwiec 2017", "parcel_id": "040704_2.0020.34/2", "crop_id": "winter_wheat", "analysis_date": "2017-06-20", "kind": "no_deficit"},
+    {"label": "Atrapa: rzepak ozimy, maj 2017", "parcel_id": "040704_2.0020.34/2", "crop_id": "winter_rapeseed", "analysis_date": "2017-05-20", "kind": "no_deficit"},
+    {"label": "Atrapa: pole bez uprawy, listopad 2023", "parcel_id": "040704_2.0020.34/2", "crop_id": "bare_field", "analysis_date": "2023-11-15", "kind": "no_deficit"}
+  ],
+  "parcel": {
+    "parcel_id": "040704_2.0020.34/2",
+    "number": "34/2",
+    "region": "Krusza Podlotowa",
+    "commune": "Inowrocław",
+    "county": "powiat inowrocławski",
+    "voivodeship": "kujawsko-pomorskie",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [[
+        [18.2024467151364, 52.749196783764],
+        [18.2003168413755, 52.7502632828683],
+        [18.1991119805698, 52.7494166763537],
+        [18.201060596431, 52.7484852200819],
+        [18.2016203684626, 52.7482176279139],
+        [18.2024467151364, 52.749196783764]
+      ]]
+    }
+  },
+  "simulation": {
+    "current": {"crop_id": "winter_wheat", "name": "Pszenica ozima", "deficit_years": 9, "total_years": 10, "deficit_level": 3},
+    "others": [
+      {"crop_id": "winter_rapeseed", "name": "Rzepak ozimy", "deficit_years": 6, "total_years": 10, "deficit_level": 2, "deficit_in": [2015, 2016, 2018, 2019, 2020, 2022]},
+      {"crop_id": "potato", "name": "Ziemniak", "deficit_years": 7, "total_years": 10, "deficit_level": 2, "deficit_in": [2014, 2015, 2016, 2018, 2019, 2022, 2023]},
+      {"crop_id": "maize", "name": "Kukurydza", "deficit_years": 8, "total_years": 10, "deficit_level": 3, "deficit_in": [2014, 2015, 2016, 2018, 2019, 2020, 2022, 2023]}
+    ],
+    "limitations": [
+      {"text": "Symulacja liczy wyłącznie bilans wodny; nie korzysta z danych satelitarnych.", "affects": "all", "permanent": true},
+      {"text": "Symulacja nie ocenia plonu, opłacalności, przydatności gleby ani zmianowania.", "affects": "all", "permanent": true}
+    ]
+  }
+}
