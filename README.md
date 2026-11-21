@@ -61,8 +61,8 @@ a pliki wskaźnika suszy są czytane z katalogu `EDO_DATA_PATH` (domyślnie `./d
 | HTTPX | zapytania do źródeł danych, klient testowy | BSD-3-Clause |
 | Shapely | geometria działki (WKT, GeoJSON, powierzchnia) | BSD-3-Clause |
 | pyproj | przeliczenie układów współrzędnych (EPSG:4326 → EPSG:2180) | MIT |
-| Rasterio (z biblioteką GDAL) | odczyt fragmentu rastra nad działką, maska obrysu | BSD-3-Clause (GDAL: MIT) |
-| NumPy | tablice wartości rastra | BSD-3-Clause |
+| Rasterio (z biblioteką GDAL) | odczyt fragmentu rastra nad działką, maska obrysu, odczyt plików GeoTIFF wskaźnika CDI | BSD-3-Clause (GDAL: MIT) |
+| NumPy | tablice wartości rastra (wymagane przez Rasterio) | BSD-3-Clause |
 
 ## Źródła danych
 
@@ -70,6 +70,7 @@ a pliki wskaźnika suszy są czytane z katalogu `EDO_DATA_PATH` (domyślnie `./d
 |---|---|---|---|
 | Działki ewidencyjne: identyfikator, położenie administracyjne, geometria | Główny Urząd Geodezji i Kartografii (GUGiK), Usługa Lokalizacji Działek Katastralnych (ULDK), `https://uldk.gugik.gov.pl/` | na żywo | bezpłatnie, bez rejestracji; wymagane podanie źródła; limit zapytań na adres IP |
 | Pogoda dzienna do Daty analizy: suma opadu, ewapotranspiracja wskaźnikowa ET0 (FAO-56), średnia temperatura | Open-Meteo, archiwum pogodowe (reanaliza ERA5 / ECMWF IFS), `https://archive-api.open-meteo.com/v1/archive` | na żywo | dane na licencji CC BY 4.0, wymagane podanie źródła; bezpłatny dostęp bez klucza tylko do zastosowań niekomercyjnych; limit 600 zapytań na minutę, 5000 na godzinę i 10 000 na dobę |
+| Tło suszowe: klasa wskaźnika Combined Drought Indicator (CDI) w komórce siatki działki, co dekadę, od 2016 r. | European Drought Observatory (EDO), Komisja Europejska, Wspólne Centrum Badawcze (JRC); © Unia Europejska, 1995–2026; `https://drought.emergency.copernicus.eu/data/Drought_Observatories_datasets/` (katalog `EDO_Combined_Drought_Indicator`) | plik lokalny: archiwa roczne rozpakowane do `EDO_DATA_PATH` poleceniem `python3 scripts/unpack_drought_files.py KATALOG_ARCHIWÓW`; stan plików na 21.11.2026, dekady od 01.01.2016 do 01.11.2026 | CC BY 4.0; wymagane podanie źródła i zaznaczenie zmian (pliki testowe w `backend/tests/fixtures/edo/` to wycinki 3 × 3 komórki bez metadanych) |
 
 Źródło: Główny Urząd Geodezji i Kartografii (GUGiK), Usługa Lokalizacji Działek Katastralnych (ULDK).
 
