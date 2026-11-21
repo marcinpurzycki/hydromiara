@@ -67,8 +67,11 @@ a pliki wskaźnika suszy są czytane z katalogu `EDO_DATA_PATH` (domyślnie `./d
 | Dane | Źródło | Tryb | Warunki wykorzystania |
 |---|---|---|---|
 | Działki ewidencyjne: identyfikator, położenie administracyjne, geometria | Główny Urząd Geodezji i Kartografii (GUGiK), Usługa Lokalizacji Działek Katastralnych (ULDK), `https://uldk.gugik.gov.pl/` | na żywo | bezpłatnie, bez rejestracji; wymagane podanie źródła; limit zapytań na adres IP |
+| Pogoda dzienna do Daty analizy: suma opadu, ewapotranspiracja wskaźnikowa ET0 (FAO-56), średnia temperatura | Open-Meteo, archiwum pogodowe (reanaliza ERA5 / ECMWF IFS), `https://archive-api.open-meteo.com/v1/archive` | na żywo | dane na licencji CC BY 4.0, wymagane podanie źródła; bezpłatny dostęp bez klucza tylko do zastosowań niekomercyjnych; limit 600 zapytań na minutę, 5000 na godzinę i 10 000 na dobę |
 
 Źródło: Główny Urząd Geodezji i Kartografii (GUGiK), Usługa Lokalizacji Działek Katastralnych (ULDK).
+
+Dane pogodowe: Open-Meteo.com (CC BY 4.0). Zawierają informacje usługi Copernicus Climate Change Service.
 
 ## Dokumentacja
 
