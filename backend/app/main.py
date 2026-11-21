@@ -4,6 +4,7 @@ from fastapi import APIRouter, FastAPI
 
 from app.api import analyses, catalog, parcels, reports, simulation
 from app.api.errors import register_error_handlers
+from app.orchestrator.runtime import lifespan
 
 API_PREFIX = "/api"
 
@@ -16,6 +17,7 @@ def create_app() -> FastAPI:
         openapi_url=f"{API_PREFIX}/openapi.json",
         docs_url=f"{API_PREFIX}/docs",
         redoc_url=None,
+        lifespan=lifespan,
     )
     register_error_handlers(app)
 
