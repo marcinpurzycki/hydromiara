@@ -51,3 +51,27 @@ albo program zostanie przerwany (`Ctrl-C`).
 | BDOT10k, usługa przeglądania WMS | GUGiK, `https://mapy.geoportal.gov.pl/wss/service/pub/guest/kompozycja_BDOT10k_WMS/MapServer/WMSServer` | bezpłatnie; usługa zabrania automatycznego pobierania i gromadzenia obrazów oraz opisów obiektów |
 | Mapa Podziału Hydrograficznego Polski, usługa WMS | Wody Polskie, `https://wody.isok.gov.pl/gpservices/KZGW/ISOK_MPHP/MapServer/WMSServer` | bezpłatnie, bez konta |
 | Biblioteka PyArrow | odczyt plików Parquet | Apache-2.0 |
+
+## Teren (model wysokości)
+
+Sprawdza cztery drogi do wysokości terenu dla trzech działek z różnych regionów, każde zapytanie trzy razy:
+usługę WCS modelu terenu 1 m GUGiK (sześć form zapytania `GetCoverage`, okna od 100 m do 1 km, limit 90 s),
+usługę wysokości punktów GUGiK (siatka punktów co 5 m i co 2 m), całe arkusze modelu 1 m wskazane przez skorowidz WFS
+oraz model Copernicus 30 m. Dla każdej udanej odpowiedzi liczy spadek, kierunek spadku i najniższy punkt działki,
+żeby dało się porównać źródła. Zapytania WCS idą równolegle. Trwa do 15 minut; pobiera około 400 MB.
+
+```bash
+docker run --rm -e PROBE_HOST="$(hostname)" -v "$PWD":/work -w /work python:3.12 \
+  sh -c "pip install -q --root-user-action=ignore rasterio==1.5.2 && python scripts/probes/terrain_probe.py"
+```
+
+Wynik: `terrain-probe-<host>-<czas UTC>.json`. Plik powstaje także wtedy, gdy część zapytań się nie uda
+albo program zostanie przerwany (`Ctrl-C`).
+
+| Co | Źródło | Warunki wykorzystania |
+|---|---|---|
+| Numeryczny model terenu 1 m, usługi WCS | GUGiK, `https://mapy.geoportal.gov.pl/wss/service/PZGIK/NMT/GRID1/WCS/DigitalTerrainModelFormatTIFF` i `.../DigitalTerrainModel` | bezpłatnie, bez konta; dane NMT „dostępne bezpłatnie i możliwe do dowolnego wykorzystania" (geoportal.gov.pl) |
+| Wysokość punktów z numerycznego modelu terenu | GUGiK, `https://services.gugik.gov.pl/nmt/` | bezpłatnie, bez konta |
+| Arkusze numerycznego modelu terenu i ich skorowidz | GUGiK, skorowidz WFS `https://mapy.geoportal.gov.pl/wss/service/PZGIK/NumerycznyModelTerenuEVRF2007/WFS/Skorowidze`, pliki `https://opendata.geoportal.gov.pl/NumDaneWys/NMT/` | bezpłatnie, bez konta |
+| Copernicus DEM GLO-30 | zasób AWS Open Data `copernicus-dem-30m`, adres pliku z katalogu Element 84 Earth Search (kolekcja `cop-dem-glo-30`) | bezpłatnie; wymagana informacja: „© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved" |
+| Biblioteka Rasterio (z NumPy) | odczyt rastrów i przeliczenia współrzędnych | BSD-3-Clause |
