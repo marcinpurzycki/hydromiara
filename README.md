@@ -11,9 +11,9 @@ oraz przedstawia rekomendacje retencyjne, agrotechniczne i nawodnieniowe uzasadn
 | Zadanie | KOWR: „Zatrzymaj wodę, chroń plony – Inteligentne wsparcie gospodarowania wodą w rolnictwie" |
 | Tytuł rozwiązania | Hydromiara |
 | Zespół | Pair Pressure |
-| Stan | prototyp w budowie |
-| Działająca wersja | do uzupełnienia przed zgłoszeniem: adres wdrożenia |
-| Prezentacja (PDF), film, raporty wygenerowane przez prototyp | do uzupełnienia przed zgłoszeniem: gdzie się znajdują |
+| Stan | gotowe rozwiązanie zadania konkursowego (stan na 22.11.2026); znane ograniczenia w punkcie 8 |
+| Działająca wersja | adres działającej wersji jest podany w zgłoszeniu na platformie konkursowej |
+| Prezentacja (PDF), film, raporty wygenerowane przez prototyp | przekazane w zgłoszeniu na platformie konkursowej; raport można też wygenerować w działającej wersji i zapisać jako PDF |
 
 ## Spis treści
 
@@ -31,9 +31,6 @@ Dokumentacja jest ułożona według dziewięciu punktów wymaganych w zadaniu (r
 
 Poza dziewięcioma punktami: [Skalowanie](#skalowanie), [Bezpieczeństwo i dane osobowe](#bezpieczeństwo-i-dane-osobowe).
 Szczegółowy opis metody: [docs/metoda.md](docs/metoda.md).
-
-Miejsca oznaczone „do uzupełnienia przed zgłoszeniem” opisują to, czego w chwili pisania nie da się jeszcze podać
-(wyników, pomiarów albo części budowanych osobno); nic w nich nie jest założone z góry.
 
 ## 1. Instrukcja uruchomienia rozwiązania
 
@@ -175,9 +172,9 @@ Traefik, sieć `proxy`, wolumen z raportami i plik `.env` zostają. Wolumen z ra
 **Testy skryptu** (bez sieci, bez Dockera i bez uprawnień roota; polecenia systemowe zastąpione atrapami):
 `scripts/deploy/tests/run.sh`. Kontrola składni: `shellcheck -x scripts/deploy.sh scripts/deploy/tests/run.sh`.
 
-Nie sprawdzono (do sprawdzenia przez człowieka na czystej maszynie wirtualnej z systemem Debian albo Ubuntu
-i z domeną): instalacji Dockera przez skrypt, uruchomienia własnego Traefika z wystawieniem certyfikatu
-Let's Encrypt oraz pełnego przebiegu pod domeną. Nagłówka HSTS skrypt nie ustawia (należy do konfiguracji Traefika).
+Wdrożenie zweryfikowano 22.11.2026 na serwerze z systemem Debian 13 i działającym Traefikiem: aplikacja działa
+pod domeną z certyfikatem i jest dostępna do oceny (adres w zgłoszeniu). Nagłówka HSTS skrypt nie ustawia
+(należy do konfiguracji Traefika).
 
 ### Konfiguracja
 
@@ -312,7 +309,8 @@ Raport przykładowy `/api/reports/demo` i trasy wywołane dla niego odpowiadają
   telefonie) i od razu go pobiera; plik jest obrazem Raportu, więc tekstu nie da się w nim zaznaczyć.
 - **Historia upraw i Symulacja** otwierają się z Raportu; zapisanie Historii tworzy nowy Raport pod nowym adresem.
 
-Do uzupełnienia przed zgłoszeniem: sześć Przykładów podpowiadanych w aplikacji (dziś dane zastępcze).
+Sześć Przykładów podpowiadanych w aplikacji (trzy z niedoborem, trzy bez) wybrano z wyników testu wstecznego
+(punkt 9); Przykład tylko wypełnia formularz, a raport zawsze powstaje z danych pobranych w trakcie analizy.
 
 ## 3. Skrócony opis architektury rozwiązania
 
@@ -509,13 +507,33 @@ git log --format='%(trailers:key=Implementation,valueonly)' | grep -v '^$' | sor
 git log --format='%(trailers:key=Assisted-by,valueonly)' | grep -v '^$' | sort | uniq -c
 ```
 
-Stan gałęzi `main` na 22.11.2026 (przed dołączeniem ostatnich zmian): 55 commitów (29 zmian i 26 scaleń), wszystkie
-`Authorship: mixed` i `Implementation: agent`, wszystkie `Assisted-by: Claude Code:claude-fable-5-2` (narzędzie
-Claude Code firmy Anthropic).
+Stan gałęzi `main` na 22.11.2026 (przed zmianą, która wpisała te liczby): 106 commitów (58 zmian i 48 scaleń),
+wszystkie `Authorship: mixed` i `Implementation: agent`; `Assisted-by`: 103 × `Claude Code:claude-fable-5-2`,
+3 × `Claude Code:claude-sonnet-5-5` (narzędzie Claude Code firmy Anthropic).
 
-Do uzupełnienia przed zgłoszeniem: liczby na dzień zgłoszenia (te same polecenia), pełny wykaz narzędzi i modeli AI
-użytych przez zespół (także przy stronie dla rolnika, badaniu źródeł i materiałach prezentacyjnych) z zakresem
-użycia oraz ich warunki korzystania.
+Narzędzia i modele AI użyte przez zespół:
+
+| Narzędzie | Modele |
+|---|---|
+| Claude Code (Anthropic) | `claude-fable-5-2`, `claude-sonnet-5-5` |
+| Claude Design (Anthropic) | — |
+| Codex (OpenAI) | GPT 6.2 Astra, `gpt-5.6-luna` |
+| GPT (OpenAI) | GPT 6.2 Astra, `gpt-5.6-luna` |
+| Model językowy w działającej aplikacji | wybierany w konfiguracji wdrożenia (`OPENAI_MODEL`) |
+
+Zakres użycia, zawsze pod nadzorem i według decyzji operatora:
+
+- wspomaganie w projekcie interfejsu graficznego;
+- analizy materiałów naukowych wybranych przez operatora;
+- wspomaganie operatora w decyzjach o doborze algorytmów;
+- testy i obliczenia według projektu operatora;
+- wspomaganie operatora w planowaniu wdrożenia;
+- pisanie kodu według projektu (każda zmiana w tym repozytorium jest oznaczona w stopkach commitów; wszystkie
+  wykonano narzędziem Claude Code);
+- wspomaganie operatora przy przygotowaniu materiałów promocyjnych;
+- w działającej aplikacji: wyłącznie krótkie podsumowanie raportu, z kontrolą i wyjściem na szablon (opis niżej).
+
+Warunki korzystania z tych narzędzi wynikają z umów zespołu z ich dostawcami (Anthropic, OpenAI).
 
 ### AI w działaniu aplikacji: podsumowanie raportu
 
@@ -599,12 +617,13 @@ Obserwacje satelitarne: zawiera zmodyfikowane dane Copernicus Sentinel (2015–2
 Skrót dwóch instrukcji: [wdrożenie pokazowe (demo)](docs/wdrozenie-pokazowe.md) i
 [wdrożenie pełnoskalowe](docs/wdrozenie-pelnoskalowe.md). W każdej jest rozdział o licencjach z adresem strony
 warunków i datą odczytu dla każdego stwierdzenia (strony odczytane 21–22.11.2026). Tabela streszcza strony
-dostawców i nie jest poradą prawną; „do sprawdzenia” oznacza „do sprawdzenia przez człowieka przed wdrożeniem”.
+dostawców i nie jest poradą prawną; „do sprawdzenia” oznacza „do potwierdzenia przed wdrożeniem produkcyjnym”; nie dotyczy to wersji pokazowej.
+Wersja pokazowa na potrzeby konkursu jest użyciem niekomercyjnym (ustalenie zespołu).
 
 | Usługa | Wersja demo | Wersja pełnoskalowa |
 |---|---|---|
 | ULDK (GUGiK), działki | bezpłatnie, bez konta i klucza; 200 zapytań na minutę w godz. 6–18, 40 poza nimi, 10 000 na dobę na adres IP; wymagane podanie źródła | bezpłatnie także w aplikacji komercyjnej, bez umowy; adresy serwerów można bezpłatnie zgłosić do listy zaufanej bez limitów; wymagane podanie źródła |
-| Open-Meteo, archiwum pogodowe | bezpłatnie tylko niekomercyjnie, bez klucza; 600 zapytań na minutę, 5000 na godzinę, 10 000 na dobę na adres IP (około 56 analiz na godzinę); dane CC BY 4.0, wymagane podanie źródła | przy użyciu komercyjnym lub większym ruchu płatna subskrypcja z kluczem (archiwum od planu Professional) albo własna instalacja serwera (AGPLv3); aplikacja klucza jeszcze nie obsługuje; cena i kwalifikacja użycia: do sprawdzenia |
+| Open-Meteo, archiwum pogodowe | bezpłatnie tylko niekomercyjnie, bez klucza; 600 zapytań na minutę, 5000 na godzinę, 10 000 na dobę na adres IP, liczone kosztem zapytania (około 85 analiz na godzinę i 170 na dobę); dane CC BY 4.0, wymagane podanie źródła | przy użyciu komercyjnym lub większym ruchu płatna subskrypcja z kluczem (archiwum od planu Professional) albo własna instalacja serwera (AGPLv3); aplikacja klucza jeszcze nie obsługuje; cena i kwalifikacja użycia: do sprawdzenia |
 | SoilGrids 2.0 (ISRIC), gleba | dane CC BY 4.0, bez konta i klucza; usługa REST w fazie beta, bez gwarancji, 5 zapytań na minutę | ta sama licencja; usługa REST nie nadaje się na podstawę usługi stałej (dostawca zaleca WebDAV lub usługi sieciowe); limit usługi WCS nieopisany |
 | European Drought Observatory, wskaźnik CDI (pliki lokalne) | bezpłatny dostęp, bez konta; wymagana nota o źródle (Copernicus Emergency Management Service) | te same warunki; licencja CC BY 4.0 |
 | Copernicus DEM GLO-30 (rejestr otwartych danych AWS) | bezpłatnie na warunkach licencji Copernicus DEM, bez konta; wymagana nota o prawach autorskich | te same warunki; limitów nie podano |
@@ -613,15 +632,21 @@ dostawców i nie jest poradą prawną; „do sprawdzenia” oznacza „do sprawd
 | Earth Search (Element 84; usługa zapasowa i katalog arkuszy terenu) | publiczny interfejs bezpłatny w użyciu, bez klucza i bez gwarancji usługi; limity nieopisane | przy użyciu produkcyjnym dostawca odsyła do kontaktu; warunki i cennik: do sprawdzenia |
 | Usługa modelu językowego (opcjonalna) | konto, klucz i opłaty według cennika wybranego dostawcy; aplikacja działa w pełni bez niej | jak w demo; umowa, limity i zasady przetwarzania danych u dostawcy: do sprawdzenia |
 | Let's Encrypt (certyfikat TLS) | bezpłatnie, konto na adres e-mail administratora; do 50 certyfikatów na domenę w 7 dni | te same warunki |
-| Po podłączeniu: BDOT10k (GUGiK), wody | bezpłatnie na podstawie ustawy, bez konta; limity nieopublikowane | kopia lokalna całego kraju; dokument licencji plików: do sprawdzenia |
-| Po podłączeniu: usługa wysokości punktów GUGiK (model terenu 1 m) | dane NMT bezpłatne i do dowolnego wykorzystania; bez konta; limity usługi nieopisane | limity i warunki usługi przy stałym ruchu: do sprawdzenia |
-| Po podłączeniu: mapa kategorii podatności gleb na suszę (IUNG-PIB) | usługa publiczna i bezpłatna; licencji ani regulaminu nie opublikowano; pojedyncze odczyty z podaniem źródła | wymagane zapytanie do IUNG-PIB o zgodę i warunki ponownego wykorzystania: do sprawdzenia |
-| Po podłączeniu: SoilGrids przez usługę WCS (ISRIC) | dane CC BY 4.0, bez konta; limit nieopisany | ta sama licencja; przy stałym ruchu własna kopia map |
+| BDOT10k (GUGiK), wody | bezpłatnie na podstawie ustawy, bez konta; limity nieopublikowane | kopia lokalna całego kraju; dokument licencji plików: do sprawdzenia |
+| Usługa wysokości punktów GUGiK (model terenu 1 m) | dane NMT bezpłatne i do dowolnego wykorzystania; bez konta; limity usługi nieopisane | limity i warunki usługi przy stałym ruchu: do sprawdzenia |
+| Mapa kategorii podatności gleb na suszę (IUNG-PIB) | usługa publiczna i bezpłatna; licencji ani regulaminu nie opublikowano; pojedyncze odczyty z podaniem źródła | wymagane zapytanie do IUNG-PIB o zgodę i warunki ponownego wykorzystania: do sprawdzenia |
+| SoilGrids przez usługę WCS (ISRIC) | dane CC BY 4.0, bez konta; limit nieopisany | ta sama licencja; przy stałym ruchu własna kopia map |
 
 Tło suszowe: wygenerowano z użyciem informacji usługi Copernicus Emergency Management Service (2016–2026)
 (Generated using Copernicus Emergency Management Service information 2016–2026).
 
-Do uzupełnienia przed zgłoszeniem: licencja kodu rozwiązania.
+**Kod rozwiązania.** Kod i dokumentacja w tym repozytorium nie są udostępnione na licencji otwartej: prawa autorskie
+przysługują członkom zespołu, a repozytorium pozostaje prywatne. Regulamin zadania konkursowego nie wymaga licencji
+otwartej dla kodu rozwiązania; przewiduje, że zwycięski zespół nieodpłatnie przenosi na KOWR autorskie prawa majątkowe
+do rozwiązania (kod źródłowy i dokumentacja) umową według wzoru z regulaminu (§ 5) i do przekazania utrzymuje
+repozytorium jako niepubliczne. Biblioteki i dane użyte w rozwiązaniu mają licencje wymienione wyżej; zgodnie
+z § 2 ust. 10 regulaminu muszą one pozwalać KOWR na korzystanie z rozwiązania, co przy wdrożeniu trzeba potwierdzić
+dla pozycji oznaczonych „do sprawdzenia”.
 
 ## 8. Opis znanych ograniczeń technicznych rozwiązania
 
@@ -744,11 +769,8 @@ Technika:
   (nie ma kolejki).
 - Postęp analizy nie podaje powodu niepowodzenia (jest w odpowiedzi `GET /api/reports/{report_id}`).
 - Raport z danymi źródłowymi zajmuje około 350 kB (głównie seria pogodowa); każdy raport pochodny to kolejny zapis.
-- Nie sprawdzono: działania pod domeną na serwerze docelowym za Traefikiem, pracy pod obciążeniem wieloma
-  analizami naraz, czasów z serwera docelowego dla całej analizy.
-
-Do uzupełnienia przed zgłoszeniem: ograniczenia strony dla rolnika; aktualizacja tej listy po rozszerzeniu
-katalogu Rekomendacji oraz po podłączeniu kolejnych źródeł.
+- Usługa nie była mierzona pod obciążeniem wieloma analizami naraz (limit to 4 analizy jednocześnie); czasy
+  pojedynczych analiz z serwera podaje rozdział „Skalowanie”.
 
 ## 9. Informacja o sposobie weryfikacji wygenerowanych wyników lub rekomendacji
 
@@ -775,9 +797,20 @@ katalogu Rekomendacji oraz po podłączeniu kolejnych źródeł.
 - **Podsumowanie modelu językowego** jest przyjmowane tylko po kontroli liczb, dat i sformułowań względem Raportu
   (punkt 6); inaczej Raport dostaje podsumowanie z szablonu.
 
-Do uzupełnienia przed zgłoszeniem: tabela wyników testu wstecznego (działki z różnych regionów, daty z lat suchych
-i mokrych: werdykt, klasa CDI, zgodność, czas), porównanie z niezależnymi danymi o suszy rolniczej, jeśli da się
-je pozyskać, oraz sześć Przykładów wybranych z tych wyników (trzy z niedoborem, trzy bez).
+**Wynik testu wstecznego** (22.11.2026, z serwera wersji pokazowej; 43 analizy pszenicy ozimej na 16 działkach
+z 16 województw; pełna tabela i opis: [docs/test-wsteczny.md](docs/test-wsteczny.md), plik wejściowy:
+`scripts/examples/backtest_parcels.csv`):
+
+- wszystkie 43 analizy zakończyły się raportem w budżecie 30 s (od 6,7 do 13,1 s, mediana 9,8 s);
+- w latach z suszą (19 analiz z 20 czerwca) raport wskazał niedobór w 17, a Sprawdzenie zgodności z niezależnym
+  wskaźnikiem CDI dało „zgodne” w 15;
+- **w latach bez suszy (18 analiz) raport wskazał niedobór w 11**, za każdym razem przy klasie CDI 0, i Sprawdzenie
+  zgodności dało wtedy „rozbieżne”; Podatność wieloletnia wyszła 8–10 lat na 10 w 30 z 43 analiz. Rozwiązanie
+  rozpoznaje lata suche, ale zawyża niedobór w pozostałych; przyczynę (robocza reguła roku z niedoborem i robocze
+  progi) opisuje punkt 8;
+- sześć Przykładów podpowiadanych w aplikacji (trzy z niedoborem, trzy bez) wybrano z tych wyników.
+
+Porównania raportów z danymi Systemu Monitoringu Suszy Rolniczej IUNG-PIB rok po roku nie przeprowadzono.
 
 ## Skalowanie
 
@@ -812,8 +845,11 @@ Aktualizacja danych i czas odpowiedzi:
 - Przy większym ruchu jeden proces z plikiem SQLite nie wystarczy: potrzebna jest wspólna baza (np. PostgreSQL),
   wspólne liczniki limitów i kolejka zadań, żeby uruchomić kilka procesów usługi. Kod jest na to przygotowany
   podziałem: silnik jest czystą funkcją, a pobieranie, przechowywanie i liczenie są rozdzielone.
-- Do uzupełnienia przed zgłoszeniem: czasy analizy i poszczególnych źródeł zmierzone z serwera docelowego
-  (`scripts/measure_sources.py`) oraz decyzja, które dane buforować i jak często je odświeżać.
+- Czasy zmierzone z serwera wersji pokazowej (22.11.2026, 43 analizy testu wstecznego, mediana i największa
+  wartość): cała analiza 9,8 s i 13,1 s; działka 0,4 s i 5,2 s; pogoda 0,8 s i 1,5 s; gleba 2,5 s i 4,6 s;
+  teren 2,1 s i 4,7 s; satelita 2,4 s i 4,8 s; wody 8,8 s i 12,0 s (najwolniejsze źródło, limit 12 s; w 7 z 43
+  analiz bez danych); tło suszowe 0,8 s i 2,9 s. Buforowania wyników źródeł i kopii lokalnych pogody oraz wód
+  ta wersja nie ma: każda analiza pobiera dane od nowa.
 
 Koszty infrastruktury:
 
@@ -822,8 +858,10 @@ Koszty infrastruktury:
 - Przy rozwoju pojawią się: płatny plan usługi pogodowej (wymagany także przy użyciu komercyjnym), płatny plan
   usług satelitarnych z gwarancją dostępności, opłaty za model językowy (jedno krótkie zapytanie na analizę),
   większy serwer albo kilka serwerów, baza danych i miejsce na buforowane dane.
-- Do uzupełnienia przed zgłoszeniem: szacunek kosztów miesięcznych dla przyjętej liczby analiz i możliwe
-  alternatywy dla usług płatnych (kwoty z aktualnych cenników dostawców).
+- Wersja pokazowa korzysta wyłącznie z bezpłatnych dostępów do danych; jej kosztem jest serwer (2 CPU, 4 GB RAM)
+  i opcjonalnie opłaty za model językowy. Kwot dla wersji pełnoskalowej nie szacowano: składniki do wyceny
+  (płatny dostęp do pogody i danych satelitarnych, serwer, model językowy) wymienia
+  [docs/wdrozenie-pelnoskalowe.md](docs/wdrozenie-pelnoskalowe.md).
 
 Kierunek rozwoju: analiza gospodarstwa z wieloma działkami (dziś jedna analiza dotyczy jednej Działki).
 

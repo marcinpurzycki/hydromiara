@@ -12,7 +12,7 @@ w [README](../README.md).
   uruchomił w tej postaci.
 
 Rozdział 6 streszcza warunki korzystania z usług zewnętrznych na podstawie stron ich dostawców, z adresem i datą
-odczytu. Nie jest poradą prawną. Miejsca oznaczone **„do sprawdzenia przez człowieka przed wdrożeniem”** trzeba
+odczytu. Nie jest poradą prawną. Miejsca oznaczone **„do potwierdzenia przed wdrożeniem produkcyjnym”** trzeba
 rozstrzygnąć przed uruchomieniem usługi; ich zestawienie jest w rozdziale 7. Dokument nie podaje żadnych kwot:
 ceny trzeba odczytać z aktualnych cenników dostawców.
 
@@ -52,7 +52,7 @@ wskazuje własną instalację jako drogę dla bardzo dużej liczby zapytań.
    z nich i pyta wyłącznie adres bezpłatny.
 4. Niezależnie od planu wprowadzić kopię lokalną serii pogodowych (rozdział 3).
 
-**Do sprawdzenia przez człowieka przed wdrożeniem:** aktualna cena i limity planu płatnego
+**Do potwierdzenia przed wdrożeniem produkcyjnym:** aktualna cena i limity planu płatnego
 (`https://open-meteo.com/en/pricing`) oraz warunki użycia komercyjnego (`https://open-meteo.com/en/terms`);
 licencja i wymagania własnej instalacji (AGPLv3) oraz licencje danych źródłowych, które trzeba by wtedy pobierać
 samodzielnie.
@@ -74,7 +74,7 @@ Sentinel-2 mają dostęp bezpłatny, pełny i otwarty niezależnie od usługi.
 2. Dodać w adapterze przekazywanie klucza dostępu; obecna wersja klucza nie obsługuje.
 3. Do tego czasu jedyną ochroną przed niedostępnością pozostaje druga, wymienna usługa.
 
-**Do sprawdzenia przez człowieka przed wdrożeniem:** warunki korzystania z Planetary Computer (strony
+**Do potwierdzenia przed wdrożeniem produkcyjnym:** warunki korzystania z Planetary Computer (strony
 `https://planetarycomputer.microsoft.com/terms` nie dało się odczytać automatycznie), istnienie, warunki i cennik
 płatnego lub gwarantowanego dostępu u obu dostawców (nie odczytano żadnego), sposób uzyskania klucza subskrypcji
 Planetary Computer i limity, które on daje.
@@ -102,7 +102,7 @@ podatności gleb na suszę z usługi mapowej IUNG-PIB (około 1 s) i SoilGrids p
 ogniwo podstawowe i SoilGrids WCS jako zamiennik; rozważyć własną kopię map SoilGrids (licencja CC BY 4.0 na to
 pozwala przy podaniu źródła), bo wartości dla raz analizowanego miejsca się nie zmieniają.
 
-**Do sprawdzenia przez człowieka przed wdrożeniem:** warunki ponownego wykorzystania usługi IUNG-PIB. Instytut nie
+**Do potwierdzenia przed wdrożeniem produkcyjnym:** warunki ponownego wykorzystania usługi IUNG-PIB. Instytut nie
 publikuje licencji ani regulaminu tej usługi, więc przed wdrożeniem trzeba wysłać do IUNG-PIB zapytanie o zgodę
 i warunki (kontakt na stronie `https://susza.iung.pulawy.pl/mapa-kategorii/`).
 
@@ -114,11 +114,11 @@ zapytań zwracała same zera i nie ma opisanych limitów. Odczyt danych o wodach
 a serwer plików zrywał część połączeń równoległych; kopia całego kraju (cztery pliki, około 560 MB) odpowiadała
 w około 1 ms.
 
-**Zalecenie niesprawdzone.** Po podłączeniu tych źródeł: dane o wodach czytać z kopii lokalnej odświeżanej raz
+**Zalecenie niesprawdzone.** Dane o wodach czytać z kopii lokalnej odświeżanej raz
 na tydzień, a pliki do kopii pobierać po kolei, nie równolegle; arkusze modelu terenu dla raz analizowanego
 miejsca zapisywać lokalnie.
 
-**Do sprawdzenia przez człowieka przed wdrożeniem:** limity i warunki usługi wysokości punktów GUGiK, dokument
+**Do potwierdzenia przed wdrożeniem produkcyjnym:** limity i warunki usługi wysokości punktów GUGiK, dokument
 licencji i wymagany zapis źródła dla plików BDOT10k, zasady korzystania z publicznego serwera Overpass (jeśli
 zostanie użyty jako zamiennik; przy stałym ruchu właściwa jest własna instalacja).
 
@@ -142,7 +142,7 @@ Identyfikatora działki, nazw miejsc ani współrzędnych. Na maszynie deweloper
 i z limitami dopasowanymi do liczby analiz; rozważyć model uruchamiany we własnej infrastrukturze (interfejs jest
 wymienny przez `AI_BASE_URL`).
 
-**Do sprawdzenia przez człowieka przed wdrożeniem:** warunki korzystania, cennik, limity oraz zasady przetwarzania
+**Do potwierdzenia przed wdrożeniem produkcyjnym:** warunki korzystania, cennik, limity oraz zasady przetwarzania
 i przechowywania danych u wybranego dostawcy.
 
 ## 3. Buforowanie i kopie lokalne
@@ -252,7 +252,8 @@ Wymagane noty o pochodzeniu danych są w README, punkt 7, i nie zmieniają się 
   w planie płatnym.
 - Źródła: `https://open-meteo.com/en/terms`, `https://open-meteo.com/en/pricing`,
   `https://open-meteo.com/en/licence`.
-- Do sprawdzenia przez człowieka przed wdrożeniem: czy planowana usługa jest użyciem komercyjnym; aktualna cena
+- Wersja pokazowa na potrzeby konkursu jest użyciem niekomercyjnym (ustalenie zespołu). Do potwierdzenia przed wdrożeniem
+  produkcyjnym: czy usługa prowadzona przez instytucję jest użyciem komercyjnym; aktualna cena
   i warunki subskrypcji.
 
 **SoilGrids 2.0 (ISRIC – World Soil Information), gleba**
@@ -308,7 +309,7 @@ Wymagane noty o pochodzeniu danych są w README, punkt 7, i nie zmieniają się 
 - Limity: bez podanych liczb; zależą od regionu Azure i klucza. Gwarancji dostępności dokumentacja nie opisuje.
 - Źródło: `https://github.com/microsoft/PlanetaryComputerDataCatalog` (plik `docs/concepts/sas.md`; repozytorium
   zarchiwizowane, treść może być nieaktualna).
-- Do sprawdzenia przez człowieka przed wdrożeniem: warunki korzystania (`https://planetarycomputer.microsoft.com/terms`),
+- Do potwierdzenia przed wdrożeniem produkcyjnym: warunki korzystania (`https://planetarycomputer.microsoft.com/terms`),
   dopuszczalność stałego użycia produkcyjnego, sposób uzyskania klucza, istnienie, warunki i cennik dostępu
   płatnego lub gwarantowanego.
 
@@ -320,7 +321,7 @@ Wymagane noty o pochodzeniu danych są w README, punkt 7, i nie zmieniają się 
 - Limity: nieopisane.
 - Źródła: `https://github.com/Element84/earth-search` (plik `README.md`),
   `https://registry.opendata.aws/sentinel-2-l2a-cogs/`.
-- Do sprawdzenia przez człowieka przed wdrożeniem: warunki korzystania z publicznego interfejsu (dokumentu nie
+- Do potwierdzenia przed wdrożeniem produkcyjnym: warunki korzystania z publicznego interfejsu (dokumentu nie
   znaleziono), warunki i cennik oferty dla użycia produkcyjnego.
 
 **Usługa modelu językowego (opcjonalna)**
@@ -328,7 +329,7 @@ Wymagane noty o pochodzeniu danych są w README, punkt 7, i nie zmieniają się 
 - Co wolno: zależy od dostawcy wybranego przy wdrożeniu; repozytorium nie wskazuje dostawcy ani modelu.
 - Klucz, konto, płatny plan: konto, klucz i opłaty według cennika dostawcy; jedno krótkie zapytanie na analizę.
 - Limity: według planu u dostawcy; przekroczenie kończy się podsumowaniem z szablonu, nie błędem analizy.
-- Do sprawdzenia przez człowieka przed wdrożeniem: warunki korzystania, cennik, limity, zasady przetwarzania
+- Do potwierdzenia przed wdrożeniem produkcyjnym: warunki korzystania, cennik, limity, zasady przetwarzania
   i przechowywania danych oraz miejsce przetwarzania u wybranego dostawcy.
 
 **Let's Encrypt (certyfikat TLS, przez Traefika)**
@@ -341,34 +342,35 @@ Wymagane noty o pochodzeniu danych są w README, punkt 7, i nie zmieniają się 
 - Zalecenie niesprawdzone: instytucja może wymagać certyfikatu z własnego urzędu certyfikacji; wtedy konfigurację
   Traefika trzeba zmienić poza skryptem wdrożenia.
 
-### Usługi, które obowiązują po podłączeniu
+### Pozostałe źródła
 
-Aplikacja jeszcze z nich nie korzysta; wdrożenie pełnoskalowe będzie ich potrzebować (rozdział 2).
+Źródła podłączone 22.11.2026 (wody, teren 1 m, gleba z mapy IUNG-PIB i z usługi WCS) oraz jedno przewidziane,
+ale niepodłączone (OpenStreetMap przez usługę Overpass).
 
-- **BDOT10k (GUGiK), cieki, rowy i zbiorniki** (po podłączeniu): zbiory udostępniane bez opłat na podstawie ustawy
+- **BDOT10k (GUGiK), cieki, rowy i zbiorniki** (podłączone): zbiory udostępniane bez opłat na podstawie ustawy
   Prawo geodezyjne i kartograficzne (art. 40a ust. 2 pkt 1 lit. h); bez konta i klucza; podawane źródło: „BDOT10k,
   Główny Urząd Geodezji i Kartografii”. Usługa przeglądania BDOT10k zastrzega w swoim opisie zakaz automatycznego
   pobierania i gromadzenia informacji, dlatego dane trzeba brać z plików do pobrania, nie z usługi przeglądania
-  (odczyt 21.11.2026). Do sprawdzenia przez człowieka przed wdrożeniem: dokument licencji i wymagany zapis źródła
+  (odczyt 21.11.2026). Do potwierdzenia przed wdrożeniem produkcyjnym: dokument licencji i wymagany zapis źródła
   dla plików do pobrania; częstotliwość ich aktualizacji.
-- **OpenStreetMap przez usługę Overpass** (po podłączeniu): dane na licencji ODbL 1.0 z wymaganym podaniem źródła
-  „© autorzy OpenStreetMap” (odpowiedź serwera, odczyt 21.11.2026). Do sprawdzenia przez człowieka przed
-  wdrożeniem: zasady korzystania z publicznego serwera Overpass i obowiązki wynikające z ODbL dla danych
+- **OpenStreetMap przez usługę Overpass** (niepodłączone): dane na licencji ODbL 1.0 z wymaganym podaniem źródła
+  „© autorzy OpenStreetMap” (odpowiedź serwera, odczyt 21.11.2026). Do potwierdzenia przed wdrożeniem
+  produkcyjnym: zasady korzystania z publicznego serwera Overpass i obowiązki wynikające z ODbL dla danych
   zapisywanych w Raporcie (tekstu licencji nie analizowano).
-- **Usługa wysokości punktów GUGiK (numeryczny model terenu 1 m)** (po podłączeniu): „Dane NMT są dostępne
+- **Usługa wysokości punktów GUGiK (numeryczny model terenu 1 m)** (podłączone): „Dane NMT są dostępne
   bezpłatnie i możliwe do dowolnego wykorzystania” (`https://www.geoportal.gov.pl/pl/dane/numeryczny-model-terenu-nmt/`);
   bez konta i klucza. Strona usługi (`https://services.gugik.gov.pl/nmt/`) nie podaje limitów ani warunków.
-  Do sprawdzenia przez człowieka przed wdrożeniem: limity i warunki usługi przy stałym ruchu; alternatywą są
+  Do potwierdzenia przed wdrożeniem produkcyjnym: limity i warunki usługi przy stałym ruchu; alternatywą są
   arkusze modelu pobrane na własny dysk.
-- **Mapa kategorii podatności gleb na suszę, usługa mapowa IUNG-PIB** (po podłączeniu): usługa publiczna
+- **Mapa kategorii podatności gleb na suszę, usługa mapowa IUNG-PIB** (podłączone): usługa publiczna
   i bezpłatna; licencji ani regulaminu nie opublikowano (odczyt 21.11.2026 i 22.11.2026). Wymagany krok przed
   wdrożeniem: zapytanie do IUNG-PIB o zgodę na stałe, automatyczne korzystanie z usługi i o warunki ponownego
   wykorzystania danych. Podawane źródło: „Kategorie podatności gleb na suszę: IUNG-PIB, System Monitoringu Suszy
   Rolniczej, opracowanie na zlecenie Ministerstwa Rolnictwa i Rozwoju Wsi”.
-- **SoilGrids przez usługę WCS (ISRIC)** (po podłączeniu): licencja CC BY 4.0 jak wyżej; limitu zapytań
+- **SoilGrids przez usługę WCS (ISRIC)** (podłączone): licencja CC BY 4.0 jak wyżej; limitu zapytań
   dokumentacja nie podaje; przy stałym ruchu rozważyć własną kopię map.
 
-## 7. Przegląd prawny i zestawienie pozycji do sprawdzenia przez człowieka przed wdrożeniem
+## 7. Przegląd prawny i zestawienie pozycji do potwierdzenia przed wdrożeniem produkcyjnym
 
 Ten dokument streszcza strony dostawców i nie zastępuje oceny prawnej. Przed uruchomieniem usługi człowiek
 powinien rozstrzygnąć:
@@ -392,6 +394,6 @@ powinien rozstrzygnąć:
     z punktów 2, 3 i 7.
 10. **Licencja kodu rozwiązania** i prawa do korzystania z niego przez instytucję wdrażającą.
 
-Do sprawdzenia technicznego przed wdrożeniem (nie wykonano): pełny przebieg skryptu wdrożenia na czystym serwerze
-z domeną, praca usługi w wielu procesach po zmianach z rozdziału 4, zachowanie przy więcej niż trzech analizach
+Do sprawdzenia technicznego przed wdrożeniem pełnoskalowym: przebieg skryptu wdrożenia na nowym serwerze
+(z instalacją Dockera i własnym Traefikiem), praca usługi w wielu procesach po zmianach z rozdziału 4, zachowanie przy więcej niż trzech analizach
 jednocześnie, zachowanie źródeł po przekroczeniu limitów, odtworzenie bazy z kopii zapasowej.
