@@ -36,8 +36,8 @@ gleba 24 s, teren i satelita po 17 s, tło suszowe 5 s; żadne źródło poza po
 przed końcem czasu na pobieranie. Usługa gleby odpowiada wolno (zmierzone 11–35 s), więc część analiz kończy się
 bez gleby. Dane o wodach (cieki, rowy, zbiorniki) nie są jeszcze pobierane: w postępie analizy to źródło ma stan
 `missing`. Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego pozycji jest stała); jest na liście
-źródeł raportu. Części raportu, których jeszcze nie liczy żaden moduł (nawadnianie,
-podsumowanie), są w nim opisane wprost jako nieocenione.
+źródeł raportu. Część raportu, której jeszcze nie liczy żaden moduł (podsumowanie), jest w nim opisana
+wprost jako nieoceniona.
 Lista upraw, przykłady, symulacja i raport pochodny odpowiadają na obecnym etapie danymi przykładowymi (atrapą)
 i działają tylko dla raportu przykładowego `/api/reports/demo`. Analiza na Okres krytyczny
 (`POST /api/reports/{report_id}/critical-period`) jest prawdziwa; dla raportu przykładowego odpowiada atrapą.
@@ -145,8 +145,21 @@ nigdy nie podają wymiarów, kosztów ani parametrów budowli. Katalog zawiera n
 grupę; ich treść opiera się na treści zadania konkursowego i materiale „Podstawy naukowe” organizatora, a nie na
 publikacjach źródłowych, więc wszystkie są oznaczone jako robocze, podobnie jak progi ich reguł (Stopień niedoboru
 od „lekki niedobór”). Pozycja z grupy nawadnianie nie trafia do sekcji Przyczyn: o nawadnianiu raport mówi w jednym
-miejscu, na końcu, a ta część nie jest jeszcze wyznaczana. Pozycje wymagające danych o wodach nie uruchamiają się,
+miejscu, na końcu (część o nawadnianiu, opisana niżej), a tekst tej pozycji katalogu nie jest w nim pokazywany. Pozycje wymagające danych o wodach nie uruchamiają się,
 dopóki dane o ciekach, rowach i zbiornikach nie są pobierane.
+
+Część raportu o nawadnianiu (`backend/app/engine/irrigation.py`, parametry w `irrigation_params.py`) wynika wyłącznie
+ze stanu bilansu wodnego na Datę analizy, bez prognozy pogody. W sezonie nawadnianie jest zasadne, gdy Bieżąca
+sytuacja wodna wskazuje niedobór (od stopnia „lekki niedobór”; wartość robocza). Zakres podawany jest jako przedział
+w mm i m³ na hektar (1 mm = 10 m³/ha): od ilości, która kończy brak wody (wyczerpanie strefy korzeniowej ponad wodę
+łatwo dostępną), do ilości, która uzupełnia strefę korzeniową do pełna (całe wyczerpanie); granice są zaokrąglane do
+1 mm do wewnątrz przedziału. Podstawa: FAO-56, rozdz. 8, „Forecasting or allocating irrigations” (nawadniać, zanim
+wyczerpie się woda łatwo dostępna; dawka netto nie większa niż wyczerpanie strefy korzeniowej). Są to ilości netto:
+strat przy nawadnianiu, sprawności urządzeń ani dawek jednorazowych raport nie uwzględnia. Tekst jest warunkowy
+(„Jeśli masz możliwość nawadniania…”) i zawiera zdanie, że nawadnianie nie zastępuje zatrzymywania wody. Bez niedoboru
+raport podaje „nie jest teraz zasadne” z wartością bilansu; w spoczynku uprawy ozimej także, bo Stopień niedoboru
+dotyczy wtedy Zapasu wody w glebie; dla Pola bez uprawy część o nawadnianiu ma postać „nie dotyczy”. Gdy pojemność
+wodna gleby jest przyjęta zastępczo, tekst mówi, że podane ilości są mniej pewne.
 
 ## Konfiguracja
 

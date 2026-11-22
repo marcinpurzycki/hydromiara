@@ -73,7 +73,7 @@ def test_parts_without_a_module_are_marked_as_not_assessed():
     assert "Rekomendacji" not in pending.pending_limitation().text
     assert any(cause.recommendations for cause in report.causes)
     assert "Przyczyn niedoboru" not in pending.pending_limitation().text
-    assert report.irrigation.justified is None and report.irrigation.amount_mm is None
+    assert "nawadniania" not in pending.pending_limitation().text
     assert report.summary.source == "template"
     assert report.current_status.reason == pending.REASON_PENDING
     assert report.multiyear_susceptibility.typical_period is None

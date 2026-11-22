@@ -120,7 +120,7 @@ def test_dormant_winter_crop_is_in_season_and_the_store_is_assessed():
     assert current.details["assessment_subject"] == "soil_water_store"
     assert report.headline.startswith("W dniu 15.11.2023 uprawa jest w spoczynku — Zapas wody")
     # In the season: irrigation is not closed with the off-season sentence.
-    assert report.irrigation == pending.pending_irrigation(True)
+    assert report.irrigation.applicable and report.irrigation.justified is False
     assert OFF_SEASON_IRRIGATION not in own_texts(report)
 
 
@@ -150,7 +150,7 @@ def test_in_july_the_level_describes_the_needs_of_the_crop(crop, day, deficit):
     assert current.details["assessment_subject"] == "crop_water_needs"
     assert "soil_water_store_mm" not in current.details
     assert report.season.in_season and report.season.note is None
-    assert report.irrigation == pending.pending_irrigation(True)
+    assert report.irrigation.applicable and report.irrigation.justified is deficit
     assert report.headline.startswith(f"Bieżąca sytuacja wodna na {day:%d.%m.%Y}: ")
 
 
@@ -206,7 +206,7 @@ def test_field_without_a_crop_gets_no_season_and_no_store_wording():
     assert report.season.note == "Pole bez uprawy nie ma Sezonu uprawy."
     assert report.current_status.label == NOT_ASSESSED_LABEL
     assert report.current_status.details["season_state"] == "no_crop"
-    assert report.irrigation == pending.pending_irrigation(False)
+    assert not report.irrigation.applicable and report.irrigation.justified is None
     assert report.trace[3].values["critical_period_analysis_date"] is None
 
 

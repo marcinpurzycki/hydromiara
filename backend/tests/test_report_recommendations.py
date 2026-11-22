@@ -50,7 +50,8 @@ def test_irrigation_is_not_among_the_cause_sections():
     # The triggered entry is kept for the irrigation part of the Report.
     part = causes_part(data, *_assessed(data))
     assert [item.recommendation.id for item in part.irrigation] == [IRRIGATION]
-    assert report.irrigation.justified is None
+    # The irrigation part itself comes from the water balance on the analysis date.
+    assert report.irrigation.justified is True
 
 
 def test_report_without_deficit_has_no_recommendations_and_says_so_once():

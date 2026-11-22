@@ -23,6 +23,7 @@ from app.engine import season_store, season_texts
 from app.engine.assessment import assess_water
 from app.engine.confidence import verdict_confidences
 from app.engine.consistency import check_consistency
+from app.engine.irrigation import assess_irrigation
 from app.engine.limitations import limitations_of, report_findings
 from app.engine.params import DEFAULT_PARAMS, EngineParams
 from app.engine.season import critical_period_date, past_season, season_status
@@ -69,6 +70,7 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
     current = assessment.current_status
     past = past_season(assessment.balance, crop, status) if status.store_assessed else None
     causes = causes_part(source_data, assessment, crop)
+    irrigation = assess_irrigation(assessment, crop, status)
 
     consistency = check_consistency(source_data, assessment, crop, analysis_date)
 
@@ -109,9 +111,7 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
         ),
         historical_course=pending.pending_historical_course(),
         causes=causes.causes,
-        # Outside the season the answer is final; otherwise irrigation is still pending.
-        irrigation=season_texts.off_season_irrigation(crop, status)
-        or pending.pending_irrigation(status.in_season),
+        irrigation=irrigation.section,
         consistency_check=consistency.check,
         sources=sources.report_sources(source_data),
         limitations=limitations_of(findings),
@@ -125,6 +125,7 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
             *verdicts.trace(assessment, params),
             season_texts.trace_entry(status, critical_period_date(crop, analysis_date)),
             *causes.trace,
+            irrigation.trace,
             consistency.trace,
         ],
     )

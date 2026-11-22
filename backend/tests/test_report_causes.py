@@ -82,7 +82,7 @@ def test_terrain_goes_to_the_map_and_the_trace():
         "season.state", "terrain.slope", "causes.gate", "cause.precipitation", "cause.soil",
         "cause.runoff", "cause.crop_demand",
         *(f"recommendation.{entry.id}" for entry in list_recommendations()),
-        "consistency_check.result",
+        "irrigation.need", "consistency_check.result",
     ]
     slope = next(entry for entry in report.trace if entry.rule_id == "terrain.slope")
     assert slope.values["slope_pct"] == 3.0 and slope.values["downhill_azimuth_deg"] == 45
