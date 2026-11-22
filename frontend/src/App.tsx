@@ -20,7 +20,11 @@ function NotFound() {
 
 export function App() {
   const { pathname } = useLocation();
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  // The effect must return nothing: in newer browsers scrollTo returns a Promise,
+  // which React would take for the cleanup and fail to call.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
   return (
     <div className="page">
       <Header />
