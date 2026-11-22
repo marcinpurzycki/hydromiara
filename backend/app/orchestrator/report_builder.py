@@ -84,7 +84,9 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
     susceptibility = assessment.multiyear_susceptibility
     course = historical_course(source_data, assessment, crop, inputs.crop_history, params)
 
-    consistency = check_consistency(source_data, assessment, crop, analysis_date)
+    consistency = check_consistency(
+        source_data, assessment, crop, analysis_date, crop_history=inputs.crop_history
+    )
 
     not_assessed = verdicts.not_assessed_limitation(assessment)
     findings = report_findings(

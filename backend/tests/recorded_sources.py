@@ -20,13 +20,14 @@ from app.sources.satellite import SatelliteSource
 from app.sources.satellite_providers import EARTH_SEARCH
 from app.sources.terrain import TerrainSource
 from app.sources.terrain_copernicus import CopernicusDem30
-from tests.satellite_helpers import SceneFiles, catalogue, scene_id
+from tests.satellite_helpers import DAYS, SceneFiles, catalogue, scene_id
 from tests.soil_helpers import recorded_soil_source
 
 FIXTURES = Path(__file__).parent / "fixtures"
 EDO_DIR = FIXTURES / "edo"
 
-# Days of the recorded catalogue answer that get scene files (June 2023).
+# Days of the recorded catalogue answer that are clear (June 2023); the
+# earlier days of the answer are under cloud.
 SCENE_DAYS = ("20230619", "20230616", "20230614")
 # A piece of an elevation tile around the recorded parcel, on the grid of the
 # product north of 50 degrees: 1.5 arc seconds in longitude, 1 in latitude.
@@ -75,8 +76,8 @@ def recorded_terrain_source(directory: Path, status: int = 200) -> TerrainSource
 def recorded_satellite_source(directory: Path) -> SatelliteSource:
     """One service on the recorded catalogue answer, with clear scenes in June 2023."""
     files = SceneFiles(directory)
-    for day in SCENE_DAYS:
-        files.add(scene_id(day))
+    for day in DAYS:
+        files.add(scene_id(day), scl=4 if day in SCENE_DAYS else 9)
     return SatelliteSource(transport=catalogue(), opener=files.opener, providers=[EARTH_SEARCH])
 
 

@@ -98,7 +98,8 @@ brak danych. Pozostałe wynikają z danych tej analizy: brak kategorii danych, d
 z mniej dokładnego zamiennika (Łańcuch zamienników: źródło podstawowe, zamiennik, brak danych), pojemność wodna gleby
 oszacowana z uziarnienia albo przyjęta zastępczo, dane pogodowe kończące się przed Datą analizy (dla analizy na dzień bieżący: co najmniej 2 dni
 przed nią), dni bez pogody, niepełne Okno wieloletnie.
-Pewność werdyktu obniżają tylko Ograniczenia, które go dotyczą. Reguła jest robocza i nie ma źródła naukowego:
+Pewność werdyktu obniżają tylko Ograniczenia, które go dotyczą (Ograniczenia odczytu satelitarnego opisuje sekcja
+„Odczyt satelitarny”). Reguła jest robocza i nie ma źródła naukowego:
 Ograniczenie liczy się za 1 punkt, pojemność wodna przyjęta zastępczo i wynik „rozbieżne” Sprawdzenia zgodności
 za 2; od 1 punktu Pewność jest średnia, od 3 niska; werdykt bez oceny ma Pewność niską. Wagi i progi są nazwanymi
 parametrami w `backend/app/engine/findings.py`.
@@ -113,11 +114,70 @@ jeszcze trwa, powstaje z późniejszych obserwacji, więc nie jest czytana. Regu
 (nazwane parametry w `backend/app/engine/consistency_params.py`): niedobór to Stopień niedoboru od „lekki niedobór”
 wzwyż; klasy wskaźnika 1–3 (obserwacja, ostrzeżenie, alarm) wskazują suszę, klasa 0 jej nie wskazuje, a klasy 4–6
 (powrót do normy, chwilowa poprawa) nie są zestawiane; wynik jest „zgodne”, gdy oba wskazują to samo. Odczyt
-satelitarny (NDVI, NDMI z najnowszej sceny z 30 dni przed Datą analizy) jest podawany opisowo i nie zmienia wyniku;
+satelitarny jest opisany w pozycjach Sprawdzenia zgodności i nie zmienia jego wyniku (sekcja „Odczyt satelitarny”);
 poza Sezonem uprawy i dla Pola bez uprawy opisuje tylko pokrywę pola. Wynik „rozbieżne” obniża Pewność oceny Bieżącej
 sytuacji wodnej i jest Ograniczeniem raportu; Ograniczeniem jest też brak wartości wskaźnika dla potrzebnej dekady
 (wskaźnik jest dostępny od 2016 r. i ukazuje się z opóźnieniem). Podatność wieloletnia nie jest zestawiana. Werdykt
 bez Stopnia niedoboru (Pole bez uprawy) daje „brak danych” z podaniem powodu.
+
+## Odczyt satelitarny
+
+Źródłem są sceny Sentinel-2 L2A z dwóch wymiennych usług (Planetary Computer, zapasowo Earth Search). Parametry
+z uzasadnieniem są w `backend/app/sources/satellite_params.py` i `backend/app/engine/satellite_reading.py`; pochodzą
+z pomiaru własnego (10 lat scen nad czterema działkami w czterech województwach, odczyt z serwera docelowego)
+i z literatury podanej niżej.
+
+**Które sceny.** Okno bieżące to 30 dni przed Datą analizy i sama data (w pomiarze dla dni kwiecień–wrzesień okno
+30 dni nie miało czystej sceny w 0–3% dni, okno 15 dni w 8–10%); klasyfikacja sceny (SCL) jest czytana dla każdego
+dnia pozyskania, a pasma dla najwyżej 6 najnowszych czystych scen. Dla każdego z 5 poprzednich lat czytane jest okno
+15 dni przed i po tym samym dniu roku i najwyżej 2 czyste sceny najbliższe temu dniu. Razem najwyżej 16 scen
+z pasmami. Żadna scena po Dacie analizy nie jest czytana. Bez filtra zachmurzenia całej sceny: w pomiarze odrzucał
+sceny czyste nad Działką i przepuszczał zakryte. Z kilku kopii jednego dnia używana jest jedna: zawsze ten sam kafel
+(najczęstszy w wynikach, żeby siatka pikseli była stała) i najwyższa wersja przetworzenia. Okna lat poprzednich są
+czytane zawsze, bo Historia upraw może zostać podana później; o tym, które lata wolno porównać, decyduje silnik.
+
+**Przeliczenie na odbicie.** Odbicie = (wartość z pliku + przesunięcie) / 10000; wartość 0 to brak danych.
+Planetary Computer: przesunięcie −1000 od wersji przetworzenia 04.00 (zmiana produktu ESA z 25.01.2022), wcześniej 0.
+Earth Search: 0 dla wersji sprzed 04.00 i dla scen oznaczonych jako już skorygowane; pozostałe sceny są pomijane.
+Scena, w której mediana odbicia pasma nad Działką nie jest dodatnia, jest odrzucana.
+
+**Które piksele.** Obrys Działki jest zmniejszany do wewnątrz o pół piksela: 5 m dla pasm 10 m i 10 m dla pasm 20 m
+(Vajsová i in. 2020, Remote Sens. 12:2195; Sen4CAP, ATBD Parcels Heterogeneity Check); liczą się piksele, których
+środek leży w zmniejszonym obrysie. Piksel czysty ma klasę SCL 4 (roślinność) albo 5 (bez roślinności). Scena jest
+czysta nad Działką, gdy co najmniej 95% pikseli klasyfikacji w obrysie jest czystych (wybór własny: sceny są nad
+Działką prawie zawsze albo w pełni czyste, albo całkiem zakryte, a niższy próg wpuszcza krawędzie chmur). Wskaźnik
+wymaga co najmniej 8 pikseli (Vajsová i in. 2020), osobno na każdej siatce: Działka wąska ma sam NDVI, a zbyt mała
+nie ma odczytu. NDVI = (B08 − B04) / (B08 + B04) na siatce 10 m, NDMI = (B8A − B11) / (B8A + B11) na siatce 20 m;
+wynik sceny to mediana z czystych pikseli.
+
+**Interpretacja** (bez progów bezwzględnych: nie znaleziono zweryfikowanych progów dla upraw polowych).
+
+| Odczyt | Reguła | Kiedy |
+|---|---|---|
+| Pokrywa pola | NDVI i NDMI najnowszej czystej sceny okna bieżącego, opisowo | zawsze, także poza Sezonem uprawy i dla Pola bez uprawy |
+| Kierunek zmiany | najnowsza scena wobec mediany wcześniejszych scen okna; zmiana od 0,10 (w pomiarze czyste sceny odległe o najwyżej 5 dni różniły się o 0,06–0,13 w 90. percentylu); potrzebne co najmniej dwie sceny | tylko w Okresie krytycznym |
+| Porównanie z wcześniejszymi latami | NDMI najnowszej sceny wobec mediany z lat, w których Historia upraw podaje tę samą Uprawę; co najmniej 3 takie lata (wartość robocza) | tylko w Okresie krytycznym i tylko z Historią upraw; lata niepodane w Historii nie są liczone |
+| Zgodność zdjęć z Uprawą | Uprawa ozima, a mediana NDVI scen z kwietnia bieżącego sezonu poniżej 0,4 (wartość robocza, pomiar na jednej działce) | gdy odczytane sceny obejmują kwiecień; daje Ograniczenie raportu dotyczące obu werdyktów |
+
+Kierunek i porównanie są ograniczone do Okresu krytycznego, bo nie ma źródła z datami faz, w których spadek wskaźników
+jest naturalny (dojrzewanie). Rośliny reagują na niedobór wody z opóźnieniem (Hua i in. 2019, Remote Sens. 11:1873:
+30–45 dni; van Hoek i in. 2016, Remote Sens. 8:422: 8–15 dni), dlatego niedobór w bilansie bez spadku wskaźników nie
+jest rozbieżnością. Ślad decyzyjny zapisuje, co odczyt mówi obok bilansu (`satellite_signal`): potwierdza (niedobór
+i istotny spadek NDMI albo NDMI istotnie niższy niż w latach tej samej Uprawy), nie potwierdza, przeczy (brak
+niedoboru i istotny spadek NDMI), bez zastrzeżeń, tylko pokrywa, za mało danych; oraz `satellite_crop_mismatch`.
+Wynik Sprawdzenia zgodności z tych wartości dziś nie korzysta.
+
+Reguły według Uprawy (`backend/app/engine/satellite_crops.py`): zboża i kukurydza: NDMI, a NDVI tylko jako pokrywa,
+bo w zwartym łanie jest nasycony (Jackson i in. 2004, Remote Sens. Environ. 92:475–482); rzepak ozimy: NDMI, bo NDVI
+spada w czasie kwitnienia (d'Andrimont i in. 2020, Remote Sens. Environ. 239:111660); ziemniak i burak cukrowy: NDMI
+tylko opisowo (Vannoppen i Gobin 2022, Water 14:1188); użytki zielone: NDVI i NDMI razem (Bartold i in. 2024, Plants
+13:2319). Uprawa bez wpisu jest tylko opisywana.
+
+**Ograniczenia raportu i Pewność oceny.** Brak czystej sceny w oknie bieżącym to jedno Ograniczenie Bieżącej sytuacji
+wodnej; braki we wszystkich oknach lat poprzednich to razem jedno Ograniczenie (z listą lat i powodów, w tym lat
+sprzed początku archiwum), dzięki czemu odczyt z lukami nie waży więcej niż całkowity brak odczytu. Poza Sezonem uprawy
+odczyt opisuje tylko pokrywę pola i jest Ograniczeniem Bieżącej sytuacji wodnej. Cały etap ma limit 12 s; po jego
+upływie używane są sceny odczytane do tej chwili.
 
 ## Przyczyny niedoboru
 
@@ -242,7 +302,8 @@ wcześniej; wpływu poprzedniej, innej Uprawy na ten zapas raport nie uwzględni
 ocenia (nie ma dla niego reguły Stopnia niedoboru), podobnie roku bez danych pogodowych i roku, w którym Okres
 krytyczny Uprawy zaczyna się po Dacie analizy; taki rok ma w raporcie `deficit = false`, a jego nota zaczyna się od
 „Roku nie oceniono” z powodem. Nota satelitarna podaje datę i wartości najnowszej sceny z danego roku oraz to, czy
-dzień odczytu wypada w Sezonie uprawy Uprawy z tego roku; niczego nie ocenia, a dla lat bez sceny mówi „brak odczytu”.
+dzień odczytu wypada w Sezonie uprawy Uprawy z tego roku; niczego nie ocenia, a dla lat bez sceny mówi „brak odczytu”
+(sceny są czytane dla 5 poprzednich lat, z okresu wokół tego samego dnia roku).
 Historię można podać w trakcie analizy (`PUT /api/analyses/{report_id}/crop-history`, po jej zakończeniu `409`) albo
 później: `POST /api/reports/{report_id}/derive` z `{crop_history}` tworzy nowy raport z danych źródłowych zapisanych
 z raportem źródłowym, bez pobierania czegokolwiek, i odpowiada `201 {report_id}`. Nowy raport ma własny adres i kopię

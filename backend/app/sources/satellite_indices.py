@@ -1,9 +1,16 @@
 """Reading one Sentinel-2 scene over a parcel and computing its indices.
 
 The scene classification is read first and gives the share of clear pixels
-over the parcel. Bands are read only for scenes that pass. The bands come on
-two grids (10 m and 20 m); indices are computed per pixel on the grid of the
-red band, with the 20 m layers sampled at the centres of its pixels.
+over the parcel. Bands are read only for scenes that pass. Each index is
+computed on the grid of its own bands, from clear pixels only, and the value
+of the scene is the median over those pixels:
+
+    NDVI = (B08 - B04) / (B08 + B04)   on the 10 m grid   (Rouse et al., 1974)
+    NDMI = (B8A - B11) / (B8A + B11)   on the 20 m grid   (Gao, 1996)
+
+The parcel outline is shrunk by half a pixel of the grid before pixels are
+counted. An index needs a minimum number of pixels, so a narrow parcel may
+give NDVI alone, or nothing.
 
 Everything here is blocking; the adapter calls it from worker threads.
 """
@@ -17,26 +24,31 @@ import numpy as np
 import rasterio
 from rasterio.errors import RasterioError
 from rasterio.io import DatasetReader
+from rasterio.transform import Affine
 
 from app.sources import satellite_params as params
-from app.sources.raster import EmptyReason, RasterWindow, read_window
-from app.sources.satellite_search import SceneItem
+from app.sources.raster import EmptyReason, RasterWindow, outline_mask
+from app.sources.satellite_outline import as_outline, read_outline_window
 
 # Opens the raster behind a file address; replaced by local files in tests.
 RasterOpener = Callable[[str], AbstractContextManager[DatasetReader]]
 
 
 class SceneReadError(Exception):
-    """A scene file could not be read or does not fit the other files."""
+    """A scene file could not be read, does not fit the other files or holds no usable values."""
 
 
 @dataclass(frozen=True)
 class ClearCheck:
     """Scene classification over the parcel and what it says about the scene."""
 
-    window: RasterWindow
-    clear_share_pct: float | None  # None when the window is empty
+    window: RasterWindow  # classification, outline shrunk as for the 20 m grid
+    clear_share_pct: float | None  # None when nothing can be counted
     empty_reason: EmptyReason | None
+    coarse_pixels: int  # 20 m pixels inside the outline shrunk by the 20 m buffer
+    # 10 m pixels inside the outline shrunk by the 10 m buffer; counted only
+    # for a parcel with too few 20 m pixels, None otherwise.
+    fine_pixels: int | None
 
     @property
     def passes(self) -> bool:
@@ -45,14 +57,23 @@ class ClearCheck:
             and self.clear_share_pct >= params.MIN_CLEAR_SHARE_PCT
         )
 
+    @property
+    def ndvi_possible(self) -> bool:
+        return self.fine_pixels is None or self.fine_pixels >= params.MIN_PIXELS
+
+    @property
+    def ndmi_possible(self) -> bool:
+        return self.coarse_pixels >= params.MIN_PIXELS
+
 
 @dataclass(frozen=True)
 class SceneIndices:
-    """Mean indices over the clear pixels of the parcel; None without such pixels."""
+    """Median indices over the clear pixels of the parcel; None below the pixel minimum."""
 
     ndvi: float | None
     ndmi: float | None
-    pixel_count: int
+    ndvi_pixels: int
+    ndmi_pixels: int
 
 
 @contextmanager
@@ -63,13 +84,17 @@ def open_remote(href: str) -> Iterator[DatasetReader]:
 
 
 def read_layer(
-    opener: RasterOpener, href: str, geometry: Any, *, margin_m: float = 0.0
+    opener: RasterOpener, href: str, geometry: Any, *, buffer_m: float, margin_m: float = 0.0
 ) -> RasterWindow:
-    """One file of a scene read around the parcel, on the grid of that file."""
+    """One file of a scene read around the parcel, on the grid of that file.
+
+    `geometry` is the outline as GeoJSON or, to reuse its conversions between
+    reads, a prepared `ParcelOutline`.
+    """
     try:
         with opener(href) as dataset:
-            return read_window(
-                dataset, geometry, inward_buffer_m=params.INWARD_BUFFER_M, margin_m=margin_m
+            return read_outline_window(
+                dataset, as_outline(geometry), buffer_m=buffer_m, margin_m=margin_m
             )
     except (RasterioError, OSError) as exc:
         raise SceneReadError(type(exc).__name__) from exc
@@ -81,19 +106,58 @@ def is_clear(classes: np.ma.MaskedArray) -> np.ndarray:
     return known & np.isin(np.ma.getdata(classes), params.CLEAR_SCL_CLASSES)
 
 
+def _to_fine(grid: np.ndarray) -> np.ndarray:
+    """A 20 m grid repeated onto the 10 m grid: every pixel becomes 2 x 2 pixels."""
+    return np.repeat(np.repeat(grid, 2, axis=0), 2, axis=1)
+
+
+def _fine_inside(window: RasterWindow, geometry: Any) -> np.ndarray:
+    """Pixels of the 10 m grid under the classification window that lie inside the parcel.
+
+    The two grids share their corners, so the 10 m grid is the classification
+    grid halved. The outline is shrunk by the buffer of the 10 m grid.
+    """
+    a, b, c, d, e, f = window.transform
+    core = as_outline(geometry).in_crs(window.crs, -params.FINE_BUFFER_M)
+    rows, cols = window.data.shape
+    return outline_mask(core, (2 * rows, 2 * cols), Affine(a / 2, b, c, d, e / 2, f))
+
+
 def check_clear(opener: RasterOpener, scl_href: str, geometry: Any) -> ClearCheck:
     """Read the scene classification and count clear pixels over the parcel.
 
-    The share is counted on the classification grid: clear pixels among all
-    pixels inside the outline, pixels without data counting as not clear.
+    The share is counted on the classification grid, among the pixels inside
+    the outline; pixels without data count as not clear. A parcel with too few
+    such pixels for NDMI but enough 10 m pixels for NDVI is counted on the
+    10 m grid instead, each classification pixel standing for its four pixels.
     """
-    window = read_layer(opener, scl_href, geometry, margin_m=params.COARSE_MARGIN_M)
-    reason = window.empty_reason
-    if reason is not None:
-        return ClearCheck(window=window, clear_share_pct=None, empty_reason=reason)
-    clear_count = int((window.inside & is_clear(window.data)).sum())
-    share = round(100.0 * clear_count / window.inside_count, 1)
-    return ClearCheck(window=window, clear_share_pct=share, empty_reason=None)
+    window = read_layer(
+        opener,
+        scl_href,
+        geometry,
+        buffer_m=params.COARSE_BUFFER_M,
+        margin_m=params.COARSE_MARGIN_M,
+    )
+
+    def result(
+        share: float | None, reason: EmptyReason | None, fine: int | None = None
+    ) -> ClearCheck:
+        return ClearCheck(window, share, reason, window.inside_count, fine)
+
+    if window.data.size == 0:
+        return result(None, "outside_raster")
+    inside, fine_pixels = window.inside, None
+    known = ~np.ma.getmaskarray(window.data)
+    clear = is_clear(window.data)
+    if window.inside_count < params.MIN_PIXELS:
+        inside, known, clear = _fine_inside(window, geometry), _to_fine(known), _to_fine(clear)
+        fine_pixels = int(inside.sum())
+        if fine_pixels < params.MIN_PIXELS:
+            return result(None, "parcel_too_small", fine_pixels)
+    if not (inside & known).any():
+        return result(None, "no_valid_data", fine_pixels)
+    share = round(100.0 * int((inside & clear).sum()) / int(inside.sum()), 1)
+    return result(share, None, fine_pixels)
 
 
 def to_grid(source: RasterWindow, target: RasterWindow) -> np.ma.MaskedArray:
@@ -125,61 +189,52 @@ def to_grid(source: RasterWindow, target: RasterWindow) -> np.ma.MaskedArray:
     )
 
 
-def check_day(
-    opener: RasterOpener, copies: list[SceneItem], geometry: Any
-) -> tuple[SceneItem, ClearCheck] | None:
-    """Clear-pixel check of one acquisition day: the first copy covering the parcel."""
-    for item in copies:
-        try:
-            check = check_clear(opener, item.hrefs[params.ASSET_SCL], geometry)
-        except SceneReadError:
-            continue
-        if check.empty_reason in ("outside_raster", "no_valid_data"):
-            continue  # the parcel lies off this tile; another copy may cover it
-        return item, check
-    return None
+def _index(
+    scl: RasterWindow, near: RasterWindow, other: RasterWindow, offset: float
+) -> tuple[float | None, int]:
+    """Median of (near - other) / (near + other) over the clear pixels, and their number.
 
-
-def _reflectance(values: np.ndarray, offset: float) -> np.ndarray:
-    return values.astype("float64") * params.REFLECTANCE_SCALE + offset
-
-
-def _normalised_difference(first: np.ndarray, second: np.ndarray) -> np.ndarray:
-    return (first - second) / (first + second)
+    A pixel counts when its centre lies inside the shrunk outline, both bands
+    hold data there and the classification marks it as clear. Below the pixel
+    minimum there is no value. Raises when the median reflectance of a band
+    over those pixels is not positive: the stored values are then not what
+    the offset rule assumes, and the scene is not used.
+    """
+    second = to_grid(other, near)
+    usable = near.inside & is_clear(to_grid(scl, near))
+    usable &= ~np.ma.getmaskarray(near.data) & ~np.ma.getmaskarray(second)
+    count = int(usable.sum())
+    if count < params.MIN_PIXELS:
+        return None, count
+    near_r, other_r = (
+        np.ma.getdata(layer)[usable].astype("float64") * params.REFLECTANCE_SCALE + offset
+        for layer in (near.data, second)
+    )
+    if np.median(near_r) <= 0 or np.median(other_r) <= 0:
+        raise SceneReadError("median reflectance over the parcel is not positive")
+    total = near_r + other_r
+    values = (near_r - other_r)[total != 0] / total[total != 0]
+    if values.size < params.MIN_PIXELS:
+        return None, int(values.size)
+    return round(float(np.median(values)), params.INDEX_DECIMALS), count
 
 
 def compute_indices(
     scl: RasterWindow,
-    red: RasterWindow,
-    nir: RasterWindow,
-    swir: RasterWindow,
+    red: RasterWindow | None,
+    nir: RasterWindow | None,
+    nir_narrow: RasterWindow | None,
+    swir: RasterWindow | None,
     reflectance_offset: float = 0.0,
 ) -> SceneIndices:
-    """NDVI and NDMI per pixel on the red band grid, averaged over the parcel.
+    """NDVI from the 10 m bands and NDMI from the 20 m bands of one scene.
 
-    NDVI = (NIR - red) / (NIR + red)       (Rouse et al., 1974)
-    NDMI = (NIR - SWIR) / (NIR + SWIR)     (Gao, 1996)
-
-    A pixel counts when its centre lies inside the outline, all three bands
-    hold data there and the scene classification marks it as clear. Both
-    indices are averaged over the same pixels.
+    A pair of bands that was not read (None) gives no index.
     """
-    layers = [red.data, to_grid(nir, red), to_grid(swir, red)]
-    classes = to_grid(scl, red)
-    usable = red.inside & is_clear(classes)
-    for layer in layers:
-        usable &= ~np.ma.getmaskarray(layer)
-    red_r, nir_r, swir_r = (
-        _reflectance(np.ma.getdata(layer)[usable], reflectance_offset) for layer in layers
-    )
-    usable_values = (nir_r + red_r != 0) & (nir_r + swir_r != 0)
-    red_r, nir_r, swir_r = red_r[usable_values], nir_r[usable_values], swir_r[usable_values]
-    if red_r.size == 0:
-        return SceneIndices(ndvi=None, ndmi=None, pixel_count=0)
-    ndvi = _normalised_difference(nir_r, red_r)
-    ndmi = _normalised_difference(nir_r, swir_r)
-    return SceneIndices(
-        ndvi=round(float(ndvi.mean()), params.INDEX_DECIMALS),
-        ndmi=round(float(ndmi.mean()), params.INDEX_DECIMALS),
-        pixel_count=int(red_r.size),
-    )
+    ndvi, ndvi_pixels = (None, 0)
+    ndmi, ndmi_pixels = (None, 0)
+    if red is not None and nir is not None:
+        ndvi, ndvi_pixels = _index(scl, nir, red, reflectance_offset)
+    if nir_narrow is not None and swir is not None:
+        ndmi, ndmi_pixels = _index(scl, nir_narrow, swir, reflectance_offset)
+    return SceneIndices(ndvi=ndvi, ndmi=ndmi, ndvi_pixels=ndvi_pixels, ndmi_pixels=ndmi_pixels)

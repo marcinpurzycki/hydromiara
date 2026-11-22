@@ -3,11 +3,13 @@
 Run from the backend directory:  python -m tests.smoke.satellite_smoke
 For one parcel outline and three analysis dates (two historical, today) runs
 the adapter and prints the time taken, the service that answered, the scenes
-read and what is missing. This is done for the configured order of services,
-for each service alone, and with a fallback time too short for the primary
-service, so that the switch to the secondary one is exercised.
+read (the current window and the windows of earlier years) and what is
+missing. This is done for the configured order of services, for each service
+alone, and with a fallback time too short for the primary service, so that
+the switch to the secondary one is exercised.
 Exits with 1 when a call returns neither scenes nor a reason, returns a scene
-after the analysis date, or takes clearly longer than its time budget.
+after the analysis date or more scenes than the method allows, or takes
+clearly longer than its time budget.
 """
 
 import asyncio
@@ -54,12 +56,20 @@ async def check(source: SatelliteSource, analysis_date: date) -> bool:
         print(f"  limitation ({limitation.affects}): {limitation.text}")
     explained = bool(scenes) or bool(limitations)
     no_future = all(scene.date <= analysis_date for scene in scenes)
+    no_future = no_future and len(scenes) <= params.MAX_SCENES
     in_budget = outcome.duration_s <= params.TIME_BUDGET_S + BUDGET_SLACK_S
     return explained and no_future and in_budget and outcome.ok == bool(scenes)
 
 
 async def main() -> int:
     days = (date(2023, 6, 20), date(2019, 6, 15), date.today())
+    print(
+        f"method: {params.CURRENT_WINDOW_DAYS} days back, up to {params.CURRENT_SCENES} scenes; "
+        f"{params.HISTORY_YEARS} earlier years, +/-{params.HISTORY_HALF_WINDOW_DAYS} days, "
+        f"up to {params.HISTORY_SCENES_PER_YEAR} a year; clear from "
+        f"{params.MIN_CLEAR_SHARE_PCT:g}%, at least {params.MIN_PIXELS} pixels; "
+        f"budget {params.TIME_BUDGET_S:g} s"
+    )
     chain = configured_chain()
     runs = {"configured order: " + " -> ".join(p.name for p in chain): SatelliteSource()}
     for provider in PROVIDERS.values():

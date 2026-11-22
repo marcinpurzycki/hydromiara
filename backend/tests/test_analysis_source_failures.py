@@ -30,13 +30,13 @@ MISSING_TEXT = {
     "drought_background": "Brak niezależnego wskaźnika suszy",
 }
 # Confidence of (current status, multi-year susceptibility) without the category.
-# The other sources answer from the recordings, where three satellite windows
-# of earlier years have no scene and lower the multi-year confidence on their own.
+# The other sources answer from the recordings, where the satellite windows of
+# earlier years have no scene: one limitation of the multi-year confidence.
 CONFIDENCE = {
     "soil": ("średnia", "niska"),
-    "terrain": ("wysoka", "niska"),
+    "terrain": ("wysoka", "średnia"),
     "satellite": ("średnia", "średnia"),
-    "drought_background": ("średnia", "niska"),
+    "drought_background": ("średnia", "średnia"),
 }
 
 
@@ -165,7 +165,7 @@ def test_satellite_catalogue_down(client, reports_db, optional_sources):
     )
     optional_sources.current = replace(optional_sources.recorded(), satellite=down)
     reason = check_missing("satellite", *run(client, reports_db))
-    assert "Katalog scen satelitarnych nie odpowiedział" in reason
+    assert "Katalog zdjęć satelitarnych nie odpowiedział" in reason
     assert "21.05.2023–20.06.2023" in reason
 
 

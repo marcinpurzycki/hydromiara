@@ -179,7 +179,7 @@ def test_markdown_table_has_one_line_per_analysis(service):
     assert all(line.count("|") == len(MARKDOWN_HEADERS) + 1 for line in lines)
     cells = [cell.strip() for cell in lines[2].strip("|").split("|")]
     assert cells[:4] == ["first", KNOWN_ID, "winter_wheat", "2023-06-20"]
-    assert cells[4:10] == ["silny niedobór", "wysoka", "10 of 10", "niska", "2 (2023-06-11)", "zgodne"]
+    assert cells[4:10] == ["silny niedobór", "wysoka", "10 of 10", "średnia", "2 (2023-06-11)", "zgodne"]
     assert cells[10:12] == ["crop_demand", "hydro"]
     assert "analysis failed: parcel_unavailable" in lines[4]
 

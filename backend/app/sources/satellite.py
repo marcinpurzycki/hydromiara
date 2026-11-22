@@ -1,12 +1,15 @@
 """Sentinel-2 readings over a parcel: NDVI and NDMI of clear scenes.
 
-For each search window (the weeks before the analysis date and the same
-period of earlier years) the adapter finds the scenes, reads the scene
-classification of the newest ones, and reads the bands only of scenes with
-enough clear pixels over the parcel. Windows are worked on at the same time
-and raster reads run in worker threads. The whole call has a time budget;
-when it runs out, the scenes finished so far are returned and the rest is
-reported as a limitation. No scene after the analysis date is used.
+For each search window (the days before the analysis date and the same time
+of the year in earlier years) the adapter finds the scenes, reads the scene
+classification of each acquisition day, and reads the bands only of scenes
+with enough clear pixels over the parcel. Windows are worked on at the same
+time and raster reads run in worker threads. The whole call has a time
+budget; when it runs out, the scenes finished so far are returned and the
+rest is reported as a limitation. No scene after the analysis date is used.
+
+The windows of earlier years are always read: the adapter does not know the
+crop history, and the engine decides which of those years may be compared.
 
 Two interchangeable services hold the scenes. The primary one is asked
 first; when it delivers no reading within the fallback time, its work is
@@ -15,7 +18,7 @@ dropped and the secondary one is asked with the time that is left.
 
 import asyncio
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from datetime import date as Date
@@ -35,7 +38,7 @@ from app.sources.satellite_providers import (
     configured_fallback_after_s,
 )
 from app.sources.satellite_search import SatelliteSearchError, read_token, search_windows
-from app.sources.satellite_windows import work_window
+from app.sources.satellite_windows import work_windows
 
 
 class SatelliteFetch(NamedTuple):
@@ -56,8 +59,16 @@ class SatelliteSource:
         time_budget_s: float = params.TIME_BUDGET_S,
         providers: Sequence[Provider] | None = None,
         fallback_after_s: float | None = None,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
-        """Without `providers` and `fallback_after_s` the project configuration applies."""
+        """Without `providers` and `fallback_after_s` the project configuration applies.
+
+        `clock` and `sleep` measure and wait out the time limits; tests replace them.
+        """
+        self._clock = clock
+        self._sleep = sleep
         self._transport = transport
         self._opener = opener
         self._time_budget_s = time_budget_s
@@ -77,6 +88,15 @@ class SatelliteSource:
         self._tokens[provider.name] = await read_token(client, provider)
         return self._tokens[provider.name][0]
 
+    async def _finished(self, task: "asyncio.Task[None]", timeout_s: float) -> bool:
+        """Wait for the task at most `timeout_s`; True when it ended in that time."""
+        timer = asyncio.ensure_future(self._sleep(timeout_s))
+        try:
+            await asyncio.wait({task, timer}, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            timer.cancel()
+        return task.done()
+
     async def _work(
         self,
         states: list[WindowState],
@@ -90,17 +110,20 @@ class SatelliteSource:
         Stops when the windows are done or `budget_s` runs out. With
         `first_reading_s`, stops already then unless a scene has been read.
         """
-        started = time.monotonic()
+        started = self._clock()
         loop = asyncio.get_running_loop()
-        executor = ThreadPoolExecutor(
-            max_workers=params.READ_WORKERS, thread_name_prefix="satellite"
-        )
+        # Half of the reading threads belong to the current window alone.
+        own = max(1, provider.read_workers // 2)
+        executors = [
+            ThreadPoolExecutor(max_workers=workers, thread_name_prefix="satellite")
+            for workers in (own, max(1, provider.read_workers - own))
+        ]
 
-        def run(function: Callable[..., Any], *args: Any) -> "asyncio.Future[Any]":
-            return loop.run_in_executor(executor, function, *args)
+        def runner(executor: ThreadPoolExecutor) -> Callable[..., "asyncio.Future[Any]"]:
+            return lambda function, *args: loop.run_in_executor(executor, function, *args)
 
         def left(limit_s: float) -> float:
-            return max(0.0, limit_s - (time.monotonic() - started))
+            return max(0.0, limit_s - (self._clock() - started))
 
         try:
             async with httpx.AsyncClient(
@@ -114,37 +137,37 @@ class SatelliteSource:
                     for state in states:
                         state.status = "search_failed"
                     return
-                tasks = [
-                    asyncio.create_task(
-                        work_window(state, client, run, self._opener, geometry, provider, token)
-                    )
-                    for state in states
-                ]
+                task = asyncio.create_task(
+                    work_windows(
+                        states, client, *map(runner, executors), self._opener, geometry,
+                        provider, token,
+                    )  # fmt: skip
+                )
                 first_wait = left(min(first_reading_s or budget_s, budget_s))
-                _, pending = await asyncio.wait(tasks, timeout=first_wait)
-                if pending and any(state.scenes for state in states):
-                    _, pending = await asyncio.wait(pending, timeout=left(budget_s))
-                for task in pending:
+                done = await self._finished(task, first_wait)
+                if not done and first_reading_s and any(state.scenes for state in states):
+                    done = await self._finished(task, left(budget_s))
+                if not done:
                     task.cancel()
-                results = await asyncio.gather(*tasks, return_exceptions=True)
+                (result,) = await asyncio.gather(task, return_exceptions=True)
         finally:
             # Reads already running end on their own timeouts; queued ones are dropped.
-            executor.shutdown(wait=False, cancel_futures=True)
-        for result in results:
-            if isinstance(result, Exception):
-                raise result
+            for executor in executors:
+                executor.shutdown(wait=False, cancel_futures=True)
+        if isinstance(result, Exception):
+            raise result
 
     async def fetch(self, geometry: GeoJsonGeometry, analysis_date: Date) -> SatelliteFetch:
         """Satellite readings for an analysis: scenes, outcome record and what is missing.
 
         Scenes are ordered by date, oldest first.
         """
-        started = time.monotonic()
+        started = self._clock()
         outline = geometry.model_dump()
         states: list[WindowState] = []
         used, step = self._providers[0], 1
         for position, provider in enumerate(self._providers, start=1):
-            budget_left = self._time_budget_s - (time.monotonic() - started)
+            budget_left = self._time_budget_s - (self._clock() - started)
             if position > 1 and budget_left <= 0:
                 break  # no time for the next service; keep what the last one reported
             is_last = position == len(self._providers)
@@ -159,14 +182,14 @@ class SatelliteSource:
         scenes = sorted(
             (scene for state in states for scene in state.scenes), key=lambda scene: scene.date
         )
-        limitations = find_limitations(states, self._time_budget_s)
+        limitations = find_limitations(states, self._time_budget_s, used.archive_note)
         data = SatelliteData(scenes=scenes) if scenes else None
         outcome = SourceOutcome(
             topic="satellite",
             source_name=used.source_name if data else None,
             chain_step=step if data else None,
             ok=data is not None,
-            duration_s=round(time.monotonic() - started, 3),
+            duration_s=round(self._clock() - started, 3),
             data_date=(
                 f"{scenes[0].date.isoformat()}/{scenes[-1].date.isoformat()}" if data else None
             ),
