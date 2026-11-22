@@ -112,7 +112,7 @@ input::placeholder { color: var(--faint); font-style: italic; opacity: 1; }
 
 /* crop history form */
 .history-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
-.history-grid-wide { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px 28px; }
+.history-grid-wide { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 10px 28px; }
 .history-row { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 12px; }
 .history-row label { font-size: 19px; font-weight: 700; }
 .history-card { display: flex; flex-direction: column; gap: 16px; }

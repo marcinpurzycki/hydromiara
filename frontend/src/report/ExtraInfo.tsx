@@ -75,7 +75,7 @@ export function ExtraInfo({ report, open, onToggle }: ExtraProps) {
           <section>
             <h3>Z czego to policzyliśmy</h3>
             <div className="table-scroll">
-              <table>
+              <table className="stack-table">
                 <thead>
                   <tr>
                     <th>Temat</th>
@@ -89,16 +89,16 @@ export function ExtraInfo({ report, open, onToggle }: ExtraProps) {
                   {report.sources.map((source) => (
                     <tr key={source.topic} className={source.missing ? "row-missing" : undefined}>
                       <th scope="row">{TOPIC_LABELS[source.topic] ?? source.topic}</th>
-                      <td>
+                      <td data-label="Źródło">
                         {source.name}
                         {!source.missing && source.chain_step > 1 ? " (źródło zastępcze)" : ""}
                       </td>
-                      <td>{source.missing ? "nie uwzględniono" : (source.data_date ?? "—")}</td>
-                      <td>
+                      <td data-label="Dane z okresu">{source.missing ? "nie uwzględniono" : (source.data_date ?? "—")}</td>
+                      <td data-label="Tryb">
                         {source.mode}
                         {source.fetched_at ? `, pobrano ${datePl(source.fetched_at)}` : ""}
                       </td>
-                      <td>{source.license}</td>
+                      <td data-label="Licencja">{source.license}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -110,7 +110,7 @@ export function ExtraInfo({ report, open, onToggle }: ExtraProps) {
             <p>{check.sentence}</p>
             {check.items.length > 0 && (
               <div className="table-scroll">
-                <table>
+                <table className="stack-table">
                   <thead>
                     <tr>
                       <th>Źródło</th>
@@ -123,9 +123,9 @@ export function ExtraInfo({ report, open, onToggle }: ExtraProps) {
                     {check.items.map((item) => (
                       <tr key={`${item.source}${item.period}`}>
                         <th scope="row">{item.source}</th>
-                        <td>{item.period}</td>
-                        <td>{item.value}</td>
-                        <td>{item.meaning}</td>
+                        <td data-label="Okres">{item.period}</td>
+                        <td data-label="Wartość">{item.value}</td>
+                        <td data-label="Znaczenie">{item.meaning}</td>
                       </tr>
                     ))}
                   </tbody>
