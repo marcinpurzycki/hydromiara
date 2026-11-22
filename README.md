@@ -296,8 +296,8 @@ Raport przykładowy `/api/reports/demo` i trasy wywołane dla niego odpowiadają
 
 **Strona dla rolnika** (usługa `web`) prowadzi przez trzy etapy: Działka → Analiza → Raport.
 
-- **Start.** Jedno pole przyjmuje identyfikator działki, numer działki z nazwą obrębu albo adres. Adres tylko
-  przesuwa mapę (ortofotomapa); działkę wybiera kliknięcie na mapie, po którym strona od razu rysuje jej obrys.
+- **Start.** Jedno pole przyjmuje identyfikator działki, numer działki z nazwą obrębu, adres albo numer TERYT
+  obrębu, gminy, powiatu lub województwa. Adres i numer TERYT tylko przesuwają i przybliżają mapę (ortofotomapa); działkę wybiera kliknięcie na mapie, po którym strona od razu rysuje jej obrys.
   Wybór można zmieniać dowolnie wiele razy przed uruchomieniem analizy. Uprawę wybiera się kaflem albo z listy,
   Datę analizy z ostatnich 10 lat. Przycisk „Demo” wypełnia formularz gotowym Przykładem.
   Przycisk „O systemie” otwiera okno z krótkim opisem działania, listą źródeł danych (co z każdego jest brane
@@ -468,12 +468,15 @@ otwartych danych AWS, katalog Earth Search), Sentinel-2 przez Microsoft Planetar
 (Element 84). Adresy, zakres i warunki: tabela w punkcie 4. Opcjonalnie usługa modelu językowego (niżej).
 Żadna z usług danych nie wymaga konta ani klucza.
 
-Strona dla rolnika woła z przeglądarki dwie publiczne usługi GUGiK, obie bez konta i klucza: ortofotomapę jako
+Strona dla rolnika woła z przeglądarki trzy publiczne usługi GUGiK, wszystkie bez konta i klucza: ortofotomapę jako
 podkład mapy (WMTS, `https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMTS/StandardResolution`; usługa podaje
-„brak ograniczeń” i odsyła do Regulaminu Geoportalu) oraz Usługę Uniwersalnego Geokodowania do wyszukania adresu
-(`https://services.gugik.gov.pl/uug/`). Do geokodera trafia wyłącznie tekst wpisany w pole działki, i tylko wtedy,
-gdy nie jest on identyfikatorem ani numerem działki z obrębem. Wynik geokodera przesuwa mapę; działkę i wszystkie
-dane do oceny pobiera usługa `api`.
+„brak ograniczeń” i odsyła do Regulaminu Geoportalu), Usługę Uniwersalnego Geokodowania do wyszukania adresu
+(`https://services.gugik.gov.pl/uug/`) oraz ULDK (`https://uldk.gugik.gov.pl/`) do pokazania na mapie obrębu,
+gminy, powiatu albo województwa wskazanego numerem TERYT (warunki ULDK: tabela w punkcie 4). Do geokodera trafia
+wyłącznie tekst wpisany w pole działki, i tylko wtedy, gdy nie jest on identyfikatorem ani numerem działki
+z obrębem; usługa oczekuje kolejności „miejscowość, ulica numer”, więc adres wpisany inaczej jest pytany także
+w tej kolejności. Do ULDK z przeglądarki trafia wyłącznie wpisany numer TERYT. Wynik obu wyszukiwań tylko przesuwa
+mapę; działkę i wszystkie dane do oceny pobiera usługa `api`.
 
 Certyfikaty TLS wystawia Let's Encrypt (protokół ACME, obsługiwany przez Traefika): usługa bezpłatna, na warunkach
 umowy subskrybenta Let's Encrypt (`https://letsencrypt.org/repository/`); konto zakłada Traefik na adres e-mail

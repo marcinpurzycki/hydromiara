@@ -2,6 +2,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef } from "react";
 import type { GeoJsonGeometry } from "../api/types";
+import type { Place } from "../lib/geocoder";
 
 // Orthophoto of GUGiK (public WMTS, key-value requests, tile grid EPSG:3857).
 const ORTHOPHOTO =
@@ -17,12 +18,11 @@ const COVERAGE: L.LatLngBoundsLiteral = [
 ];
 const POLAND_CENTER: L.LatLngTuple = [52.07, 19.48];
 const POLAND_ZOOM = 6;
-const PLACE_ZOOM = 16;
 const OUTLINE: L.PathOptions = { color: "#ffffff", weight: 3, fillColor: "#2F7FE0", fillOpacity: 0.25 };
 
 interface Props {
   geometry: GeoJsonGeometry | null;
-  place: { lat: number; lon: number } | null;
+  place: Place | null;
   caption: string;
   onPick: (lat: number, lon: number) => void;
 }
@@ -65,7 +65,9 @@ export function ParcelMap({ geometry, place, caption, onPick }: Props) {
   }, [geometry]);
 
   useEffect(() => {
-    if (place) map.current?.setView([place.lat, place.lon], PLACE_ZOOM);
+    if (!place) return;
+    if (place.bounds) map.current?.fitBounds(place.bounds, { padding: [20, 20] });
+    else map.current?.setView([place.lat, place.lon], place.zoom);
   }, [place]);
 
   return (

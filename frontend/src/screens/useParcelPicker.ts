@@ -9,6 +9,9 @@ export type PickerView = { kind: "form" } | { kind: "choice"; matches: ParcelMat
 
 const CAPTION_START = "Kliknij na mapie, aby wskazać działkę";
 const CAPTION_PLACE = "Kliknij swoją działkę na mapie";
+const NOT_FOUND =
+  "Nie znaleźliśmy takiego miejsca. Wpisz adres (np. Płońsk, Warszawska 5), numer działki z nazwą obrębu, " +
+  "identyfikator działki albo numer TERYT obrębu lub gminy.";
 
 export function useParcelPicker(initialText: string) {
   const [text, setTextValue] = useState(initialText);
@@ -18,6 +21,7 @@ export function useParcelPicker(initialText: string) {
   const [place, setPlace] = useState<Place | null>(null);
   const [caption, setCaption] = useState(CAPTION_START);
   const [error, setError] = useState<string | null>(null);
+  const [hint, setHint] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const clicks = useRef(0);
 
@@ -26,6 +30,7 @@ export function useParcelPicker(initialText: string) {
     setTextValue(chosen.parcel_id);
     setPlaces([]);
     setError(null);
+    setHint(null);
     setView({ kind: "form" });
     setCaption(`Wybrano działkę ${chosen.number}${chosen.region ? `, ${chosen.region}` : ""}`);
   }, []);
@@ -33,14 +38,17 @@ export function useParcelPicker(initialText: string) {
   const setText = (value: string) => {
     setTextValue(value);
     setError(null);
+    setHint(null);
     setPlaces([]);
     if (parcel && value.trim() !== parcel.parcel_id) setParcel(null);
   };
 
-  const goToPlace = (target: Place) => {
+  /** Moves the map; the other places found stay listed until one is chosen or a parcel is picked. */
+  const goToPlace = (target: Place, others: Place[] = []) => {
     setPlace({ ...target });
-    setPlaces([]);
+    setPlaces(others);
     setCaption(CAPTION_PLACE);
+    setHint(`Pokazujemy na mapie: ${target.label}. Teraz kliknij swoją działkę.`);
   };
 
   /** A click picks the parcel under it; a newer click overrides an answer still on its way. */
@@ -65,6 +73,7 @@ export function useParcelPicker(initialText: string) {
     }
     setSearching(true);
     setError(null);
+    setHint(null);
     try {
       const outcome = await resolveQuery(text);
       if (outcome.kind === "parcel") {
@@ -73,9 +82,8 @@ export function useParcelPicker(initialText: string) {
       }
       if (outcome.kind === "choice") setView({ kind: "choice", matches: outcome.matches });
       else if (outcome.kind === "none") setView({ kind: "missing" });
-      else if (outcome.places.length === 1) goToPlace(outcome.places[0]);
-      else setPlaces(outcome.places);
-      if (outcome.kind === "places") setError("Znaleźliśmy adres. Teraz kliknij swoją działkę na mapie.");
+      else if (outcome.kind === "unknown") setError(NOT_FOUND);
+      else goToPlace(outcome.places[0], outcome.places.length > 1 ? outcome.places : []);
       return null;
     } catch (failure) {
       setError(errorMessage(failure));
@@ -108,7 +116,7 @@ export function useParcelPicker(initialText: string) {
   );
 
   return {
-    text, parcel, view, places, place, caption, error, searching,
+    text, parcel, view, places, place, caption, error, hint, searching,
     setText, setError, pickOnMap, search, choose, load, goToPlace,
     backToForm: () => setView({ kind: "form" }),
   };

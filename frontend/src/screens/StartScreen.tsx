@@ -139,7 +139,7 @@ export function StartScreen() {
                 type="text"
                 autoComplete="off"
                 maxLength={120}
-                placeholder="Adres, numer działki z obrębem lub identyfikator"
+                placeholder="Adres, numer działki z obrębem, identyfikator lub TERYT"
                 value={picker.text}
                 onChange={(event) => picker.setText(event.target.value)}
               />
@@ -151,12 +151,17 @@ export function StartScreen() {
               <ul className="place-list">
                 {picker.places.map((place) => (
                   <li key={`${place.lat},${place.lon}`}>
-                    <button type="button" onClick={() => picker.goToPlace(place)}>
+                    <button type="button" onClick={() => picker.goToPlace(place, picker.places)}>
                       {place.label}
                     </button>
                   </li>
                 ))}
               </ul>
+            )}
+            {picker.hint && (
+              <p className="hint" role="status">
+                {picker.hint}
+              </p>
             )}
             {picker.error && <p className="field-error">{picker.error}</p>}
           </form>
