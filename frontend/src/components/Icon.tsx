@@ -12,6 +12,7 @@ const PATHS = {
   list: "M8 10h20M8 18h20M8 26h14",
   restart: "M7 18a11 11 0 1 0 3.2-7.8M7 6v5h5",
   info: "M18 4a14 14 0 1 0 0 28 14 14 0 0 0 0-28zM18 16v9M18 10.5v.5",
+  locate: "M18 11a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM18 3v6M18 27v6M3 18h6M27 18h6",
   calendar: "M6 8h24v22H6zM6 15h24M12 4v6M24 4v6",
 } as const;
 

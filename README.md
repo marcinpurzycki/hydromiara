@@ -476,7 +476,9 @@ gminy, powiatu albo województwa wskazanego numerem TERYT (warunki ULDK: tabela 
 wyłącznie tekst wpisany w pole działki, i tylko wtedy, gdy nie jest on identyfikatorem ani numerem działki
 z obrębem; usługa oczekuje kolejności „miejscowość, ulica numer”, więc adres wpisany inaczej jest pytany także
 w tej kolejności. Do ULDK z przeglądarki trafia wyłącznie wpisany numer TERYT. Wynik obu wyszukiwań tylko przesuwa
-mapę; działkę i wszystkie dane do oceny pobiera usługa `api`.
+mapę; działkę i wszystkie dane do oceny pobiera usługa `api`. Przycisk „Tu jestem” ustawia mapę na bieżącym
+położeniu urządzenia: przeglądarka pyta o zgodę, a położenie nie jest nigdzie wysyłane (nagłówek
+`Permissions-Policy` pozwala na lokalizację tylko tej stronie).
 
 Certyfikaty TLS wystawia Let's Encrypt (protokół ACME, obsługiwany przez Traefika): usługa bezpłatna, na warunkach
 umowy subskrybenta Let's Encrypt (`https://letsencrypt.org/repository/`); konto zakłada Traefik na adres e-mail
