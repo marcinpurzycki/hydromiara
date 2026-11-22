@@ -95,7 +95,7 @@ def test_bad_row_is_reported_with_its_line_and_does_not_stop_the_rest(line, expe
 
 def test_unknown_crop_message_names_the_available_crops():
     _, problems = parse(
-        HEADER + f"{KNOWN_ID},maize,2023-06-20,,\n", crop_ids=("winter_wheat", "bare_field")
+        HEADER + f"{KNOWN_ID},sunflower,2023-06-20,,\n", crop_ids=("winter_wheat", "bare_field")
     )
     assert "(available: winter_wheat, bare_field)" in problems[0].message
 

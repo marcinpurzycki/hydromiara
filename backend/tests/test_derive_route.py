@@ -146,8 +146,8 @@ def test_history_is_checked_before_anything_is_computed(client):
         assert_error(response, status, code)
         return response.json()["message"]
 
-    message = refused({"years": {"2019": "maize"}}, 422, "unknown_crop")
-    assert "2019: maize" in message and "Pszenica ozima, Pole bez uprawy" in message
+    message = refused({"years": {"2019": "soybean"}}, 422, "unknown_crop")
+    assert "2019: soybean" in message and "z listy" in message
     message = refused({"years": {"2010": "bare_field", "2024": "winter_wheat"}}, 422,
                       "crop_history_year_outside_window")
     assert "2014–2023" in message and "2010, 2024" in message

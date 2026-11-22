@@ -4,6 +4,7 @@ from typing import Literal
 
 from fastapi import APIRouter
 
+from app.catalog.crops import contract_crops
 from app.contracts.catalog import Crop, Example
 from app.contracts.common import ContractModel
 from app.mock import data
@@ -22,7 +23,7 @@ def health() -> Health:
 
 @router.get("/crops", response_model=list[Crop], summary="Zamknięta lista Upraw")
 def crops() -> list[Crop]:
-    return data.catalog().crops
+    return contract_crops()
 
 
 @router.get("/examples", response_model=list[Example], summary="Sześć Przykładów")

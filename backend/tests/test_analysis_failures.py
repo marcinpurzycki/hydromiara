@@ -132,10 +132,10 @@ def test_request_is_checked_before_anything_starts(client, weather, uldk, monkey
         assert_error(client.post("/api/analyses", json={**ANALYSIS, **changes}), 422, code)
 
     refused("unknown_crop", crop_id="x")
-    # Listed by the placeholder crop route, but without parameters in the catalogue.
-    response = client.post("/api/analyses", json={**ANALYSIS, "crop_id": "maize"})
+    # A crop that exists, but is not on the closed list.
+    response = client.post("/api/analyses", json={**ANALYSIS, "crop_id": "soybean"})
     assert_error(response, 422, "unknown_crop")
-    assert "Pszenica ozima" in response.json()["message"]
+    assert "z listy" in response.json()["message"]
     refused("invalid_parcel_id", parcel_id="Krusza Podlotowa 34/2")
     refused("validation_error", analysis_date="20.06.2023")
 
@@ -159,10 +159,10 @@ def test_simulation_waits_for_the_report_and_then_answers(client, weather):
     weather.hold = False
     wait_finished(client, report_id)
     # The simulation is real: it answers for a Report of an analysis and knows
-    # only the crops of the crop list, not those of the placeholder list.
+    # only the crops of the crop list.
     assert client.get(ranking).status_code == 200
     compare = client.get(
-        f"/api/reports/{report_id}/simulation/compare", params={"crop_id": "maize"}
+        f"/api/reports/{report_id}/simulation/compare", params={"crop_id": "soybean"}
     )
     assert_error(compare, 422, "unknown_crop")
     assert_error(client.get("/api/reports/unknown/simulation/ranking"), 404, "report_not_found")

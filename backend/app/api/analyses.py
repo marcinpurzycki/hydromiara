@@ -13,9 +13,8 @@ from app.api.capacity import require_analysis_slot
 from app.api.crop_history import require_valid_history
 from app.api.errors import ApiError, error_responses
 from app.api.validation import ReportId, require_analysis_date, require_parcel_id
-from app.catalog.crops import has_crop, list_crops
+from app.catalog.crops import has_crop
 from app.contracts.analyses import AnalysisRequest, AnalysisStarted, AnalysisStatus, CropHistory
-from app.mock import data
 from app.mock import store as mock_store
 from app.orchestrator import runtime
 from app.orchestrator.service import Orchestrator
@@ -28,20 +27,13 @@ Sources = Annotated[AnalysisSources, Depends(get_analysis_sources)]
 
 
 def require_known_crop(crop_id: str) -> None:
-    """Crop of the placeholder list; used only by routes that are still placeholders."""
-    if crop_id not in {crop.id for crop in data.catalog().crops}:
+    """Raise unless the crop is on the closed list (every listed crop can be analysed)."""
+    if not has_crop(crop_id):
         raise ApiError(422, "unknown_crop", "Nieznana uprawa. Wybierz uprawę z listy.")
 
 
-def require_catalog_crop(crop_id: str) -> None:
-    """Crop the engine has parameters for; anything else cannot be analysed."""
-    if not has_crop(crop_id):
-        available = ", ".join(crop.name for crop in list_crops())
-        raise ApiError(
-            422,
-            "unknown_crop",
-            f"Dla tej uprawy analiza nie jest dostępna. Dostępne uprawy: {available}.",
-        )
+# The crop list of the API is the catalogue itself, so both checks are one.
+require_catalog_crop = require_known_crop
 
 
 def not_found() -> ApiError:

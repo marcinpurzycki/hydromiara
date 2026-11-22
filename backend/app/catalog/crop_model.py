@@ -47,13 +47,16 @@ class StageDates(CatalogModel):
     establishment_end -> development_start: Kc ini (for a winter crop: dormancy),
     development_start -> mid_start: Kc rises linearly from Kc ini to Kc mid,
     mid_start -> late_start: Kc mid,
-    late_start -> harvest: Kc falls linearly from Kc mid to Kc end.
+    late_start -> maturity: Kc falls linearly from Kc mid to Kc end,
+    maturity -> harvest: Kc end.
+    Without a maturity date the fall lasts until harvest.
     """
 
     establishment_end: MonthDay
     development_start: MonthDay
     mid_start: MonthDay
     late_start: MonthDay
+    maturity: MonthDay | None = None
 
 
 class CropGrowth(CatalogModel):
@@ -69,10 +72,15 @@ class CropGrowth(CatalogModel):
     root_depth_m: Sourced[tuple[float, float]]
     # Fraction of available soil water that can be depleted before stress (p).
     depletion_fraction: Sourced[float]
+    # Seasonal yield response factor Ky; None when the source has no row for the crop.
+    yield_response_ky: Sourced[float] | None = None
+    # Crop group of the national agricultural drought monitoring; None when it has none.
+    drought_monitoring_group: Sourced[str] | None = None
 
     def sourced_values(self) -> dict[str, Sourced]:
-        """Every parameter by name, for completeness checks and reports."""
-        return {name: getattr(self, name) for name in type(self).model_fields}
+        """Every given parameter by name, for completeness checks and reports."""
+        values = {name: getattr(self, name) for name in type(self).model_fields}
+        return {name: value for name, value in values.items() if value is not None}
 
     @model_validator(mode="after")
     def _is_consistent(self) -> Self:
@@ -80,7 +88,10 @@ class CropGrowth(CatalogModel):
         critical = self.critical_period.value
         stages = self.stages.value
         moments = [season.start, season.end, critical.start, critical.end]
-        moments += [getattr(stages, name) for name in type(stages).model_fields]
+        moments += [stages.establishment_end, stages.development_start]
+        moments += [stages.mid_start, stages.late_start]
+        if stages.maturity is not None:
+            moments.append(stages.maturity)
         if not all(is_every_year(moment) for moment in moments):
             raise ValueError("catalogue dates must exist in every year (no 29 February)")
 
@@ -96,6 +107,7 @@ class CropGrowth(CatalogModel):
             offset(stages.development_start),
             offset(stages.mid_start),
             offset(stages.late_start),
+            season_days if stages.maturity is None else offset(stages.maturity),
             season_days,
         ]
         if order != sorted(order):
@@ -111,6 +123,8 @@ class CropGrowth(CatalogModel):
             raise ValueError("root depth must be a positive, ordered range")
         if not 0 < self.depletion_fraction.value < 1:
             raise ValueError("the depletion fraction must lie between 0 and 1")
+        if self.yield_response_ky is not None and self.yield_response_ky.value <= 0:
+            raise ValueError("the yield response factor must be positive")
         return self
 
 
@@ -123,6 +137,14 @@ class CatalogCrop(CatalogModel):
     tile: bool
     # None for the field without a crop: nothing grows, only bare soil evaporates.
     growth: CropGrowth | None
+    # True when part of the parameters is taken by analogy or as a working value;
+    # the values concerned carry a `provisional` reason.
+    conditional: bool = False
+    # True for a plant that is not sown and harvested every year; its "season"
+    # is the growing period, not the time from sowing to harvest.
+    perennial: bool = False
+    # Remark of the catalogue about the whole entry.
+    note: str | None = None
 
     @property
     def is_bare_field(self) -> bool:

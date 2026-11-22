@@ -4,8 +4,6 @@ import time
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
-import pytest
-
 from app.api import simulation as routes
 from app.catalog.crops import list_crops
 from app.contracts.report import Report
@@ -16,7 +14,6 @@ from app.main import app
 from app.orchestrator.sources import get_optional_sources, get_weather_source
 from app.sources.parcels import get_parcel_source
 from tests.analysis_helpers import assert_error, start, wait_finished
-from tests.simulation_helpers import many_crops
 
 
 def finished(client, **changes: str) -> str:
@@ -50,15 +47,7 @@ def _no_fetching():
     raise AssertionError("the simulation must not fetch anything")
 
 
-@pytest.fixture
-def many(monkeypatch):
-    """A crop list of 22: the two real positions and 20 made-up crops."""
-    crops = (*list_crops(), *many_crops(20))
-    monkeypatch.setattr(routes, "list_crops", lambda: crops)
-    return crops
-
-
-def test_ranking_with_the_present_crop_list_shows_the_current_crop_only(client, uldk, weather):
+def test_ranking_of_the_catalogue_crops_fetches_and_changes_nothing(client, uldk, weather):
     report_id = finished(client)
     before = client.get(f"/api/reports/{report_id}").content
     fetched = (len(uldk.requests), len(weather.requests))
@@ -71,19 +60,23 @@ def test_ranking_with_the_present_crop_list_shows_the_current_crop_only(client, 
     # The current crop has exactly the numbers of the Report.
     assert response.json()["current"] == reported(client, report_id)
     assert body.current.total_years == 10
-    # The list has winter wheat and the field without a crop: nothing to rank.
-    assert body.top == []
+    # Computed on the recorded weather and soil of the parcel: winter rapeseed has
+    # 3 deficit years of 10, field cucumber 6, spring barley 7; every other crop more.
+    assert [(crop.crop_id, crop.deficit_years, crop.total_years) for crop in body.top] == [
+        ("winter_rapeseed", 3, 10), ("cucumber", 6, 10), ("spring_barley", 7, 10),
+    ]  # fmt: skip
+    assert [crop.deficit_level for crop in body.top] == [1, 2, 2]
     assert body.limitations[:2] == list(SIMULATION_LIMITATIONS)
     texts = [item.text for item in body.limitations[2:]]
     assert len(texts) == 2
-    assert "nie ma teraz innej Uprawy" in texts[0] and "Pole bez uprawy" in texts[1]
+    assert "porównano 20 innych Upraw z listy" in texts[0] and "Pole bez uprawy" in texts[1]
 
     assert ranking(client, report_id).json() == response.json()
     assert (len(uldk.requests), len(weather.requests)) == fetched
     assert client.get(f"/api/reports/{report_id}").content == before
 
 
-def test_ranking_and_comparison_with_a_full_crop_list(client, uldk, weather, many):
+def test_ranking_and_comparison_with_the_full_crop_list(client, uldk, weather):
     report_id = finished(client)
     before = client.get(f"/api/reports/{report_id}").content
     fetched = (len(uldk.requests), len(weather.requests))
@@ -102,6 +95,7 @@ def test_ranking_and_comparison_with_a_full_crop_list(client, uldk, weather, man
     assert all(crop["crop_id"] not in ("winter_wheat", "bare_field") for crop in top)
     shares = [crop["deficit_years"] / crop["total_years"] for crop in top]
     assert shares == sorted(shares)
+    assert len(list_crops()) == 22
     assert "porównano 20 innych Upraw z listy" in body["limitations"][2]["text"]
 
     started = time.perf_counter()
@@ -123,7 +117,7 @@ def test_ranking_and_comparison_with_a_full_crop_list(client, uldk, weather, man
 
 def test_comparison_refuses_crops_that_cannot_be_compared(client):
     report_id = finished(client)
-    assert_error(compare(client, report_id, "maize"), 422, "unknown_crop")
+    assert_error(compare(client, report_id, "soybean"), 422, "unknown_crop")
     assert_error(compare(client, report_id, "winter_wheat"), 422, "same_crop")
     bare = compare(client, report_id, "bare_field")
     assert_error(bare, 422, "crop_not_comparable")
@@ -132,7 +126,7 @@ def test_comparison_refuses_crops_that_cannot_be_compared(client):
     assert_error(missing, 422, "validation_error")
 
 
-def test_report_of_the_field_without_a_crop_has_no_simulation(client, many):
+def test_report_of_the_field_without_a_crop_has_no_simulation(client):
     report_id = finished(client, crop_id="bare_field")
     for response in (ranking(client, report_id), compare(client, report_id, "winter_wheat")):
         assert_error(response, 409, "simulation_not_available")
@@ -163,7 +157,7 @@ def test_unknown_running_failed_and_expired_reports(client, weather, monkeypatch
     assert_error(ranking(client, running), 404, "report_not_found")
 
 
-def test_report_stored_with_other_parameters_is_not_contradicted(client, many, monkeypatch):
+def test_report_stored_with_other_parameters_is_not_contradicted(client, monkeypatch):
     report_id = finished(client)
     assert ranking(client, report_id).status_code == 200
     # The method changed after the Report was written: its numbers no longer
@@ -173,19 +167,19 @@ def test_report_stored_with_other_parameters_is_not_contradicted(client, many, m
     monkeypatch.setattr(
         routes, "simulate", lambda data, crop, day, crops: original(data, crop, day, crops, changed)
     )
-    for response in (ranking(client, report_id), compare(client, report_id, many[2].id)):
+    for response in (ranking(client, report_id), compare(client, report_id, "spring_barley")):
         assert_error(response, 409, "report_outdated")
         assert "Uruchom analizę ponownie" in response.json()["message"]
 
 
-def test_example_report_keeps_its_placeholder_answers(client, many):
+def test_example_report_keeps_its_placeholder_answers(client):
     body = ranking(client, "demo").json()
     assert [crop["crop_id"] for crop in body["top"]] == ["winter_rapeseed", "potato", "maize"]
     assert compare(client, "demo", "maize").status_code == 200
-    assert_error(compare(client, "demo", "made_00"), 422, "unknown_crop")
+    assert_error(compare(client, "demo", "soybean"), 422, "unknown_crop")
 
 
-def test_derived_report_is_simulated_like_its_source(client, many):
+def test_derived_report_is_simulated_like_its_source(client):
     # The crop history changes neither the multi-year susceptibility nor the simulation.
     source_id = finished(client)
     history = {"crop_history": {"years": {"2015": "bare_field", "2016": "bare_field"}}}

@@ -269,7 +269,7 @@ Trasy interfejsu (wszystkie pod `/api`, odpowiedzi JSON, błędy w postaci `{cod
 | Metoda i ścieżka | Cel |
 |---|---|
 | `GET /health` | stan usługi |
-| `GET /crops`, `GET /examples` | lista Upraw i Przykłady (obecnie dane przykładowe, patrz punkt 8) |
+| `GET /crops`, `GET /examples` | zamknięta lista Upraw z katalogu (21 Upraw i Pole bez uprawy; Sezon uprawy, Okres krytyczny, znacznik kafla) oraz Przykłady (obecnie dane przykładowe, patrz punkt 8) |
 | `GET /parcels/search?q=`, `GET /parcels/at?lon=&lat=`, `GET /parcels/{parcel_id}` | wyszukanie Działki, Działka w punkcie mapy, geometria Działki |
 | `POST /analyses` | start analizy: `{parcel_id, crop_id, analysis_date}`, odpowiedź `202 {report_id}` od razu |
 | `GET /analyses/{report_id}/status` | postęp analizy i stan każdego źródła |
@@ -346,7 +346,10 @@ wykorzystania” to punkt 7. Na zewnątrz wysyłane są tylko współrzędne, Id
 | Pogoda dzienna do Daty analizy: suma opadu, ewapotranspiracja wskaźnikowa ET0 (FAO-56) | Open-Meteo, archiwum pogodowe (reanaliza ERA5 / ECMWF IFS), `https://archive-api.open-meteo.com/v1/archive` | na żywo | wartości dzienne od 1 stycznia roku o 10 lat wcześniejszego niż Data analizy (z zapasem 120 dni na rozruch bilansu) do Daty analizy, a gdy Data analizy jest dniem bieżącym, do dnia poprzedniego (dzień bieżący jeszcze trwa, a archiwum podaje go jako wynik modelu na resztę doby); czas odczytu zapisany w raporcie | dane na licencji CC BY 4.0, wymagane podanie źródła z odnośnikiem [Weather data by Open-Meteo.com](https://open-meteo.com/); bezpłatny dostęp bez klucza tylko do zastosowań niekomercyjnych; limit 600 zapytań na minutę, 5000 na godzinę i 10 000 na dobę na adres IP; limity liczone kosztem zapytania, nie liczbą połączeń: jedna analiza to ok. 59 jednostek, czyli ok. 10 analiz na minutę, 85 na godzinę i 170 na dobę z jednego adresu IP; po wyczerpaniu limitu archiwum odmawia (`429`) i analiza kończy się bez Raportu z osobnym komunikatem |
 | Tło suszowe: klasa wskaźnika Combined Drought Indicator (CDI) w komórce siatki działki, co dekadę, od 2016 r. | European Drought Observatory (EDO), Komisja Europejska, Wspólne Centrum Badawcze (JRC); © Unia Europejska, 1995–2026; `https://drought.emergency.copernicus.eu/data/Drought_Observatories_datasets/` (katalog `EDO_Combined_Drought_Indicator`) | plik lokalny: archiwa roczne rozpakowane do `EDO_DATA_PATH` poleceniem `python3 scripts/unpack_drought_files.py KATALOG_ARCHIWÓW`; stan plików na 21.11.2026, dekady od 01.01.2016 do 01.11.2026 | pliki pobrane wcześniej: stan na 21.11.2026, dekady od 01.01.2016 do 01.11.2026; raport podaje dekadę użytą w Sprawdzeniu zgodności | CC BY 4.0; wymagane podanie źródła i zaznaczenie zmian (pliki testowe w `backend/tests/fixtures/edo/` to wycinki 3 × 3 komórki bez metadanych) |
 | Ukształtowanie terenu: siatka wysokości ok. 30 m wokół działki | Copernicus DEM GLO-30 (model pokrycia terenu z misji TanDEM-X, pomiary z lat 2011–2015; wysokości obejmują budynki i roślinność), pliki z `https://registry.opendata.aws/copernicus-dem/`, arkusz wyszukiwany w katalogu Earth Search (`https://earth-search.aws.element84.com/v1`, kolekcja `cop-dem-glo-30`) | na żywo | pomiary z lat 2011–2015; czas odczytu zapisany w raporcie | bezpłatnie dla każdego na warunkach licencji Copernicus DEM (GLO-30 Public), bez rejestracji; wymagane podanie źródła i informacji o prawach autorskich |
-| Parametry wodne Upraw: współczynniki Kc, głębokość korzeni, dopuszczalne wyczerpanie wody w glebie (p) | Allen R.G., Pereira L.S., Raes D., Smith M. (1998), „Crop evapotranspiration: guidelines for computing crop water requirements”, FAO Irrigation and Drainage Paper 56, tabele 12 i 22 | wartości wpisane w kodzie (`backend/app/catalog/crop_data.py`), każda ze wskazaniem tabeli; wartości bez źródła są tam oznaczone jako robocze | publikacja z 1998 r.; wartości wpisane w kodzie, nie są pobierane | publikacja FAO; wartości liczbowe przytoczone z podaniem źródła |
+| Parametry wodne Upraw: współczynniki Kc, głębokość korzeni, dopuszczalne wyczerpanie wody w glebie (p), współczynnik reakcji plonu Ky | Allen R.G., Pereira L.S., Raes D., Smith M. (1998), „Crop evapotranspiration: guidelines for computing crop water requirements”, FAO Irrigation and Drainage Paper 56, tabele 12, 22 i 24; długości faz wzrostu kukurydzy, ziemniaka, buraków i warzyw z tabeli 11; `https://www.fao.org/4/x0490e/x0490e00.htm` | wartości wpisane w kodzie (`backend/app/catalog/crop_data*.py`), każda ze wskazaniem tabeli i wiersza; wartości przyjęte przez analogię albo roboczo mają tam podany powód | publikacja z 1998 r., odczyt 21.11.2026; wartości wpisane w kodzie, nie są pobierane | © FAO 1998; przytoczone pojedyncze wartości liczbowe z podaniem źródła, bez kopiowania tekstu i tabel |
+| Terminy siewu, faz wzrostu i zbioru Upraw w Polsce (Sezon uprawy i daty faz krzywej Kc) | Centralny Ośrodek Badania Odmian Roślin Uprawnych (COBORU), „Wyniki porejestrowych doświadczeń odmianowych”, tabele dat siewu, zbioru i faz rozwojowych, `https://coboru.gov.pl/Publikacje_COBORU/Wyniki_PDO/`; rośliny rolnicze: średnia z lat zbioru 2018–2022, 2024 i 2025; warzywa: lata 2021–2025 (cebula, kapusta, burak ćwikłowy: tylko 2025) | średnie policzone z opublikowanych dat i wpisane w kodzie (`backend/app/catalog/crop_data*.py`) | wydania z lat 2019–2025, odczyt 21.11.2026 | publikacje jednostki państwowej udostępnione bezpłatnie; w plikach nie ma noty licencyjnej; użyte średnie własne z opublikowanych dat, z podaniem źródła |
+| Okres krytyczny każdej Uprawy (okres największego zapotrzebowania na wodę) | Centrum Doradztwa Rolniczego (2025), e-poradnik „Melioracje, retencja i gospodarka wodna w rolnictwie”, część IV, rozdz. 3 i 4 (materiał organizatora) | wartości wpisane w kodzie (`backend/app/catalog/crop_data*.py`) ze wskazaniem strony lub tabeli | publikacja z 2025 r. | materiał sfinansowany ze środków publicznych; przytoczone terminy z podaniem źródła |
+| Grupa Uprawy w monitoringu suszy rolniczej (do opisu przyczyn; progów jeszcze nie używamy) | IUNG-PIB, System Monitoringu Suszy Rolniczej, `https://susza.iung.pulawy.pl/progi/` | nazwa grupy wpisana w kodzie przy Uprawie | odczyt 21.11.2026 | treść rozporządzenia ministra (akt urzędowy) opublikowana przez IUNG-PIB; podane źródło |
 | Gleba w punkcie działki, warstwy do 100 cm: piasek, pył, ił, węgiel organiczny, zawartość wody przy 33 i 1500 kPa; z nich pojemność wodna (różnica zawartości wody, niezweryfikowana pomiarem na działce) | ISRIC – World Soil Information, SoilGrids 2.0 (model globalny, siatka 250 m), `https://rest.isric.org/soilgrids/v2.0/properties/query` | na żywo | mapy statyczne (wersja 2.0), bez daty obserwacji; czas odczytu zapisany w raporcie | CC BY 4.0, wymagane podanie źródła; usługa w fazie beta, bez gwarancji dostępności; limit 5 zapytań na minutę; zmierzony czas odpowiedzi 11–35 s |
 | Obserwacje satelitarne do Daty analizy: klasyfikacja sceny (SCL) oraz pasma czerwone, bliskiej podczerwieni i krótkofalowej podczerwieni nad działką; z nich udział czystych pikseli, NDVI i NDMI | Copernicus Sentinel-2, poziom L2A (ESA / Komisja Europejska), z dwóch wymiennych usług (kolejność w konfiguracji): podstawowa Microsoft Planetary Computer, `https://planetarycomputer.microsoft.com/api/stac/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w Azure West Europe, odczyt z bezpłatnym tokenem pobieranym bez konta; zapasowa Earth Search (Element 84), `https://earth-search.aws.element84.com/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w rejestrze otwartych danych AWS | na żywo | sceny z 30 dni przed Datą analizy i z tego samego okresu w 3 poprzednich latach (archiwum od 2015 r. w usłudze podstawowej, od 2016 r. w zapasowej); data każdej sceny i czas odczytu zapisane w raporcie | bezpłatny, pełny i otwarty dostęp do danych na warunkach noty prawnej danych Sentinel (`https://sentinel.esa.int/documents/247904/690755/Sentinel_Data_Legal_Notice`); wymagane podanie źródła i zaznaczenie przetworzenia danych; obie usługi obecnie w dostępie bezpłatnym, bez klucza i bez gwarancji dostępności (patrz „Konfiguracja”) |
 | Metoda oceny: dzienny bilans wody w strefie korzeniowej, woda łatwo dostępna i współczynnik stresu wodnego Ks, z których powstają Bieżąca sytuacja wodna i Podatność wieloletnia | Allen R.G., Pereira L.S., Raes D., Smith M. (1998), „Crop evapotranspiration: guidelines for computing crop water requirements”, FAO Irrigation and Drainage Paper 56, rozdział 8 (równania 80, 82–86 i 88), tabela 19 | metoda zapisana w kodzie (`backend/app/engine/`); progi i wartości robocze w jednym pliku `backend/app/engine/params.py`, każda bez źródła oznaczona tam jako robocza | publikacja z 1998 r.; metoda zapisana w kodzie, nie jest pobierana | publikacja FAO; równania przytoczone z podaniem źródła |
@@ -551,9 +554,27 @@ Do uzupełnienia przed zgłoszeniem: licencja kodu rozwiązania.
 
 Zakres danych i katalogów:
 
-- Lista Upraw, dla których działa analiza, ma dziś jedną Uprawę (pszenica ozima) i Pole bez uprawy. Trasa
-  `GET /api/crops` zwraca jeszcze przykładową, szerszą listę: analiza dla pozycji spoza katalogu kończy się
-  odpowiedzią `422 unknown_crop`. Ranking upraw pokazuje dlatego samą bieżącą Uprawę.
+- Lista Upraw ma 21 Upraw i Pole bez uprawy; `GET /api/crops` zwraca ją wprost z katalogu, a analiza, Historia
+  upraw i Symulacja działają dla każdej pozycji. Jedenaście Upraw ma komplet wartości ze źródeł. Dziesięć jest
+  w katalogu oznaczonych jako warunkowe (`conditional`), bo część ich wartości przyjęto przez analogię albo
+  roboczo: żyto ozime i pszenżyto ozime (parametry pszenicy ozimej, źródło nie podaje ich osobno), rzepak ozimy
+  (początek fazy końcowej; wybór Kc wewnątrz zakresu), łąka lub pastwisko (roślina wieloletnia opisana modelem
+  „siew–zbiór”, od kwietnia do września, bez terminów pokosów i wypasu), mieszanka zbożowa jara (wszystko jak
+  jęczmień jary i owies) oraz cebula, kapusta głowiasta, burak ćwikłowy, pomidor gruntowy i ogórek gruntowy
+  (terminy z kilku stacji doświadczalnych, dla cebuli, kapusty i buraka ćwikłowego z jednego roku; długości faz
+  z tabel FAO dla cieplejszego klimatu; jeden wspólny Okres krytyczny warzyw, przycięty do Sezonu uprawy).
+  Kontrakt `GET /api/crops` nie ma pola na to oznaczenie, więc strona go nie pokazuje.
+- Terminy siewu, faz i zbioru to średnie z doświadczeń odmianowych w całej Polsce; na konkretnym polu mogą
+  różnić się o kilkanaście dni zależnie od regionu, odmiany i pogody. Okres krytyczny zbóż przyjęto dla gleb
+  średnich (na lekkich zaczyna się około dziesięciu dni wcześniej). Dla kukurydzy, ziemniaka i buraka długości
+  faz pochodzą z tabel FAO, nie z obserwacji w Polsce. Ziemniak to odmiany średnio wczesne i średnio późne,
+  kapusta to odmiany późne. Współczynniki Kc dotyczą upraw dobrze prowadzonych, o pełnej obsadzie, bez poprawki
+  na klimat. Warzywa są zwykle nawadniane; Raport pokazuje, ile wody brakowałoby im bez nawadniania. Sadów,
+  krzewów owocowych i truskawek narzędzie nie ocenia. Tych zastrzeżeń Raport nie podaje jeszcze jako
+  Ograniczeń przy konkretnej Uprawie.
+- Poza Sezonem uprawy i dla Pola bez uprawy parowanie liczone jest stałym współczynnikiem gołej gleby 0,3
+  (wartość robocza); dla ozimin jesienią przed siewem i dla łąki zimą to uproszczenie.
+- Współczynnik reakcji plonu Ky i grupa monitoringu suszy są w katalogu, ale silnik jeszcze z nich nie korzysta.
 - `GET /api/examples` zwraca dane przykładowe, a nie sześć sprawdzonych Przykładów; raport `/api/reports/demo`
   jest atrapą.
 - Katalog Rekomendacji ma cztery pozycje wzorcowe, po jednej na grupę; ich treść opiera się na treści zadania
@@ -566,8 +587,9 @@ Zakres danych i katalogów:
 
 Wartości robocze. Progi i reguły bez źródła naukowego są w kodzie oznaczone `PROVISIONAL` i zebrane w plikach
 parametrów (lista w [docs/metoda.md](docs/metoda.md)): definicja roku z niedoborem (co najmniej 10 dni stresu
-w Okresie krytycznym; wiadomo, że zbyt czuła), progi Stopni niedoboru, daty faz i Okres krytyczny pszenicy ozimej,
-progi czterech Przyczyn, reguły Pewności oceny i Sprawdzenia zgodności, okna i próg czystości scen satelitarnych,
+w Okresie krytycznym; wiadomo, że zbyt czuła, a po wpisaniu katalogu Upraw wymaga ponownego dobrania na nowej
+krzywej Kc i nowym Okresie krytycznym), progi Stopni niedoboru, wartości Upraw warunkowych wymienione wyżej,
+współczynnik gołej gleby, progi czterech Przyczyn, reguły Pewności oceny i Sprawdzenia zgodności, okna i próg czystości scen satelitarnych,
 zasadność i dolna granica nawadniania, czas przechowywania Raportów. Przy progu Kc 1,0 przyczyna „uprawa o dużych
 potrzebach wodnych” będzie stwierdzana dla większości Upraw polowych.
 
@@ -623,7 +645,7 @@ Technika:
   analizami naraz, czasów z serwera docelowego dla całej analizy.
 
 Do uzupełnienia przed zgłoszeniem: ograniczenia strony dla rolnika; aktualizacja tej listy po rozszerzeniu
-katalogu Upraw i Rekomendacji oraz po podłączeniu kolejnych źródeł.
+katalogu Rekomendacji oraz po podłączeniu kolejnych źródeł.
 
 ## 9. Informacja o sposobie weryfikacji wygenerowanych wyników lub rekomendacji
 

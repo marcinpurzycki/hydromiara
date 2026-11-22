@@ -54,7 +54,7 @@ def test_verdicts_come_from_the_engine():
     assert f"{multiyear.deficit_years} z 10 lat" in report.headline
     assert current.label in report.headline
     assert report.season.in_season
-    assert report.season.last_season.start.isoformat() == "2022-09-25"
+    assert report.season.last_season.start.isoformat() == "2022-10-05"
     rule_ids = [entry.rule_id for entry in report.trace]
     assert rule_ids[:3] == [
         "root_zone.capacity", "current_status.level", "multiyear.deficit_years",

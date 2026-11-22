@@ -54,7 +54,7 @@ def test_backtest_writes_a_row_per_analysis_and_prints_the_table(files, weather,
     assert [(row["label"], row["analysis_date"], row["status"]) for row in rows] == [
         ("first", "2023-06-20", "done"), ("second", "2023-06-10", "done"),
     ]  # fmt: skip
-    assert [row["current_label"] for row in rows] == ["silny niedobór", "wyraźny niedobór"]
+    assert [row["current_label"] for row in rows] == ["wyraźny niedobór", "wyraźny niedobór"]
     assert [row["cdi_class"] for row in rows] == ["2", "1"]
     assert all(row["mode"] == "in_process" and float(row["weather_s"]) >= 0 for row in rows)
     assert len(weather.requests) == 2
@@ -107,7 +107,7 @@ def test_bad_rows_and_failed_analyses_do_not_stop_the_run(files, weather, capsys
     assert run_backtest(files) == 1
     printed = capsys.readouterr()
     assert "line 3: crop_id 'sunflower' is not in the crop catalogue" in printed.err
-    assert "(available: winter_wheat, bare_field)" in printed.err
+    assert "(available: winter_wheat, winter_rye, " in printed.err and "bare_field)" in printed.err
     rows = read(files["output"])
     assert [(row["label"], row["status"]) for row in rows] == [
         ("missing parcel", "failed"), ("first", "done"),

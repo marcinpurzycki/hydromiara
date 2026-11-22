@@ -61,7 +61,7 @@ def test_history_is_checked_against_the_window_of_the_analysis(client, weather):
     response = put(client, report_id, {"years": {"2013": "bare_field", "2019": "bare_field"}})
     assert_error(response, 422, "crop_history_year_outside_window")
     assert "2014–2023" in response.json()["message"] and "2013" in response.json()["message"]
-    assert_error(put(client, report_id, {"years": {"2019": "maize"}}), 422, "unknown_crop")
+    assert_error(put(client, report_id, {"years": {"2019": "soybean"}}), 422, "unknown_crop")
 
     bare = start(client, crop_id="bare_field")
     assert_error(put(client, bare, {"same_every_year": True}), 409, "crop_history_not_applicable")
@@ -83,7 +83,7 @@ def test_history_goes_with_the_analysis_of_the_critical_period(client, weather):
     body = client.post(f"/api/reports/{original}/critical-period").json()
     # Before the middle of the period of 2023 the analysis goes to 2022, whose
     # window is 2013-2022: the year 2023 of the history no longer applies.
-    assert body["analysis_date"] == "2022-06-07"
+    assert body["analysis_date"] == "2022-06-10"
     wait_finished(client, body["report_id"])
     new = report_of(client, body["report_id"])
     by_year = {year.year: year.crop.id for year in new.historical_course.years}
