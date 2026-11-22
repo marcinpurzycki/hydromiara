@@ -12,8 +12,8 @@ Without --url the application runs in this process with a temporary report
 database and the source times come from the stored source data; with --url
 they are not available (they are in the log of the service).
 
-Analyses start at least `--spacing` seconds apart, because the soil service
-allows five calls per minute. Exits with 1 when an analysis fails or takes
+Analyses start at least `--spacing` seconds apart, to keep the load on the
+free services low. Exits with 1 when an analysis fails or takes
 longer than the time budget; a source without data is a normal result.
 """
 
@@ -127,7 +127,7 @@ def main() -> int:
     parser.add_argument("--runs", type=int, default=2, help="repeats of every analysis")
     parser.add_argument("--date", action="append", help="analysis date or 'today'; repeatable")
     parser.add_argument("--parcel", action="append", help="parcel identifier; repeatable")
-    parser.add_argument("--spacing", type=float, default=13.0, help="seconds between starts")
+    parser.add_argument("--spacing", type=float, default=5.0, help="seconds between starts")
     arguments = parser.parse_args()
     dates = [
         date.today().isoformat() if value == "today" else value

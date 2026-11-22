@@ -5,7 +5,6 @@ limitations that only the adapter can name. A gap that the engine names itself
 from the data is left out here, so that it is not listed and counted twice.
 """
 
-from app.contracts.report import Limitation
 from app.orchestrator.source_types import Fetch, FetchContext, SourceFetch
 from app.sources.drought_background import DroughtBackgroundSource
 from app.sources.hydro import HydroSource
@@ -28,22 +27,15 @@ def weather_fetch(source: WeatherSource) -> Fetch:
     return fetch
 
 
-def names_water_capacity_gap(limitation: Limitation) -> bool:
-    """True for the soil adapter's sentence about layers without water contents.
-
-    The engine names the same gap from the root zone the balance really used
-    (a profile covering part of the depth, or a stand-in capacity). The
-    adapter's other limitations are permanent or concern the recommendations.
-    """
-    return not limitation.permanent and limitation.affects == "all"
-
-
 def soil_fetch(source: SoilSource) -> Fetch:
     async def fetch(context: FetchContext) -> SourceFetch:
         parcel = context.parcel
-        data, outcome, limitations = await source.fetch(parcel.centroid_lat, parcel.centroid_lon)
-        kept = [item for item in limitations if not names_water_capacity_gap(item)]
-        return SourceFetch(data=data, outcome=outcome, limitations=kept)
+        # Which soil source answered and what that means for the result is
+        # named by the engine from the soil data themselves.
+        data, outcome = await source.fetch(
+            parcel.geometry, parcel.centroid_lon, parcel.centroid_lat
+        )
+        return SourceFetch(data=data, outcome=outcome)
 
     return fetch
 

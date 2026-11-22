@@ -27,6 +27,13 @@ from app.engine.limitations import (
     report_findings,
 )
 from app.engine.source_limitations import TOPICS, step_down_limitation
+from app.engine.soil_limitations import (
+    CATEGORY_MAP_TEXT,
+    MAP_NOT_READ_TEXT,
+    NO_CATEGORY_TEXT,
+    NO_SOIL_TEXT,
+    ORGANIC_TEXT,
+)
 from tests.engine_helpers import recorded_soil, recorded_weather
 from tests.limitation_helpers import (
     complete_source_data,
@@ -45,7 +52,7 @@ AVOIDED = ("fallback", "błąd", "ostrzeże", "dokładność", "prawdopodob", "a
 def test_permanent_limitations_are_the_fixed_ones():
     assert [(item.affects, item.permanent) for item in PERMANENT_LIMITATIONS] == [
         ("all", True), ("all", True), ("recommendations", True), ("recommendations", True),
-        ("all", True), ("all", True),
+        ("all", True), ("all", True), ("all", True),
     ]
     texts = [item.text for item in PERMANENT_LIMITATIONS]
     assert texts[0] == "Raport nie jest urzędowym stwierdzeniem suszy rolniczej."
@@ -54,6 +61,7 @@ def test_permanent_limitations_are_the_fixed_ones():
     assert "rowach" in texts[3] and "niekompletne" in texts[3]
     assert "modelu obliczeniowego" in texts[4] and "deszczomierza" in texts[4]
     assert "IMGW" in texts[5] and "więcej opadu" in texts[5]
+    assert texts[6].startswith("Bilans obejmuje glebę do głębokości 1 m.")
     assert all(item.permanent for item in SIMULATION_LIMITATIONS)
     simulation = " ".join(item.text for item in SIMULATION_LIMITATIONS)
     for word in ("satelitarnych", "plonu", "opłacalności", "przydatności gleby", "zmianowania"):
@@ -83,7 +91,9 @@ def test_permanent_limitations_never_lower_the_confidence():
     assert confidences.current.level == confidences.multiyear.level == "wysoka"
     assert confidences.current.why == WHY_COMPLETE
     limitations = limitations_of(findings)
-    assert limitations[0] == extra and all(item.permanent for item in limitations)
+    # The soil category map of the recorded parcel adds its own permanent limitation.
+    assert limitations[0].text == CATEGORY_MAP_TEXT and limitations[1] == extra
+    assert all(item.permanent for item in limitations)
 
 
 def test_levels_follow_the_sum_of_points():
@@ -124,7 +134,7 @@ def test_repeated_texts_are_kept_once_at_the_first_position():
         last=[repeated, limitation("recommendations", "Na końcu.")],
     )
     assert own_texts(findings) == ["To samo zdanie.", "Na końcu."]
-    assert len(findings) == 2 + len(PERMANENT_LIMITATIONS)
+    assert len(findings) == 2 + 1 + len(PERMANENT_LIMITATIONS)
     assert (confidences.current.level, confidences.multiyear.level) == ("średnia", "wysoka")
 
 
@@ -139,7 +149,8 @@ def test_order_is_fixed_whatever_the_order_of_the_outcomes():
     }
     findings, _, assessment = judge(data, **options)
     expected = [
-        "Pierwsze.", "Sprawdzenie zgodności", "Brak danych o glebie", "Dane o ukształtowaniu",
+        "Pierwsze.", "Sprawdzenie zgodności", "Nie udało się pobrać danych o glebie",
+        "Dane o ukształtowaniu",
         "Brak odczytów satelitarnych", "Brak danych o ciekach", "Ze źródła.", "Ostatnie.",
     ]
     texts = own_texts(findings)
@@ -172,17 +183,6 @@ def test_one_missing_day_before_the_date_is_worded_in_the_singular():
     assert "czyli 1 dzień przed Datą analizy" in text
 
 
-def test_soil_profile_covering_part_of_the_depth_is_a_limitation():
-    soil = recorded_soil()
-    shallow = SoilData(layers=[layer for layer in soil.layers if layer.bottom_cm <= 60])
-    data = complete_source_data().model_copy(update={"soil": shallow})
-    findings, confidences, assessment = judge(data)
-    assert assessment.root_zone.capacity_source == "partial_soil_profile"
-    (text,) = own_texts(findings)
-    assert "Dane o glebie obejmują 60 cm z 100 cm" in text
-    assert confidences.current.level == confidences.multiyear.level == "średnia"
-
-
 def test_substitute_wording_per_data_category():
     affects = {}
     for topic in TOPICS:
@@ -192,7 +192,8 @@ def test_substitute_wording_per_data_category():
             assert "z mniej dokładnego zamiennika (Zamiennik)" in found.text
             assert "Wpływa to na: " in found.text and not found.permanent
     assert affects == {
-        "weather": "all", "soil": "all", "satellite": None,
+        # A step down the soil chain is named from the soil data, with its own text.
+        "weather": "all", "soil": None, "satellite": None,
         "drought_background": "current", "terrain": "recommendations",
         "hydro": "recommendations",
     }
@@ -213,9 +214,10 @@ def test_texts_keep_to_the_project_glossary():
     texts += [item.text for item in SIMULATION_LIMITATIONS]
     texts += [
         step_down_limitation(outcome(topic, 2, "Zamiennik")).text
-        for topic in ("soil", "terrain", "hydro", "drought_background")
+        for topic in ("terrain", "hydro", "drought_background")
     ]
-    assert len(texts) == 10 + len(PERMANENT_LIMITATIONS) + 3 + 2 + 4
+    texts += [CATEGORY_MAP_TEXT, NO_CATEGORY_TEXT, MAP_NOT_READ_TEXT, ORGANIC_TEXT, NO_SOIL_TEXT]
+    assert len(texts) == 10 + len(PERMANENT_LIMITATIONS) + 3 + 2 + 3 + 5
     for text in texts:
         assert text.endswith(".") and not any(word in text.lower() for word in AVOIDED), text
 

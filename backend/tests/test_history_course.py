@@ -45,8 +45,8 @@ def test_same_every_year_repeats_the_susceptibility_year_by_year():
     verdict = assessment.multiyear_susceptibility
     assert course.same_every_year and not any(year.given for year in course.years)
     assert flags(course) == {year.year: year.deficit for year in verdict.years}
-    assert (course.deficit_years, course.assessed_years) == (9, 10)
-    assert (verdict.deficit_years, verdict.total_years) == (9, 10)
+    assert (course.deficit_years, course.assessed_years) == (10, 10)
+    assert (verdict.deficit_years, verdict.total_years) == (10, 10)
     assert [year.stress_days for year in course.years] == [y.stress_days for y in verdict.years]
     assert course.years[-1].partial and not course.years[0].partial
     assert course.other_crop_years == ()
@@ -81,7 +81,7 @@ def test_year_of_the_field_without_a_crop_is_not_assessed():
         assert not year.assessed and year.not_assessed == "no_crop"
         assert year.deficit is False and year.critical_period is None
     # Both years are deficit years of the wheat, so two fewer are counted.
-    assert (course.deficit_years, course.assessed_years) == (7, 8)
+    assert (course.deficit_years, course.assessed_years) == (8, 8)
 
 
 def test_spring_crop_is_judged_in_its_own_critical_period():

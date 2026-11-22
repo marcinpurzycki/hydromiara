@@ -100,7 +100,7 @@ def test_field_without_a_crop_says_that_nothing_was_assessed():
 def test_missing_soil_is_the_limitation_the_summary_names():
     report = CASES["no_soil"]
     text = report.summary.text
-    assert "Najważniejsze Ograniczenie raportu: Brak danych o glebie Działki" in text
+    assert "Najważniejsze Ograniczenie raportu: Nie udało się pobrać danych o glebie" in text
     assert "Najważniejsze Ograniczenie raportu" not in CASES["deficit"].summary.text
 
 

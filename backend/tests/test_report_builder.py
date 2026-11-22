@@ -5,6 +5,7 @@ import json
 from app.catalog.crops import get_crop
 from app.contracts.report import Limitation, Report
 from app.engine.limitations import PERMANENT_LIMITATIONS
+from app.engine.soil_limitations import NO_SOIL_TEXT
 from app.mock import data as mock_data
 from app.orchestrator import report_pending as pending
 from app.orchestrator.report_builder import ReportInputs, build_report
@@ -93,10 +94,11 @@ def test_nothing_is_copied_from_the_placeholder_report():
 def test_missing_soil_is_a_limitation():
     report = build()
     assert report.trace[0].values["capacity_source"] == "fallback"
-    assert any("Brak danych o glebie" in text and "150 mm" in text for text in texts(report))
+    assert texts(report).count(NO_SOIL_TEXT) == 1
+    assert report.trace[0].values["available_water_mm_per_m"] == 150
     with_soil = build(source_data=stored_source_data().model_copy(update={"soil": recorded_soil()}))
-    assert not any("Brak danych o glebie" in text for text in texts(with_soil))
-    assert with_soil.trace[0].values["capacity_source"] == "soil_profile"
+    assert NO_SOIL_TEXT not in texts(with_soil)
+    assert with_soil.trace[0].values["capacity_source"] == "iung_category"
 
 
 def test_source_limitations_are_kept_and_absent_data_are_named():
@@ -126,7 +128,8 @@ def test_confidence_follows_the_limitations_of_each_verdict():
     current = report.current_status.confidence
     multiyear = report.multiyear_susceptibility.confidence
     assert (current.level, multiyear.level) == ("niska", "niska")
-    assert "przyjęto zastępczo" in current.why and "przyjęto zastępczo" in multiyear.why
+    assert "przyjęto przeciętną zdolność gleby" in current.why
+    assert "przyjęto przeciętną zdolność gleby" in multiyear.why
     assert "wskaźnika suszy" in current.why and "wskaźnika suszy" not in multiyear.why
 
     report = build(source_data=complete_source_data())
@@ -136,11 +139,10 @@ def test_confidence_follows_the_limitations_of_each_verdict():
     own = [limitation for limitation in report.limitations if not limitation.permanent]
     # The stand-in terrain grid of the helper is in a system that is not read, which the
     # Report says.
-    # The recommendation that needs the terrain is therefore named as not checked.
-    assert len(own) == 2
+    # No recommendation that needs the terrain answers a cause found here (only the
+    # crop demand is), so none is named as not checked.
+    assert len(own) == 1
     assert own[0].affects == "recommendations" and "ukształtowaniu terenu" in own[0].text
-    assert own[1].affects == "recommendations"
-    assert own[1].text.startswith("Nie sprawdzono Rekomendacji") and "spadku" in own[1].text
 
 
 def test_field_without_a_crop_is_not_assessed_and_says_so():

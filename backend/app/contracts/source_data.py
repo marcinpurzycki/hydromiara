@@ -56,8 +56,51 @@ class SoilLayer(ContractModel):
     )
 
 
+class DroughtCategoryShare(ContractModel):
+    """One soil drought susceptibility category found at the sampled parcel points."""
+
+    category: int = Field(
+        ge=1,
+        le=4,
+        description=(
+            "Category of the IUNG-PIB map: 1 = I (very susceptible to drought), "
+            "2 = II, 3 = III, 4 = IV (little susceptible)."
+        ),
+    )
+    share_pct: float = Field(ge=0, le=100, description="Share of all sampled parcel points.")
+
+
+class UnclassifiedArea(ContractModel):
+    """Map value without a category found at the sampled parcel points."""
+
+    code: int = Field(
+        ge=0,
+        description=(
+            "Value of the IUNG-PIB map: 5 organic soils, 11 forest, 12 water, 13 built-up, "
+            "14 transport and wasteland, 19 and 99 unclassified, 0 and 255 no data."
+        ),
+    )
+    share_pct: float = Field(ge=0, le=100, description="Share of all sampled parcel points.")
+
+
 class SoilData(ContractModel):
-    layers: list[SoilLayer]
+    layers: list[SoilLayer] = Field(
+        description="Texture and organic carbon by depth; empty when not available."
+    )
+    drought_categories: list[DroughtCategoryShare] | None = Field(
+        default=None,
+        description=(
+            "Soil drought susceptibility categories at the parcel points, largest share "
+            "first; null when the category map was not read."
+        ),
+    )
+    unclassified_areas: list[UnclassifiedArea] | None = Field(
+        default=None,
+        description=(
+            "Map values without a category at the parcel points, largest share first; "
+            "null when the category map was not read."
+        ),
+    )
 
 
 class TerrainData(ContractModel):

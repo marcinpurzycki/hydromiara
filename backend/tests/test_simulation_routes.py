@@ -60,12 +60,13 @@ def test_ranking_of_the_catalogue_crops_fetches_and_changes_nothing(client, uldk
     # The current crop has exactly the numbers of the Report.
     assert response.json()["current"] == reported(client, report_id)
     assert body.current.total_years == 10
-    # Computed on the recorded weather and soil of the parcel: winter rapeseed has
-    # 3 deficit years of 10, field cucumber 6, spring barley 7; every other crop more.
+    # Computed on the recorded weather and soil of the parcel (186 mm per metre): winter
+    # rapeseed has 5 deficit years of 10, field cucumber 6; seven crops have 8, of which
+    # spring wheat has the fewest stress days; every other crop has more.
     assert [(crop.crop_id, crop.deficit_years, crop.total_years) for crop in body.top] == [
-        ("winter_rapeseed", 3, 10), ("cucumber", 6, 10), ("spring_barley", 7, 10),
+        ("winter_rapeseed", 5, 10), ("cucumber", 6, 10), ("spring_wheat", 8, 10),
     ]  # fmt: skip
-    assert [crop.deficit_level for crop in body.top] == [1, 2, 2]
+    assert [crop.deficit_level for crop in body.top] == [2, 2, 3]
     assert body.limitations[:2] == list(SIMULATION_LIMITATIONS)
     texts = [item.text for item in body.limitations[2:]]
     assert len(texts) == 2

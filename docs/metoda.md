@@ -7,7 +7,7 @@ w [README](../README.md). Wszystkie reguły poniżej wykonuje deterministyczny k
 Wartość, która nie ma źródła naukowego, jest w kodzie oznaczona komentarzem `PROVISIONAL` (wartość robocza)
 i zebrana w pliku parametrów swojego modułu, więc jej wymiana jest zmianą danych, a nie kodu. Pliki z wartościami
 roboczymi: `backend/app/engine/params.py`, `cause_params.py`, `consistency_params.py`, `findings.py`,
-`irrigation_params.py`, `water_params.py`, `backend/app/catalog/crop_data.py`, `recommendation_data.py`,
+`irrigation_params.py`, `soil_capacity.py`, `soil_limitations.py`, `water_params.py`, `backend/app/catalog/crop_data.py`, `recommendation_data.py`,
 `backend/app/sources/hydro_params.py`, `satellite_params.py`, `soil_params.py`, `terrain_params.py`,
 `weather_params.py`, `raster.py`,
 `backend/app/storage/params.py`, `backend/app/summary/params.py`.
@@ -41,7 +41,7 @@ Podstawą obu werdyktów jest dzienny bilans wody w strefie korzeniowej według 
 (`backend/app/engine/balance.py`, `root_zone.py`; równania 80, 82–86 i 88): woda dostępna dla roślin (TAW), woda
 łatwo dostępna (RAW = p · TAW), wyczerpanie strefy korzeniowej (Dr) i współczynnik stresu wodnego Ks; ewapotranspiracja
 uprawy to Ks · Kc · ET0. Opad i ET0 pochodzą z archiwum pogodowego, współczynnik Kc z katalogu upraw (krzywa
-w ciągu roku z dat faz), pojemność wodna z profilu glebowego. Seria zaczyna się przed Oknem wieloletnim (rozruch
+w ciągu roku z dat faz), pojemność wodna z kategorii gleby (niżej). Seria zaczyna się przed Oknem wieloletnim (rozruch
 bilansu), a dni po Dacie analizy są odrzucane na wejściu, więc wynik dla danej daty nie zależy od późniejszych danych.
 
 Seria pogodowa kończy się na Dacie analizy. Wyjątkiem jest analiza na dzień bieżący: wtedy ostatnim dniem serii jest
@@ -51,9 +51,30 @@ na resztę doby. Bieżąca sytuacja wodna opisuje wtedy stan z końca dnia poprz
 opad i ET0; średnia temperatura nie jest pobierana, bo bilans jej nie używa.
 
 Uproszczenia: bez spływu powierzchniowego, podsiąku i nawodnień; stała głębokość korzeni; współczynnik p bez
-korekty na wielkość ewapotranspiracji; strefa korzeniowa ograniczona do 100 cm (zasięg danych o glebie) i brana
-z płytszego końca zakresu FAO-56; bilans zaczyna od pojemności polowej. Gdy profilu glebowego nie ma, przyjmowana
-jest pojemność zastępcza 150 mm wody dostępnej na metr gleby, a raport podaje to jako Ograniczenie.
+korekty na wielkość ewapotranspiracji; strefa korzeniowa ograniczona do 100 cm i brana z większego końca zakresu
+FAO-56 (tabela 22, przypis 1: większe wartości dla upraw bez nawadniania); bilans zaczyna od pojemności polowej.
+
+Pojemność wodna gleby (`backend/app/engine/soil_capacity.py`, `backend/app/sources/soil.py`) pochodzi z Łańcucha
+zamienników:
+
+1. **Kategoria podatności gleby na suszę IUNG-PIB** (I–IV), odczytana z mapy w siatce do 25 punktów wewnątrz
+   obrysu Działki. Pojemność kategorii: I 110, II 149, III 186, IV 220 mm wody dostępnej na metr gleby (wartości
+   robocze wewnątrz przedziałów IUNG-PIB: poniżej 127,5; 127,5–169,9; 170–202,5; powyżej 202,5 mm). Pojemność
+   Działki to średnia ważona liczbą punktów z kategorią. Ogniwo jest spełnione, gdy kategorię ma co najmniej
+   połowa punktów (wartość robocza). Działkę o kilku kategoriach raport opisuje udziałami.
+2. **Kategoria oszacowana z uziarnienia**: piasek, ił i węgiel organiczny z map SoilGrids (warstwy do 100 cm,
+   środek Działki) przeliczone wzorami Saxtona i Rawlsa (2006, równania 1 i 2) na pojemność profilu; próchnica
+   z węgla organicznego (× 1,724), ograniczona do 3,5% (wartość robocza). Wzór daje wartości na niższej skali niż
+   kategorie IUNG-PIB, więc do bilansu idzie pojemność kategorii szacowanej (progi 85, 113 i 135 mm na metr,
+   wartości robocze), a nie wynik wzoru. Zawartości wody przy 33 i 1500 kPa z SoilGrids nie są używane: nie
+   odróżniają piasków od glin.
+3. **Wartość zastępcza** 150 mm na metr, gdy żadne źródło nie dało danych albo mapa oznacza Działkę jako glebę
+   organiczną, której model nie opisuje.
+
+Uziarnienie jest pobierane także wtedy, gdy mapa IUNG-PIB dała kategorię: gdy oba źródła różnią się o dwie
+kategorie lub więcej, raport podaje to jako Ograniczenie (do bilansu idzie kategoria z mapy). Ograniczenia
+i Pewność oceny: kategoria z mapy to stałe Ograniczenie bez wpływu na Pewność; kategoria szacowana i rozbieżność
+źródeł liczą się za 1 punkt, wartość zastępcza za 2.
 
 - **Bieżąca sytuacja wodna** wynika ze współczynnika Ks w dniu Daty analizy. Stopnie niedoboru (wartości robocze):
   Ks równe 1 to „w normie”, od 0,75 „lekki niedobór”, od 0,4 „wyraźny niedobór”, poniżej „silny niedobór”.
@@ -71,11 +92,11 @@ Każdy raport podaje Pewność oceny osobno dla Bieżącej sytuacji wodnej i dla
 niska) razem z powodami oraz pełną listę Ograniczeń raportu. Ograniczenia stałe (raport nie jest urzędowym stwierdzeniem
 suszy rolniczej, nie ocenia nadmiaru wody, nie korzysta z prognozy pogody, publiczne dane o rowach są niekompletne,
 pogoda pochodzi z modelu o siatce około 9 km, a nie z deszczomierza na polu, i model ten podaje przeciętnie
-o kilkanaście procent więcej opadu niż pomiary IMGW) są w każdym raporcie i Pewności nie obniżają. Nie obniża jej też
+o kilkanaście procent więcej opadu niż pomiary IMGW; bilans obejmuje glebę do głębokości 1 m) są w każdym raporcie i Pewności nie obniżają. Nie obniża jej też
 zdanie o serii pogodowej kończącej się wczoraj w analizie na dzień bieżący: to stan każdej takiej analizy, a nie
 brak danych. Pozostałe wynikają z danych tej analizy: brak kategorii danych, dane
 z mniej dokładnego zamiennika (Łańcuch zamienników: źródło podstawowe, zamiennik, brak danych), pojemność wodna gleby
-przyjęta zastępczo, dane pogodowe kończące się przed Datą analizy (dla analizy na dzień bieżący: co najmniej 2 dni
+oszacowana z uziarnienia albo przyjęta zastępczo, dane pogodowe kończące się przed Datą analizy (dla analizy na dzień bieżący: co najmniej 2 dni
 przed nią), dni bez pogody, niepełne Okno wieloletnie.
 Pewność werdyktu obniżają tylko Ograniczenia, które go dotyczą. Reguła jest robocza i nie ma źródła naukowego:
 Ograniczenie liczy się za 1 punkt, pojemność wodna przyjęta zastępczo i wynik „rozbieżne” Sprawdzenia zgodności
@@ -106,7 +127,8 @@ do oceny (w raporcie: `found = false` i `indicator.value = null`). Wskaźniki: o
 wskaźnikowego ET0 (w latach z niedoborem, a gdy niedobór wskazuje tylko Bieżąca sytuacja wodna, w ostatnich 30
 dniach), woda dostępna dla roślin na metr gleby, średni spadek terenu, współczynnik uprawy Kc w środkowej fazie
 wzrostu. Wszystkie cztery progi (50%, 140 mm/m, 2%, Kc 1,0) są wartościami roboczymi bez źródła naukowego,
-zapisanymi jako nazwane parametry w `backend/app/engine/cause_params.py`. Pojemność wodna przyjęta zastępczo nie
+zapisanymi jako nazwane parametry w `backend/app/engine/cause_params.py`. Wodę dostępną na metr gleby wyznacza
+kategoria gleby (z mapy IUNG-PIB albo oszacowana z uziarnienia). Pojemność wodna przyjęta zastępczo nie
 jest podstawą do stwierdzenia przyczyny glebowej. Gdy żaden werdykt nie wskazuje niedoboru albo werdykty nie mają
 Stopnia niedoboru (Pole bez uprawy), lista przyczyn jest pusta, a raport mówi to wprost.
 
@@ -201,7 +223,7 @@ strat przy nawadnianiu, sprawności urządzeń ani dawek jednorazowych raport ni
 („Jeśli masz możliwość nawadniania…”) i zawiera zdanie, że nawadnianie nie zastępuje zatrzymywania wody. Bez niedoboru
 raport podaje „nie jest teraz zasadne” z wartością bilansu; w spoczynku uprawy ozimej także, bo Stopień niedoboru
 dotyczy wtedy Zapasu wody w glebie; dla Pola bez uprawy część o nawadnianiu ma postać „nie dotyczy”. Gdy pojemność
-wodna gleby jest przyjęta zastępczo, tekst mówi, że podane ilości są mniej pewne.
+wodna gleby jest oszacowana z uziarnienia albo przyjęta zastępczo, tekst mówi, że podane ilości są mniej pewne.
 
 ## Historia upraw i raport pochodny
 

@@ -42,7 +42,7 @@ def parser(description: str, default_output: str) -> argparse.ArgumentParser:
     made.add_argument(
         "--spacing", type=float, default=pacing.DEFAULT_SPACING_S,
         help="shortest time in seconds between two starts (default: %(default)s; "
-        "the soil service allows 5 calls per minute)",
+        "keeps the load on the free services low)",
     )  # fmt: skip
     made.add_argument(
         "--max-per-hour", type=int, default=pacing.DEFAULT_PER_HOUR,

@@ -2,8 +2,8 @@
 
 Sources of a limitation:
 - the permanent ones, present in every Report (`permanent_limitations`);
-- what the water assessment shows about its own inputs: a stand-in water
-  capacity, a soil profile covering part of the depth, and the gaps of the
+- what the water assessment shows about its own inputs: where the water
+  capacity of the soil came from (`soil_limitations`) and the gaps of the
   weather series (`weather_limitations`);
 - how the source data were obtained: a missing data category, data from a
   less accurate substitute;
@@ -20,8 +20,9 @@ from typing import Literal
 from app.contracts.report import Limitation
 from app.contracts.source_data import SourceData, SourceTopic
 from app.engine.assessment import WaterAssessment
-from app.engine.findings import POINTS_DIVERGENT, POINTS_STAND_IN, Finding, plain
+from app.engine.findings import POINTS_DIVERGENT, Finding, plain
 from app.engine.permanent_limitations import PERMANENT_LIMITATIONS, SIMULATION_LIMITATIONS
+from app.engine.soil_limitations import soil_findings
 from app.engine.source_limitations import (
     Affects,
     missing_source_findings,
@@ -48,34 +49,6 @@ def _finding(text: str, affects: Affects, reason: str, points: int | None = None
     if points is None:
         return Finding(limitation=limitation, reason=reason)
     return Finding(limitation=limitation, points=points, reason=reason)
-
-
-def soil_findings(assessment: WaterAssessment) -> list[Finding]:
-    """What the root zone used by the balance says about the soil data."""
-    zone = assessment.root_zone
-    if zone.capacity_source == "fallback":
-        return [
-            _finding(
-                "Brak danych o glebie Działki: pojemność wodną gleby przyjęto zastępczo "
-                f"({zone.available_water_mm_per_m:.0f} mm wody dostępnej na metr "
-                "głębokości). Od tej wartości zależą oba werdykty: Bieżąca sytuacja wodna "
-                "i Podatność wieloletnia.",
-                "all",
-                "pojemność wodną gleby przyjęto zastępczo, bez danych o glebie Działki",
-                POINTS_STAND_IN,
-            )
-        ]
-    if zone.capacity_source == "partial_soil_profile":
-        return [
-            _finding(
-                f"Dane o glebie obejmują {zone.covered_cm:.0f} cm z {zone.depth_cm:.0f} cm "
-                "głębokości przyjętej w bilansie wodnym; dla pozostałej części przyjęto taką "
-                "samą pojemność wodną. Wpływa to na oba werdykty.",
-                "all",
-                "dane o glebie obejmują tylko część głębokości przyjętej w bilansie wodnym",
-            )
-        ]
-    return []
 
 
 def consistency_findings(

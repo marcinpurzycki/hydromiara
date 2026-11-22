@@ -1,197 +1,142 @@
-"""Soil profile of a point from the SoilGrids point query.
+"""Soil of a parcel from a substitute chain of two sources.
 
-One request returns texture, organic carbon and volumetric water content at
-33 and 1500 kPa for the standard depth layers. The whole request has a time
-limit, because the service is slow and at times unavailable. Every profile
-comes with the permanent limitation that its water capacity is unverified;
-missing values are reported instead of being filled.
+1. The soil drought susceptibility category of the IUNG-PIB map, read at a
+   lattice of parcel points. The link has data when enough points carry a
+   category, or when the map marks the parcel as organic soil.
+2. Texture and organic carbon of the SoilGrids maps at the parcel centre,
+   from which the engine estimates a category.
+
+The texture is asked at the same time as the category map, whichever link
+ends up answering: with both at hand the engine can tell when the two sources
+describe the parcel differently. How the water capacity follows from these
+data is decided by the engine (`app.engine.soil_capacity`), not here.
 """
 
 import asyncio
+import contextlib
 import time
-from datetime import UTC, datetime
+from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import NamedTuple
 
 import httpx
-from pydantic import ValidationError
+from shapely.errors import ShapelyError
 
-from app.contracts.report import Limitation
 from app.contracts.source_data import SoilData, SoilLayer, SourceOutcome
+from app.engine.soil_capacity import category_map_decides
 from app.sources import soil_params as params
+from app.sources.chain import TIMED_OUT, ChainTexts, LinkFailed, LinkReading, no_data, run_chain
+from app.sources.raster import OutlineInput, as_geometry
+from app.sources.soil_category import CategoryMap, CategoryShares
+from app.sources.soil_points import Point, sample_points
+from app.sources.soil_texture import TextureMaps
 
-NO_ANSWER_TEXT = (
-    "Źródło danych o glebie nie odpowiedziało w wyznaczonym czasie "
-    "albo odpowiedziało nieczytelnie."
+_TEXTS = ChainTexts(
+    no_data="Nie udało się pobrać danych o glebie.",
+    stepped_down=(
+        "Mapa kategorii gleb nie dała kategorii dla działki ({failures}); "
+        "użyto zamiennika: {name}."
+    ),
 )
-NO_DATA_TEXT = (
-    "Źródło danych o glebie nie ma wartości dla tego punktu (np. woda albo teren zabudowany)."
+_WRONG_OUTLINE = "Obrys działki nie jest wielokątem, więc nie można odczytać danych o glebie."
+NO_CATEGORY = "mapa nie podaje kategorii gleby dla tej działki"
+NO_TEXTURE_NOTE = (
+    "Globalna mapa gleb nie dała uziarnienia, więc kategorii gleby nie porównano "
+    "z drugim źródłem."
 )
-
-
-class SoilSourceError(Exception):
-    """The soil service did not answer in time or answered with something unreadable."""
-
-
-class SoilNoDataError(SoilSourceError):
-    """The service answered, but has no value for this point."""
 
 
 class SoilFetch(NamedTuple):
-    """Soil for one analysis, how it was obtained and what limits its use."""
+    """Soil for one analysis and how it was obtained."""
 
     data: SoilData | None
     outcome: SourceOutcome
-    limitations: list[Limitation]
 
 
-def parse_response(payload: object) -> SoilData:
-    """Layers from one answer, top to bottom, in conventional units.
+@dataclass
+class SoilRequest:
+    """One parcel as the links see it; the links share what they have read."""
 
-    A value the answer lacks or gives as null stays None. An answer in which
-    every value is null means the point has no data.
-    """
-    by_property = {name: field for field, name in params.PROPERTIES.items()}
-    layers: dict[tuple[float, float], dict[str, float | None]] = {}
-    try:
-        for entry in payload["properties"]["layers"]:
-            field = by_property.get(entry["name"])
-            if field is None:
-                continue
-            divisor = float(entry["unit_measure"]["d_factor"])
-            if divisor <= 0:
-                raise ValueError("divisor is not positive")
-            for depth in entry["depths"]:
-                bounds = depth["range"]
-                if bounds["unit_depth"] != "cm":
-                    raise ValueError("depth is not in centimetres")
-                key = (float(bounds["top_depth"]), float(bounds["bottom_depth"]))
-                value = depth["values"][params.VALUE_STATISTIC]
-                layers.setdefault(key, {})[field] = None if value is None else value / divisor
-        profile = SoilData(
-            layers=[
-                SoilLayer(
-                    top_cm=top,
-                    bottom_cm=bottom,
-                    **{field: values.get(field) for field in params.PROPERTIES},
-                )
-                for (top, bottom), values in sorted(layers.items())
-            ]
-        )
-    except (KeyError, TypeError, ValueError, ValidationError) as exc:
-        raise SoilSourceError(f"unreadable answer: {type(exc).__name__}") from exc
+    points: Sequence[Point]
+    # Texture at the parcel centre, asked when the chain starts.
+    texture: asyncio.Task
+    # What the category map returned, kept also when it does not decide.
+    categories: CategoryShares | None = None
 
-    if not profile.layers:
-        raise SoilSourceError("answer has no layers")
-    if all(
-        getattr(layer, field) is None for layer in profile.layers for field in params.PROPERTIES
-    ):
-        raise SoilNoDataError("every value is null")
-    return profile
+    def soil(self, layers: list[SoilLayer]) -> SoilData:
+        categories, other = self.categories or (None, None)
+        return SoilData(layers=layers, drought_categories=categories, unclassified_areas=other)
 
 
-def _layers_pl(layers: list[SoilLayer]) -> str:
-    return ", ".join(f"{layer.top_cm:g}–{layer.bottom_cm:g} cm" for layer in layers)
+class CategoryLink:
+    """Link 1: the category map, with the texture alongside when it arrives."""
+
+    name = params.CATEGORY_SOURCE_NAME
+    # The link also waits for the texture, which ends by its own limit.
+    timeout_s = params.TEXTURE_TIMEOUT_S + params.CHAIN_GRACE_S
+
+    def __init__(self, reader: CategoryMap) -> None:
+        self._reader = reader
+
+    async def read(self, request: SoilRequest) -> LinkReading[SoilData]:
+        try:
+            async with asyncio.timeout(params.CATEGORY_TIMEOUT_S):
+                request.categories = await self._reader.read(request.points)
+        except TimeoutError as exc:
+            raise LinkFailed(TIMED_OUT) from exc
+        if not category_map_decides(request.soil([])):
+            raise LinkFailed(NO_CATEGORY)
+        try:
+            layers = await asyncio.shield(request.texture)
+        except Exception:  # the category stands without the texture
+            return LinkReading(request.soil([]), note=NO_TEXTURE_NOTE)
+        return LinkReading(request.soil(layers))
 
 
-def find_limitations(data: SoilData) -> list[Limitation]:
-    """The permanent limitation of the source plus gaps of this profile."""
-    limitations = [
-        Limitation(text=params.UNVERIFIED_CAPACITY_TEXT, affects="all", permanent=True)
-    ]
-    no_water = [
-        layer
-        for layer in data.layers
-        if any(getattr(layer, field) is None for field in params.WATER_FIELDS)
-    ]
-    if no_water:
-        limitations.append(
-            Limitation(
-                text=(
-                    "W danych o glebie brakuje zawartości wody dla warstw: "
-                    f"{_layers_pl(no_water)}. Pojemność wodna gleby jest policzona "
-                    "tylko z pozostałych warstw."
-                ),
-                affects="all",
-                permanent=False,
-            )
-        )
-    other_fields = [field for field in params.PROPERTIES if field not in params.WATER_FIELDS]
-    no_texture = [
-        layer for layer in data.layers if any(getattr(layer, f) is None for f in other_fields)
-    ]
-    if no_texture:
-        limitations.append(
-            Limitation(
-                text=(
-                    "W danych o glebie brakuje uziarnienia lub węgla organicznego "
-                    f"dla warstw: {_layers_pl(no_texture)}."
-                ),
-                affects="recommendations",
-                permanent=False,
-            )
-        )
-    return limitations
+class TextureLink:
+    """Link 2: texture and organic carbon of the global soil maps."""
+
+    name = params.TEXTURE_SOURCE_NAME
+    timeout_s = params.TEXTURE_TIMEOUT_S
+
+    async def read(self, request: SoilRequest) -> LinkReading[SoilData]:
+        return LinkReading(request.soil(await asyncio.shield(request.texture)))
 
 
 class SoilSource:
-    """Soil profile for a point."""
+    """Soil of a parcel from the first link that has data."""
 
     def __init__(
         self,
         transport: httpx.AsyncBaseTransport | None = None,
         timeout_s: float = params.TIMEOUT_S,
     ) -> None:
-        self._transport = transport
+        self._categories = CategoryMap(transport)
+        self._texture = TextureMaps(transport)
         self._timeout_s = timeout_s
 
-    async def profile(self, lat: float, lon: float) -> SoilData:
-        """Layers of the grid cell containing the point; raises SoilSourceError."""
-        query = {
-            "lon": f"{lon:.5f}",
-            "lat": f"{lat:.5f}",
-            "property": list(params.PROPERTIES.values()),
-            "depth": list(params.DEPTHS),
-            "value": params.VALUE_STATISTIC,
-        }
-        try:
-            # The client timeout limits each phase of the exchange; the outer
-            # one limits the request as a whole.
-            async with asyncio.timeout(self._timeout_s):
-                async with httpx.AsyncClient(
-                    transport=self._transport,
-                    timeout=self._timeout_s,
-                    headers={"User-Agent": params.USER_AGENT},
-                ) as client:
-                    response = await client.get(params.QUERY_URL, params=query)
-                    response.raise_for_status()
-                    payload = response.json()
-        except (httpx.HTTPError, TimeoutError) as exc:
-            raise SoilSourceError(type(exc).__name__) from exc
-        except ValueError as exc:
-            raise SoilSourceError("answer is not JSON") from exc
-        return parse_response(payload)
-
-    async def fetch(self, lat: float, lon: float) -> SoilFetch:
-        """Soil for an analysis: the profile, its outcome record and its limitations."""
+    async def fetch(self, geometry: OutlineInput, lon: float, lat: float) -> SoilFetch:
+        """Soil for the parcel outline and its centre (EPSG:4326), with the outcome record."""
         started = time.monotonic()
-        data, message, limitations = None, None, []
         try:
-            data = await self.profile(lat, lon)
-            limitations = find_limitations(data)
-            message = " ".join(limitation.text for limitation in limitations)
-        except SoilNoDataError:
-            message = NO_DATA_TEXT
-        except SoilSourceError:
-            message = NO_ANSWER_TEXT
-        outcome = SourceOutcome(
-            topic="soil",
-            source_name=params.SOURCE_NAME if data else None,
-            chain_step=1 if data else None,
-            ok=data is not None,
-            duration_s=round(time.monotonic() - started, 3),
-            # The maps are static predictions, not tied to a day.
-            data_date=None,
-            fetched_at=datetime.now(UTC),
-            message=message,
-        )
-        return SoilFetch(data=data, outcome=outcome, limitations=limitations)
+            outline = as_geometry(geometry)
+            if outline.is_empty or outline.geom_type not in ("Polygon", "MultiPolygon"):
+                raise ValueError("outline is not a polygon")
+            points = sample_points(outline)
+        except (TypeError, ValueError, KeyError, AttributeError, ShapelyError):
+            return SoilFetch(None, no_data("soil", _WRONG_OUTLINE, started))
+
+        texture = asyncio.ensure_future(self._texture.read(lon, lat))
+        try:
+            result = await run_chain(
+                "soil",
+                [CategoryLink(self._categories), TextureLink()],
+                SoilRequest(points=points, texture=texture),
+                texts=_TEXTS,
+                budget_s=self._timeout_s,
+            )
+        finally:
+            texture.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await texture
+        return SoilFetch(result.data, result.outcome)

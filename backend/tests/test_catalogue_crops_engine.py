@@ -74,9 +74,10 @@ def test_every_crop_gets_both_verdicts_and_causes(crop: CatalogCrop, recorded):
     verdict = result.multiyear_susceptibility
     assert verdict.total_years == 10 and 0 <= verdict.deficit_years <= 10
     assert verdict.deficit_level in range(4)
-    # The root zone is the shallower of the crop's roots and the soil profile.
-    shallow_m = crop.growth.root_depth_m.value[0]
-    assert result.root_zone.depth_cm == pytest.approx(min(shallow_m * 100, 100.0))
+    # The root zone is the shallower of the crop's roots (the deep end of the tabulated
+    # range, as for rainfed crops) and the soil profile.
+    deep_m = crop.growth.root_depth_m.value[1]
+    assert result.root_zone.depth_cm == pytest.approx(min(deep_m * 100, 100.0))
     again = assess_water(recorded, crop, ANALYSIS_DATE)
     assert again.multiyear_susceptibility == verdict
     outcome = deficit_causes(result, crop, None)
@@ -88,23 +89,23 @@ def test_every_crop_gets_both_verdicts_and_causes(crop: CatalogCrop, recorded):
 
 
 def test_numbers_of_winter_wheat_and_grain_maize_on_the_recorded_parcel(recorded):
-    """Computed with the catalogue values on recorded weather and soil (TAW 213 mm)."""
+    """Computed with the catalogue values on recorded weather and soil (TAW 186 mm)."""
     wheat = assess_water(recorded, get_crop("winter_wheat"), ANALYSIS_DATE)
-    assert wheat.current_status.deficit_level == 2
-    assert wheat.current_status.details()["stress_coefficient"] == 0.4
+    assert wheat.current_status.deficit_level == 3
+    assert wheat.current_status.details()["stress_coefficient"] == 0.32
     years = wheat.multiyear_susceptibility.years
     assert [year.year for year in years] == list(range(2014, 2024))
-    assert [year.stress_days for year in years] == [25, 42, 43, 5, 46, 32, 19, 23, 38, 20]
-    assert wheat.multiyear_susceptibility.deficit_years == 9 and years[-1].partial
+    assert [year.stress_days for year in years] == [29, 46, 47, 13, 49, 36, 31, 26, 52, 22]
+    assert wheat.multiyear_susceptibility.deficit_years == 10 and years[-1].partial
     maize = assess_water(recorded, get_crop("maize"), ANALYSIS_DATE)
     # On 20 June the critical period of maize (July-August) of 2023 has not begun.
     assert maize.current_status.deficit_level == 0
     years = maize.multiyear_susceptibility.years
     assert [year.year for year in years] == list(range(2013, 2023))
-    assert [year.stress_days for year in years] == [33, 48, 33, 18, 0, 26, 55, 20, 34, 46]
+    assert [year.stress_days for year in years] == [37, 52, 46, 18, 0, 30, 60, 24, 38, 50]
     in_july = assess_water(recorded, get_crop("maize"), date(2023, 7, 20))
     assert in_july.current_status.deficit_level == 2
-    assert in_july.multiyear_susceptibility.years[-1].stress_days == 11
+    assert in_july.multiyear_susceptibility.years[-1].stress_days == 13
 
 
 @pytest.mark.parametrize("crop", GROWING, ids=lambda crop: crop.id)
@@ -143,4 +144,4 @@ def test_history_with_catalogue_crops_gives_the_course_of_each_year(client):
     source = Report.model_validate(client.get(f"/api/reports/{source_id}").json())
     # The history does not change the multi-year susceptibility.
     assert report.multiyear_susceptibility.years == source.multiyear_susceptibility.years
-    assert report.multiyear_susceptibility.deficit_years == 9
+    assert report.multiyear_susceptibility.deficit_years == 10

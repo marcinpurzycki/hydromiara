@@ -5,34 +5,23 @@ from pathlib import Path
 
 import pytest
 
-from app.contracts.source_data import SoilData, SoilLayer
 from app.engine import params as engine_params
 from app.engine.params import DEFAULT_PARAMS, EngineParams
 from app.engine.root_zone import RootZone, root_depth_cm, root_zone
-from app.sources import soil_params
+from app.engine import soil_capacity
 from tests.engine_helpers import BARE_FIELD, SIMPLE_BARE_ZONE, SIMPLE_ZONE, WHEAT, recorded_soil
+from tests.soil_helpers import recorded_layers, soil_with
 
 ENGINE_DIR = Path(engine_params.__file__).parent
-
-
-def layer(top: float, bottom: float, at_33: float | None, at_1500: float | None) -> SoilLayer:
-    return SoilLayer(
-        top_cm=top,
-        bottom_cm=bottom,
-        sand_pct=None,
-        silt_pct=None,
-        clay_pct=None,
-        organic_carbon_g_kg=None,
-        water_33kpa_vol_pct=at_33,
-        water_1500kpa_vol_pct=at_1500,
-    )
 
 
 def test_working_values_are_the_agreed_ones():
     assert DEFAULT_PARAMS.deficit_year_min_stress_days == 10
     assert DEFAULT_PARAMS.current_level_min_ks == (1.0, 0.75, 0.4)
     assert DEFAULT_PARAMS.susceptibility_level_min_years == (3, 5, 8)
-    assert DEFAULT_PARAMS.root_zone_limit_cm == soil_params.PROFILE_DEPTH_CM == 100.0
+    assert DEFAULT_PARAMS.root_zone_limit_cm == soil_capacity.PROFILE_DEPTH_CM == 100.0
+    # The deep end of the tabulated rooting depth: rainfed crops (FAO-56 Table 22).
+    assert DEFAULT_PARAMS.root_depth_range_end == 1
     assert DEFAULT_PARAMS.window_years == 10
     assert engine_params.DEFICIT_LEVEL_LABELS == (
         "w normie",
@@ -69,43 +58,47 @@ def test_inconsistent_parameters_are_rejected(changes):
 
 def test_wheat_roots_are_limited_to_the_soil_data_depth():
     assert root_depth_cm(WHEAT) == (100.0, True)
-    assert root_depth_cm(WHEAT, EngineParams(root_zone_limit_cm=160.0)) == (150.0, False)
-    deep_end = EngineParams(root_zone_limit_cm=200.0, root_depth_range_end=1)
-    assert root_depth_cm(WHEAT, deep_end) == (180.0, False)
+    shallow_end = EngineParams(root_zone_limit_cm=160.0, root_depth_range_end=0)
+    assert root_depth_cm(WHEAT, shallow_end) == (150.0, False)
+    assert root_depth_cm(WHEAT, EngineParams(root_zone_limit_cm=200.0)) == (180.0, False)
 
 
-def test_recorded_profile_gives_the_root_zone_of_wheat():
+def test_recorded_soil_gives_the_root_zone_of_wheat():
     zone = root_zone(recorded_soil(), WHEAT)
-    assert zone.capacity_source == "soil_profile"
+    assert zone.capacity_source == "iung_category"
     assert zone.depth_cm == 100.0
-    assert zone.taw_mm == pytest.approx(213.4)
+    # Category III of the map: 186 mm per metre over the 100 cm root zone.
+    assert zone.taw_mm == pytest.approx(186.0)
     assert zone.depletion_fraction == 0.55
-    assert zone.raw_mm == pytest.approx(0.55 * 213.4)
+    assert zone.raw_mm == pytest.approx(0.55 * 186.0)
     assert zone.limited_by_profile
-    assert zone.covered_cm == 100.0
+    assert (zone.soil.category, zone.soil.estimated_category) == (3, 2)
 
 
 def test_missing_soil_uses_the_flagged_fallback():
     zone = root_zone(None, WHEAT)
     assert zone.capacity_source == "fallback"
     assert zone.taw_mm == pytest.approx(engine_params.FALLBACK_AVAILABLE_WATER_MM_PER_M)
-    assert zone.covered_cm == 0.0
     changed = root_zone(None, WHEAT, EngineParams(fallback_available_water_mm_per_m=120.0))
     assert changed.taw_mm == pytest.approx(120.0)
 
 
-def test_profile_without_water_contents_uses_the_fallback():
-    soil = SoilData(layers=[layer(0, 30, None, None), layer(30, 100, 20.0, None)])
-    assert root_zone(soil, WHEAT).capacity_source == "fallback"
+def test_each_chain_link_gives_its_capacity_source():
+    by_map = root_zone(soil_with({1: 100.0}), WHEAT)
+    assert (by_map.capacity_source, by_map.taw_mm) == ("iung_category", pytest.approx(110.0))
+    estimated = root_zone(soil_with({}, {11: 100.0}, recorded_layers()), WHEAT)
+    assert (estimated.capacity_source, estimated.taw_mm) == (
+        "texture_estimate",
+        pytest.approx(149.0),
+    )
+    nothing = root_zone(soil_with({}, {13: 100.0}), WHEAT)
+    assert (nothing.capacity_source, nothing.taw_mm) == ("fallback", pytest.approx(150.0))
 
 
-def test_partial_profile_is_extended_and_flagged():
-    # 20 % of volume over the covered 30 cm = 60 mm, i.e. 200 mm per metre.
-    soil = SoilData(layers=[layer(0, 30, 30.0, 10.0), layer(30, 100, None, None)])
-    zone = root_zone(soil, WHEAT)
-    assert zone.capacity_source == "partial_soil_profile"
-    assert zone.covered_cm == 30.0
-    assert zone.taw_mm == pytest.approx(200.0)
+def test_capacity_per_metre_is_scaled_to_a_shallower_root_zone():
+    zone = root_zone(soil_with({4: 100.0}), WHEAT, EngineParams(root_zone_limit_cm=60.0))
+    assert (zone.depth_cm, zone.taw_mm) == (60.0, pytest.approx(132.0))
+    assert zone.available_water_mm_per_m == pytest.approx(220.0)
 
 
 def test_bare_field_has_the_whole_profile_and_no_depletion_fraction():

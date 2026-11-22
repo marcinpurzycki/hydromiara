@@ -17,11 +17,10 @@ SAVE_RESERVE_S = 1.0
 # Own limit of every source; a source that exceeds it is recorded as missing.
 PARCEL_TIMEOUT_S = 8.0
 WEATHER_TIMEOUT_S = 12.0
-# The soil service answered in 11-35 s when measured, so no limit inside the
-# budget gets every answer. This one is given to the adapter and is as long as
-# the budget allows after a parcel fetch of typical length; an analysis whose
-# soil answer comes later uses the stand-in water capacity and says so.
-SOIL_TIMEOUT_S = 24.0
+# The soil chain: 5 s for the category map plus 8 s for the texture maps, the
+# own limits of its two links (measured: 1.0-1.4 s and 2.2-3.2 s). Given to
+# the adapter as the limit of the whole chain.
+SOIL_TIMEOUT_S = 13.0
 # The adapters below end on their own (15 s for the satellite time budget)
 # and then report what they have; these limits only stop one that does not.
 # Terrain: two chain links asked one after the other, 8 s each (measured from

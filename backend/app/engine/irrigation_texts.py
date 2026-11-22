@@ -28,11 +28,17 @@ _CAPACITY_NOTES = {
         "Brak danych o glebie Działki: pojemność wodną gleby przyjęto zastępczo, więc podane "
         "ilości wody są mniej pewne."
     ),
-    "partial_soil_profile": (
-        "Dane o glebie obejmują tylko część głębokości przyjętej w bilansie wodnym, więc "
+    "texture_estimate": (
+        "Zdolność gleby do magazynowania wody oszacowano z globalnej mapy gleb, więc "
         "podane ilości wody są mniej pewne."
     ),
 }
+
+
+_ORGANIC_NOTE = (
+    "Mapa IUNG-PIB oznacza działkę jako glebę organiczną, której nasz model nie opisuje, "
+    "więc podane ilości wody są mniej pewne."
+)
 
 
 def number(value: float) -> str:
@@ -63,6 +69,8 @@ def conditional(state_date: date, justified: bool) -> str:
 
 def capacity_note(zone: RootZone) -> str | None:
     """Names the weaker basis of the amounts; the limitation itself is elsewhere."""
+    if zone.soil is not None and zone.soil.organic:
+        return _ORGANIC_NOTE
     return _CAPACITY_NOTES.get(zone.capacity_source)
 
 

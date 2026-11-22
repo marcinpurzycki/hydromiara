@@ -81,7 +81,7 @@ def test_course_in_the_report_follows_the_contract():
         "bare_field", "bare_field",
     ]
     assert all(year.satellite_note for year in course.years)
-    assert "w 7 z 8 ocenionych lat" in course.comparison_sentence
+    assert "w 8 z 8 ocenionych lat" in course.comparison_sentence
     assert "w latach 2015, 2016" in report.multiyear_susceptibility.history_assumption
     assert Report.model_validate_json(report.model_dump_json()) == report
     assert build(years(y2015="bare_field", y2016="bare_field")) == report

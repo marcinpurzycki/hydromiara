@@ -23,7 +23,7 @@ taken as zero; constant root depth; p not adjusted for ETc) are described in
 
 from dataclasses import dataclass
 
-from app.sources import soil_params
+from app.engine.soil_capacity import PROFILE_DEPTH_CM
 
 # --- Shared scale -----------------------------------------------------------
 
@@ -37,19 +37,22 @@ DEFICIT_LEVEL_LABELS: tuple[str, str, str, str] = (
 
 # --- Root zone --------------------------------------------------------------
 
-# PROVISIONAL: the balance uses the soil down to 100 cm, which is as deep as
-# the soil data reach; FAO-56 Table 22 gives deeper roots for some crops
-# (winter wheat 1.5-1.8 m). One value shared with the soil adapter.
-ROOT_ZONE_LIMIT_CM: float = soil_params.PROFILE_DEPTH_CM
+# The balance uses the soil down to 100 cm: the capacities of the soil
+# categories were chosen for a root zone of that depth (FAO-56 Table 22 gives
+# deeper roots for some crops, winter wheat 1.5-1.8 m), so another depth needs
+# the capacities and the deficit-year threshold chosen again.
+ROOT_ZONE_LIMIT_CM: float = PROFILE_DEPTH_CM
 
-# PROVISIONAL: which end of the tabulated range of maximum rooting depth is
-# used before the limit above is applied: 0 = shallow end, 1 = deep end. The
-# choice inside the range has no source.
-ROOT_DEPTH_RANGE_END: int = 0
+# Which end of the tabulated range of maximum rooting depth is used before the
+# limit above is applied: 0 = shallow end, 1 = deep end. FAO-56 Table 22,
+# footnote 1: the larger values are for modelling soil water stress and for
+# rainfed conditions, the smaller ones for irrigation scheduling.
+ROOT_DEPTH_RANGE_END: int = 1
 
-# PROVISIONAL: stand-in for the available water capacity when the parcel has no
-# usable soil profile. No source for a typical arable soil of Poland yet; the
-# value lies inside the range FAO-56 Table 19 gives for medium-textured soils
+# PROVISIONAL: stand-in for the available water capacity when the parcel has
+# neither a soil category nor a texture estimate. No source of its own; it lies
+# on the border of the soil categories II and III, in the middle of their
+# scale, and inside the range FAO-56 Table 19 gives for medium-textured soils
 # (loam: theta_FC - theta_WP = 0.13-0.18 m3/m3). A result based on it is flagged.
 FALLBACK_AVAILABLE_WATER_MM_PER_M: float = 150.0
 

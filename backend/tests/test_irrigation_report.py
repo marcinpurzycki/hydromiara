@@ -10,6 +10,7 @@ from app.engine.irrigation import RULE_ID
 from app.engine.season_texts import OFF_SEASON_IRRIGATION
 from app.orchestrator.report_builder import ReportInputs, build_report
 from tests.analysis_helpers import NOW, start, stored_source_data, wait_finished
+from app.engine.soil_limitations import NO_SOIL_TEXT
 from tests.engine_helpers import BARE_FIELD, WHEAT, recorded_soil
 from tests.season_helpers import SPRING
 
@@ -90,9 +91,9 @@ def test_stand_in_soil_capacity_is_named_once_as_a_limitation_and_in_the_text():
     assert "pojemność wodną gleby przyjęto zastępczo" in stand_in.irrigation.text
     assert "przyjęto zastępczo" not in measured.irrigation.text
     limitations = [limitation.text for limitation in stand_in.limitations]
-    assert sum("przyjęto zastępczo" in text for text in limitations) == 1
+    assert limitations.count(NO_SOIL_TEXT) == 1
     assert trace_of(stand_in).values["capacity_source"] == "fallback"
-    assert trace_of(measured).values["capacity_source"] == "soil_profile"
+    assert trace_of(measured).values["capacity_source"] == "iung_category"
     # A larger capacity of the same parcel gives a wider range, still inside it.
     assert measured.irrigation.amount_mm[1] <= (
         measured.current_status.details["total_available_water_mm"]

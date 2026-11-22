@@ -95,7 +95,7 @@ def test_every_source_is_called_on_its_own_with_its_time_limit(client):
     timings = asyncio.run(timing.measure_isolated(sources, first_row()))
     assert tuple(t.source for t in timings) == SOURCES
     limits = timing.source_limits(sources)
-    assert limits["soil"] == 25.0 and limits["analysis_total"] == 30.0 and "hydro" not in limits
+    assert limits["soil"] == 14.0 and limits["analysis_total"] == 30.0 and "hydro" not in limits
     for item in timings:
         assert item.ok and item.within_limit
         assert item.duration_s >= 0 and item.limit_s == limits[item.source]

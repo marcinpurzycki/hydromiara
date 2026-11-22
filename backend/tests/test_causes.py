@@ -47,9 +47,9 @@ CASES = [
     ("soil", {"root_zone": zone(139.4)}, "found", 139.0),
     ("soil", {"root_zone": zone(140.0)}, "not_found", 140.0),
     ("soil", {"root_zone": zone(216.0)}, "not_found", 216.0),
-    ("soil", {"root_zone": zone(120.0, "partial_soil_profile", 60.0)}, "found", 120.0),
-    ("soil", {"root_zone": zone(150.0, "fallback", 0.0)}, "no_data", None),
-    ("soil", {"root_zone": zone(100.0, "fallback", 0.0)}, "no_data", None),
+    ("soil", {"root_zone": zone(110.0, "texture_estimate")}, "found", 110.0),
+    ("soil", {"root_zone": zone(150.0, "fallback")}, "no_data", None),
+    ("soil", {"root_zone": zone(100.0, "fallback")}, "no_data", None),
     # Mean slope; found above 2%.
     ("runoff", {"land": terrain(3.4)}, "found", 3.4),
     ("runoff", {"land": terrain(2.06)}, "found", 2.1),

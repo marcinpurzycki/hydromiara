@@ -100,7 +100,7 @@ def rule_facts(
         available.add("crop")
     zone = assessment.root_zone
     # A stand-in capacity says nothing about the soil of this parcel.
-    if zone.capacity_source == "soil_profile":
+    if zone.capacity_source != "fallback":
         values["available_water_mm_per_m"] = float(round(zone.available_water_mm_per_m))
         available.add("soil")
     if terrain is not None and terrain.analysed:
