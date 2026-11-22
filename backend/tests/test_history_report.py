@@ -6,6 +6,7 @@ from app.catalog.crops import get_crop
 from app.contracts.analyses import CropHistory
 from app.contracts.report import Report
 from app.orchestrator.report_builder import ReportInputs, build_report
+from app.summary.facts import first_sentence
 from tests.analysis_helpers import ANALYSIS_DATE, NOW
 from tests.history_helpers import SAME, WINDOW, data, years
 from tests.limitation_helpers import complete_source_data
@@ -18,7 +19,7 @@ HISTORIES = [
 ]
 # Parts of the Report a crop history must never change.
 UNTOUCHED = (
-    "headline", "summary", "season", "current_status", "causes", "irrigation",
+    "headline", "season", "current_status", "causes", "irrigation",
     "consistency_check", "sources", "limitations", "map",
 )
 
@@ -66,6 +67,10 @@ def test_history_changes_nothing_but_the_course_and_the_assumption(history, sour
     assert given.trace[:-1] == plain.trace
     assert given.trace[-1].rule_id == "crop_history.course"
     assert given.historical_course is not None and plain.historical_course is None
+    # The summary only gains the sentence that compares the course with the susceptibility.
+    sentence = first_sentence(given.historical_course.comparison_sentence)
+    assert sentence in given.summary.text
+    assert given.summary.text.replace(f" {sentence}", "") == plain.summary.text
 
 
 def test_course_in_the_report_follows_the_contract():

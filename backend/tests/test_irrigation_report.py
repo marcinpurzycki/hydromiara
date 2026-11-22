@@ -8,7 +8,6 @@ from app.catalog.crop_model import CatalogCrop
 from app.contracts.report import Report
 from app.engine.irrigation import RULE_ID
 from app.engine.season_texts import OFF_SEASON_IRRIGATION
-from app.orchestrator import report_pending as pending
 from app.orchestrator.report_builder import ReportInputs, build_report
 from tests.analysis_helpers import NOW, start, stored_source_data, wait_finished
 from tests.engine_helpers import BARE_FIELD, WHEAT, recorded_soil
@@ -109,7 +108,6 @@ def test_the_report_names_the_missing_forecast_once_and_nothing_is_pending(crop,
     report = build(crop, day)
     limitations = [limitation.text for limitation in report.limitations]
     assert sum(text.startswith(NO_FORECAST) for text in limitations) == 1
-    assert "nawadniania" not in pending.pending_limitation().text
     assert not any("nie wyznacza jeszcze" in text and "nawadnia" in text for text in limitations)
     assert "jeszcze" not in report.irrigation.text
     rule_ids = [entry.rule_id for entry in report.trace]

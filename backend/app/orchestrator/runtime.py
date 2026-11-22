@@ -20,6 +20,7 @@ from app.orchestrator import params
 from app.orchestrator.service import Orchestrator
 from app.storage import params as storage_params
 from app.storage.reports import ReportStore
+from app.summary.service import Summarizer
 
 logger = logging.getLogger("hydromiara.analysis")
 
@@ -38,6 +39,11 @@ def configure_logging() -> None:
 
 def database_path() -> str:
     return os.environ.get(storage_params.DB_PATH_ENV) or storage_params.DEFAULT_DB_PATH
+
+
+def build_summarizer() -> Summarizer:
+    """The summary step as configured in the environment; a seam for the tests."""
+    return Summarizer.from_env()
 
 
 def local_today() -> date:
@@ -73,7 +79,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     asyncio.get_running_loop().set_default_executor(
         ThreadPoolExecutor(max_workers=params.WORKER_THREADS, thread_name_prefix="analysis")
     )
-    orchestrator = Orchestrator(ReportStore(database_path()))
+    orchestrator = Orchestrator(ReportStore(database_path()), summarizer=build_summarizer())
     interrupted = await orchestrator.recover()
     deleted = await orchestrator.purge()
     logger.info(

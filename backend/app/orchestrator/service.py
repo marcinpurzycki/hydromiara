@@ -27,6 +27,7 @@ from app.orchestrator import params
 from app.orchestrator.fetching import AnalysisFailed, fetch_source_data
 from app.orchestrator.progress import Progress
 from app.orchestrator.report_builder import ReportInputs, build_report
+from app.orchestrator.report_summary import Summarizer, summarised
 from app.orchestrator.sources import AnalysisSources
 from app.storage.reports import AnalysisRecord, ReportStore
 
@@ -49,10 +50,14 @@ class Orchestrator:
         *,
         clock: Callable[[], datetime] = utc_now,
         budget_s: float = params.ANALYSIS_BUDGET_S,
+        summarizer: Summarizer | None = None,
     ) -> None:
         self.store = store
         self._clock = clock
         self._fetch_budget_s = max(0.0, budget_s - params.COMPUTE_RESERVE_S)
+        # The summary has to end this long after the end of the fetch budget.
+        self._summary_margin_s = budget_s - params.SAVE_RESERVE_S - self._fetch_budget_s
+        self._summarizer = summarizer or Summarizer()
         self._running: dict[str, Progress] = {}
         # Strong references: the event loop keeps only weak ones to its tasks.
         self._tasks: set[asyncio.Task] = set()
@@ -160,6 +165,8 @@ class Orchestrator:
         computed = time.monotonic()
         report = await asyncio.to_thread(build_report, inputs)
         logger.info("analysis %s engine duration_s=%.3f", tag, time.monotonic() - computed)
+        time_left_s = deadline + self._summary_margin_s - time.monotonic()
+        report = await summarised(report, self._summarizer, time_left_s, tag)
         progress.close()
         await asyncio.to_thread(
             self.store.save_report,
