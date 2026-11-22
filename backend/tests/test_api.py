@@ -51,7 +51,11 @@ def test_openapi_lists_all_contract_paths(client):
 def test_crops_and_examples(client):
     crops = client.get("/api/crops").json()
     assert {"winter_wheat", "bare_field"} <= {crop["id"] for crop in crops}
-    assert len(client.get("/api/examples").json()) == 6
+    examples = client.get("/api/examples").json()
+    assert len(examples) == 6
+    assert [example["kind"] for example in examples].count("deficit") == 3
+    assert {example["crop_id"] for example in examples} <= {crop["id"] for crop in crops}
+    assert not any("Atrapa" in example["label"] for example in examples)
 
 
 def test_unknown_route_and_bad_query_use_error_body(client):

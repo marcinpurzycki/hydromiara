@@ -1,0 +1,44 @@
+parcel_id,crop_id,analysis_date,label,region
+040704_2.0020.34/2,winter_wheat,2023-06-20,K00 dry year,kujawsko-pomorskie
+040704_2.0020.34/2,winter_wheat,2021-06-20,K00 wet year,kujawsko-pomorskie
+220404_2.0003.101/1,winter_wheat,2023-06-20,P01 dry year,pomorskie
+220404_2.0003.101/1,winter_wheat,2020-06-20,P01 wet year,pomorskie
+120611_5.0008.980,winter_wheat,2022-06-20,P02 dry year,małopolskie
+120611_5.0008.980,winter_wheat,2021-06-20,P02 wet year,małopolskie
+061605_2.0005.88,winter_wheat,2024-06-20,P03 dry year,lubelskie
+061605_2.0005.88,winter_wheat,2020-06-20,P03 wet year,lubelskie
+142604_2.0025.73,winter_wheat,2024-06-20,P04 dry year,mazowieckie
+142604_2.0025.73,winter_wheat,2021-06-20,P04 wet year,mazowieckie
+200602_2.0025.88,winter_wheat,2023-06-20,P07 dry year,podlaskie
+200602_2.0025.88,winter_wheat,2025-06-20,P07 wet year,podlaskie
+280502_2.0013.71,winter_wheat,2023-06-20,P08 dry year,warmińsko-mazurskie
+280502_2.0013.71,winter_wheat,2020-06-20,P08 wet year,warmińsko-mazurskie
+260504_5.0004.33,winter_wheat,2023-06-20,P10 dry year,świętokrzyskie
+260504_5.0004.33,winter_wheat,2020-06-20,P10 wet year,świętokrzyskie
+301007_5.0020.453,winter_wheat,2023-06-20,Q01 dry year,wielkopolskie
+301007_5.0020.453,winter_wheat,2025-06-20,Q01 wet year,wielkopolskie
+321005_2.0008.183/1,winter_wheat,2023-06-20,Q02 dry year,zachodniopomorskie
+321005_2.0008.183/1,winter_wheat,2021-06-20,Q02 wet year,zachodniopomorskie
+022305_2.0008.9/3,winter_wheat,2022-06-20,Q03 dry year,dolnośląskie
+022305_2.0008.9/3,winter_wheat,2021-06-20,Q03 wet year,dolnośląskie
+240205_2.0013.1472/6,winter_wheat,2022-06-20,Q04 dry year,śląskie
+240205_2.0013.1472/6,winter_wheat,2021-06-20,Q04 wet year,śląskie
+101406_2.0025.13,winter_wheat,2023-06-20,Q05 dry year,łódzkie
+101406_2.0025.13,winter_wheat,2025-06-20,Q05 wet year,łódzkie
+081202_5.0007.533/6,winter_wheat,2023-06-20,Q06 dry year,lubuskie
+081202_5.0007.533/6,winter_wheat,2021-06-20,Q06 wet year,lubuskie
+160702_2.0013.137/1,winter_wheat,2026-06-20,Q07 dry year,opolskie
+160702_2.0013.137/1,winter_wheat,2021-06-20,Q07 wet year,opolskie
+182001_5.0011.742,winter_wheat,2024-06-20,Q08 dry year,podkarpackie
+182001_5.0011.742,winter_wheat,2021-06-20,Q08 wet year,podkarpackie
+301007_5.0020.453,winter_wheat,2019-06-20,"Q01 before IUNG tables, dry by CDI",wielkopolskie
+081202_5.0007.533/6,winter_wheat,2019-06-20,"Q06 before IUNG tables, dry by CDI",lubuskie
+022305_2.0008.9/3,winter_wheat,2018-06-20,"Q03 before IUNG tables, dry by CDI",dolnośląskie
+142604_2.0025.73,winter_wheat,2018-06-20,"P04 before IUNG tables, CDI weak",mazowieckie
+022305_2.0008.9/3,winter_wheat,2017-06-20,"Q03 before IUNG tables, wet by CDI",dolnośląskie
+220404_2.0003.101/1,winter_wheat,2017-06-20,"P01 before IUNG tables, wet by CDI",pomorskie
+040704_2.0020.34/2,winter_wheat,2016-11-25,"K00 ten years back, dormancy",kujawsko-pomorskie
+101406_2.0025.13,winter_wheat,2023-11-15,Q05 dormancy after dry season,łódzkie
+200602_2.0025.88,winter_wheat,2024-08-31,P07 after harvest,podlaskie
+321005_2.0008.183/1,winter_wheat,2026-11-21,Q02 latest complete day,zachodniopomorskie
+240205_2.0013.1472/6,winter_wheat,2026-11-21,Q04 latest complete day,śląskie
