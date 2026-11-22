@@ -19,8 +19,10 @@ export interface StartPrefill {
   analysisDate: string;
 }
 
-const CAPACITY_TRIES = 6;
+const START_TRIES = 6;
 const CAPACITY_WAIT_S = 10;
+// A refusal for too many requests is waited out only within the minute limit.
+const RATE_WAIT_MAX_S = 60;
 
 export function StartScreen() {
   const navigate = useNavigate();
@@ -45,16 +47,27 @@ export function StartScreen() {
     void load(example.parcel_id);
   };
 
-  /** The service runs a few analyses at a time; a refusal for lack of room is retried. */
+  /**
+   * The service runs a few analyses at a time and limits starts per address;
+   * a refusal for lack of room or a short refusal for too many starts is retried.
+   */
   const startAnalysis = async (parcelId: string, crop: string) => {
     for (let attempt = 1; ; attempt++) {
       try {
         return await api.startAnalysis(parcelId, crop, date);
       } catch (failure) {
-        const busy = failure instanceof ApiError && failure.code === "analysis_capacity_reached";
-        if (!busy || attempt >= CAPACITY_TRIES) throw failure;
-        setNotice("Serwer liczy teraz inne analizy. Czekamy na wolne miejsce, to potrwa chwilę…");
-        await sleep((failure.retryAfterS ?? CAPACITY_WAIT_S) * 1000);
+        const code = failure instanceof ApiError ? failure.code : "";
+        const waitS = failure instanceof ApiError ? failure.retryAfterS : null;
+        const busy = code === "analysis_capacity_reached";
+        const limited = code === "rate_limited" && waitS !== null && waitS <= RATE_WAIT_MAX_S;
+        if ((!busy && !limited) || attempt >= START_TRIES) throw failure;
+        setNotice(
+          busy
+            ? "Serwer liczy teraz inne analizy. Czekamy na wolne miejsce, to potrwa chwilę…"
+            : `Z tego adresu uruchomiono przed chwilą kilka analiz. Zaczniemy za ${waitS} s…`,
+        );
+        await sleep((waitS ?? CAPACITY_WAIT_S) * 1000);
+        setNotice(null);
       }
     }
   };

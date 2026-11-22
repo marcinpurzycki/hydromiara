@@ -8,7 +8,7 @@ import { HistoryQuestion } from "./HistoryQuestion";
 import { useAnalysis } from "./useAnalysis";
 
 const SOURCES: [SourceId, string, string][] = [
-  ["weather", "Pogoda", "Deszcz i temperatury z 10 lat"],
+  ["weather", "Pogoda", "Deszcz i parowanie z 10 lat"],
   ["satellite", "Zdjęcia z satelity", "Jak wyglądają rośliny na działce"],
   ["soil", "Gleba", "Ile wody potrafi zatrzymać"],
   ["hydro", "Woda w okolicy", "Rowy, rzeki i stawy"],

@@ -22,10 +22,39 @@ export class ApiError extends Error {
   }
 }
 
+export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Codes the report route answers with when the analysis ended without a Report. */
+const ANALYSIS_FAILURES = [
+  "parcel_unavailable",
+  "weather_unavailable",
+  "analysis_timeout",
+  "analysis_interrupted",
+  "analysis_failed",
+];
+
+export const isAnalysisFailure = (error: unknown) =>
+  error instanceof ApiError && ANALYSIS_FAILURES.includes(error.code);
+
 const NETWORK_MESSAGE = "Nie udało się połączyć z serwerem. Sprawdź połączenie i spróbuj ponownie.";
 const GENERIC_MESSAGE = "Coś poszło nie tak po naszej stronie. Spróbuj ponownie za chwilę.";
 
+const REPEAT_WAIT_MAX_S = 10;
+
+/** A read is repeated once after an internal error or a short refusal for too many requests. */
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  try {
+    return await send<T>(method, path, body);
+  } catch (error) {
+    if (method !== "GET" || !(error instanceof ApiError)) throw error;
+    const waitS = error.status === 500 ? 1 : error.code === "rate_limited" ? error.retryAfterS : null;
+    if (waitS === null || waitS > REPEAT_WAIT_MAX_S) throw error;
+    await sleep(waitS * 1000);
+    return send<T>(method, path, body);
+  }
+}
+
+async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`/api${path}`, {
@@ -86,8 +115,6 @@ export const api = {
   compare: (reportId: string, cropId: string) =>
     request<CompareResponse>("GET", `/reports/${reportId}/simulation/compare?${query({ crop_id: cropId })}`),
 };
-
-export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Message of any thrown value, ready to show. */
 export function errorMessage(error: unknown): string {
