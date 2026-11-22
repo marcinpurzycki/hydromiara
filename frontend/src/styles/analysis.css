@@ -7,7 +7,7 @@
 .ready-row div { display: flex; flex-direction: column; gap: 2px; flex: 1 1 320px; }
 .ready-row b { font-size: 19px; }
 
-.analysis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; align-items: start; }
+.analysis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 24px; align-items: start; }
 .analysis-grid-single { grid-template-columns: minmax(0, 1fr); }
 .analysis-grid .panel { order: -1; }
 .sources-card { padding: 8px 24px; }
