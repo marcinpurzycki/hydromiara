@@ -57,6 +57,7 @@ def test_verdicts_come_from_the_engine():
     assert report.season.last_season.start.isoformat() == "2022-09-25"
     assert [entry.rule_id for entry in report.trace] == [
         "root_zone.capacity", "current_status.level", "multiyear.deficit_years",
+        "consistency_check.result",
     ]
     assert report.map.parcel_geometry == stored_source_data().parcel.geometry
     assert [source.topic for source in report.sources] == ["parcel", "weather"]
@@ -66,13 +67,12 @@ def test_verdicts_come_from_the_engine():
 def test_parts_without_a_module_are_marked_as_not_assessed():
     report = build()
     assert report.causes == [] and report.historical_course is None
-    assert report.consistency_check.result == "brak danych"
-    assert report.consistency_check.items == []
     assert report.irrigation.justified is None and report.irrigation.amount_mm is None
     assert report.summary.source == "template"
     assert report.current_status.reason == pending.REASON_PENDING
     assert report.multiyear_susceptibility.typical_period is None
     assert "Pewności oceny" not in pending.pending_limitation().text
+    assert "Sprawdzenia zgodności" not in pending.pending_limitation().text
     assert pending.pending_limitation() in report.limitations
     assert report.map.retention_sites == [] and report.map.downhill_direction is None
 

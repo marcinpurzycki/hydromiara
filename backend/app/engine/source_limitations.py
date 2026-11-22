@@ -7,7 +7,7 @@ conclusion of the Report that is affected.
 Pure: reads only the source data and the outcome records stored with them.
 """
 
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from typing import Literal
 
@@ -135,15 +135,20 @@ def step_down_findings(outcomes: Iterable[SourceOutcome]) -> list[Finding]:
     return [by_topic[topic] for topic in TOPICS if topic in by_topic]
 
 
-def missing_source_findings(source_data: SourceData) -> list[Finding]:
+def missing_source_findings(
+    source_data: SourceData, skip: Collection[SourceTopic] = ()
+) -> list[Finding]:
     """One limitation per data category the analysis ran without.
 
     It does not matter why the data are absent (the source failed, was too
     slow or is not used): the conclusion that lacks them is the same.
+    Categories in `skip` are left out: the caller names their absence itself.
     """
     findings = []
     for topic, wording in TOPICS.items():
         if wording.missing_text is None or getattr(source_data, topic) is not None:
+            continue
+        if topic in skip:
             continue
         findings.append(
             Finding(

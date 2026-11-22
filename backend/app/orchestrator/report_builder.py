@@ -8,8 +8,7 @@ and the engine assessment, and replace the matching `pending_*` call below.
 
 The limitations and the confidence of both verdicts come from the engine: the
 limitations are collected once and the confidence is derived from them. The
-result of the consistency check, once it is made, is passed to
-`report_findings` as `consistency`.
+consistency check is made first, because its result is one of the limitations.
 """
 
 from dataclasses import dataclass
@@ -22,6 +21,7 @@ from app.contracts.source_data import SourceData
 from app.contracts.verdicts import CropRef
 from app.engine.assessment import assess_water
 from app.engine.confidence import verdict_confidences
+from app.engine.consistency import check_consistency
 from app.engine.limitations import limitations_of, report_findings
 from app.engine.params import DEFAULT_PARAMS, EngineParams
 from app.orchestrator import report_pending as pending
@@ -64,11 +64,17 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
     assessment = assess_water(source_data, crop, analysis_date, params)
     season = verdicts.season(crop, analysis_date)
 
+    consistency = check_consistency(source_data, assessment, crop, analysis_date)
+
     not_assessed = verdicts.not_assessed_limitation(assessment)
     findings = report_findings(
         source_data,
         assessment,
         source_limitations=inputs.source_limitations,
+        consistency=consistency.result,
+        consistency_affects=consistency.affects,
+        consistency_gaps=consistency.findings,
+        replaced_missing=consistency.replaces_missing,
         first=() if not_assessed is None else (not_assessed,),
         last=(pending.pending_limitation(),),
     )
@@ -91,7 +97,7 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
         historical_course=pending.pending_historical_course(),
         causes=pending.pending_causes(),
         irrigation=pending.pending_irrigation(season.in_season),
-        consistency_check=pending.pending_consistency_check(),
+        consistency_check=consistency.check,
         sources=sources.report_sources(source_data),
         limitations=limitations_of(findings),
         map=ReportMap(
@@ -100,5 +106,5 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
             retention_sites=[],
             water_objects=[],
         ),
-        trace=verdicts.trace(assessment, params),
+        trace=[*verdicts.trace(assessment, params), consistency.trace],
     )
