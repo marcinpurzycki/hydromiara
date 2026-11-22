@@ -75,3 +75,41 @@ albo program zostanie przerwany (`Ctrl-C`).
 | Arkusze numerycznego modelu terenu i ich skorowidz | GUGiK, skorowidz WFS `https://mapy.geoportal.gov.pl/wss/service/PZGIK/NumerycznyModelTerenuEVRF2007/WFS/Skorowidze`, pliki `https://opendata.geoportal.gov.pl/NumDaneWys/NMT/` | bezpłatnie, bez konta |
 | Copernicus DEM GLO-30 | zasób AWS Open Data `copernicus-dem-30m`, adres pliku z katalogu Element 84 Earth Search (kolekcja `cop-dem-glo-30`) | bezpłatnie; wymagana informacja: „© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved" |
 | Biblioteka Rasterio (z NumPy) | odczyt rastrów i przeliczenia współrzędnych | BSD-3-Clause |
+
+## Wydajność (czas źródeł i całej analizy)
+
+Dla dziesięciu działek z różnych województw mierzy główne źródła jednej analizy: obrys działki (ULDK), pogodę
+z 10 lat (Open-Meteo), kategorię podatności gleby na suszę w 25 punktach (IUNG-PIB), uziarnienie gleby (SoilGrids,
+20 warstw), wysokości terenu w siatce punktów (GUGiK) oraz sceny Sentinel-2 z sześciu okien dat (Planetary Computer).
+Każde źródło jest pytane osobno, a potem wszystkie naraz, tak jak w analizie; całość dwa razy. Źródła zapasowe
+i wody mierzą programy opisane wyżej. Trwa około 6 minut.
+
+```bash
+docker run --rm -e PROBE_HOST="$(hostname)" -v "$PWD":/work -w /work python:3.12 \
+  sh -c "pip install -q --root-user-action=ignore rasterio==1.5.2 && python scripts/probes/performance_probe.py"
+```
+
+Gdy usługa API działa, jej adres podany jako jedyny argument dodaje pomiar całych analiz (`POST /api/analyses`
+do zakończenia): po jednej dla każdej działki i trzy naraz. Program zapisuje czas całości i chwilę, w której
+każde źródło skończyło pracę. Trwa wtedy około 10 minut. Przykład dla usługi dostępnej na tym samym komputerze
+pod portem 8000:
+
+```bash
+docker run --rm --network host -e PROBE_HOST="$(hostname)" -v "$PWD":/work -w /work python:3.12 \
+  sh -c "pip install -q --root-user-action=ignore rasterio==1.5.2 && \
+         python scripts/probes/performance_probe.py http://127.0.0.1:8000"
+```
+
+Wynik: `performance-probe-<host>-<czas UTC>.json`. Plik powstaje także wtedy, gdy część zapytań się nie uda
+albo program zostanie przerwany (`Ctrl-C`). Jeden przebieg zużywa około połowy godzinowego limitu bezpłatnego
+archiwum Open-Meteo dla adresu IP komputera, więc nie uruchamiaj go częściej niż raz na godzinę.
+
+| Co | Źródło | Warunki wykorzystania |
+|---|---|---|
+| Obrys działki | ULDK GUGiK, `https://uldk.gugik.gov.pl/` | bezpłatnie, bez konta |
+| Pogoda dzienna z 10 lat | Open-Meteo, `https://archive-api.open-meteo.com/v1/archive` | dane CC BY 4.0; bezpłatny dostęp tylko do użytku niekomercyjnego, z limitem zapytań na adres IP |
+| Kategoria podatności gleb na suszę | IUNG-PIB, usługa WMS `https://sgeo.iung.pl/geoserver/ows`, warstwa `Susza:katgl_landuse2024` | usługa publiczna i bezpłatna; warunków ponownego wykorzystania nie opublikowano |
+| Uziarnienie i węgiel organiczny gleby | ISRIC SoilGrids 2.0, usługa WCS `https://maps.isric.org/mapserv` | CC BY 4.0 |
+| Wysokość punktów z numerycznego modelu terenu | GUGiK, `https://services.gugik.gov.pl/nmt/` | bezpłatnie, bez konta |
+| Katalog scen i pliki pasm Sentinel-2 | Microsoft Planetary Computer, jak w sekcji „Satelita" | bezpłatnie, bez konta; dane programu Copernicus |
+| Biblioteka Rasterio | odczyt wycinków rastrów i przeliczenia współrzędnych | BSD-3-Clause |
