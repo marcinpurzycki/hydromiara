@@ -54,7 +54,7 @@ def complete_source_data(days=None) -> SourceData:
         update={
             "terrain": TerrainData(
                 resolution_m=1.0,
-                crs="EPSG:2180",
+                crs="EPSG:3857",
                 transform=(1.0, 0.0, 0.0, 0.0, -1.0, 0.0),
                 elevations_m=[[100.0, 101.0]],
             ),

@@ -4,6 +4,7 @@ from typing import Literal
 
 from app.contracts.report import ReportSource
 from app.contracts.source_data import SourceData, SourceOutcome, SourceTopic
+from app.sources.terrain_params import GUGIK_SOURCE_NAME
 
 Mode = Literal["na żywo", "plik lokalny"]
 LIVE: Mode = "na żywo"
@@ -40,9 +41,19 @@ _SOURCE_TERMS: dict[SourceTopic, tuple[str, str, Mode]] = {
 }
 _UNKNOWN_TERMS: tuple[str, str, Mode] = ("źródło nieokreślone", "nie podano", LIVE)
 
+# Licence of a link of a substitute chain whose terms differ from those of
+# the entry of its topic above, by the name of the link.
+_LICENCE_BY_SOURCE_NAME: dict[str, str] = {
+    GUGIK_SOURCE_NAME: (
+        "dane numerycznego modelu terenu GUGiK: bezpłatnie, do dowolnego wykorzystania; "
+        "podajemy źródło"
+    ),
+}
+
 
 def report_source(outcome: SourceOutcome) -> ReportSource:
     name, licence, mode = _SOURCE_TERMS.get(outcome.topic, _UNKNOWN_TERMS)
+    licence = _LICENCE_BY_SOURCE_NAME.get(outcome.source_name or "", licence)
     return ReportSource(
         topic=outcome.topic,
         name=outcome.source_name or name,

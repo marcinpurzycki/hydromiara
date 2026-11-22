@@ -44,13 +44,23 @@ TERRAIN_MIN_CROSS_SPREAD_CELLS: float = 0.25
 # the elevations when it is at least this many times its standard error.
 SLOPE_MIN_SIGNAL_TO_ERROR: float = 2.0
 
-# PROVISIONAL: no source; share of the lowest cells whose position names the
-# lowest part of the parcel.
-LOWEST_PART_SHARE: float = 0.2
+# PROVISIONAL: working value; share of the lowest cells whose mean position
+# names the lowest part of the parcel. With this share the 1 m and the 30 m
+# model pointed to places 3, 32 and 3 m apart on three measured parcels, while
+# their single lowest points lay 17 to 90 m apart.
+LOWEST_PART_SHARE: float = 0.1
 
 # PROVISIONAL: no source; the lowest part is called central when the lowest
 # cells lie closer to the middle of the analysed cells than this part of a cell.
 LOWEST_PART_CENTRAL_WITHIN_CELLS: float = 0.5
+
+# PROVISIONAL: no source; with fewer cells of the 30 m model inside the parcel
+# the slope is reported as approximate.
+COARSE_GRID_MIN_CELLS: int = 10
+
+# The point heights are rounded to 0.1 m; below this slope, in percent, the
+# report calls the downhill direction indicative.
+ROUNDED_HEIGHTS_FLAT_SLOPE_PCT: float = 0.5
 
 
 @dataclass(frozen=True)
@@ -66,6 +76,7 @@ class CauseParams:
     slope_min_signal_to_error: float = SLOPE_MIN_SIGNAL_TO_ERROR
     lowest_part_share: float = LOWEST_PART_SHARE
     lowest_part_central_within_cells: float = LOWEST_PART_CENTRAL_WITHIN_CELLS
+    coarse_grid_min_cells: int = COARSE_GRID_MIN_CELLS
 
     def __post_init__(self) -> None:
         thresholds = (
