@@ -10,7 +10,7 @@ what can be sent instead.
 from datetime import date
 
 from app.api.errors import ApiError
-from app.catalog.crops import get_crop, has_crop, list_crops
+from app.catalog.crops import get_crop, has_crop
 from app.contracts.analyses import CropHistory
 from app.engine.history import window_years, years_outside_window
 
@@ -29,12 +29,11 @@ def require_valid_history(history: CropHistory, crop_id: str, analysis_date: dat
         f"{year}: {named}" for year, named in (history.years or {}).items() if not has_crop(named)
     )
     if unknown:
-        available = ", ".join(listed.name for listed in list_crops())
         raise ApiError(
             422,
             "unknown_crop",
             f"Historia upraw zawiera nieznaną Uprawę ({'; '.join(unknown)}). "
-            f"Dostępne Uprawy: {available}.",
+            "Wybierz Uprawy z listy.",
         )
     outside = years_outside_window(history, crop, analysis_date)
     if outside:

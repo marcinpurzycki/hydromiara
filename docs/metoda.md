@@ -11,6 +11,29 @@ roboczymi: `backend/app/engine/params.py`, `cause_params.py`, `consistency_param
 `backend/app/sources/satellite_params.py`, `soil_params.py`, `terrain_params.py`, `weather_params.py`, `raster.py`,
 `backend/app/storage/params.py`, `backend/app/summary/params.py`.
 
+## Katalog Upraw
+
+Zamknięta lista ma 21 Upraw i Pole bez uprawy (`backend/app/catalog/`: model w `crop_model.py`, dane
+w `crop_data*.py`, funkcje w `crops.py`). Każda wartość ma w danych tekst źródła, a wartość przyjęta przez analogię
+albo roboczo także powód; pozycja z taką wartością jest oznaczona jako warunkowa (`conditional`).
+
+- **Kc, głębokość korzeni, p, Ky**: FAO-56, tabele 12, 22 i 24, wiersz gatunku albo grupy. Dla zbóż ozimych
+  Kc początkowe 0,4 (wariant dla gleb zamarzających), Kc końcowe zbóż 0,25 (dolna wartość zakresu; wyższa dotyczy
+  zbioru ręcznego), Kc końcowe kukurydzy na ziarno 0,60 (zbiór przy wysokiej wilgotności ziarna).
+- **Sezon uprawy i daty faz**: średnie daty siewu, wschodów, wiosennego ruszenia wegetacji, kłoszenia lub początku
+  kwitnienia, dojrzałości i zbioru z doświadczeń odmianowych COBORU. Faza środkowa krzywej Kc zaczyna się dla zbóż
+  w dniu kłoszenia, dla strączkowych i rzepaku na początku kwitnienia (FAO-56, rozdz. 5); faza końcowa zbóż 30 dni
+  przed dojrzałością pełną. Dla kukurydzy, ziemniaka, buraków i warzyw długości faz pochodzą z tabeli 11 FAO-56,
+  odłożone od polskiej daty siewu lub sadzenia (dla buraków i warzyw przeskalowane do długości sezonu).
+- **Krzywa Kc w roku**: od siewu do końca wschodów wzrost od wartości gołej gleby do Kc początkowego; do początku
+  rozwoju Kc początkowe (u ozimin spoczynek zimowy); liniowy wzrost do Kc środkowego; faza środkowa; liniowy spadek
+  do Kc końcowego, który kończy się w dniu dojrzałości, jeśli katalog ją podaje, a inaczej w dniu zbioru. Poza
+  sezonem obowiązuje współczynnik gołej gleby 0,3 (wartość robocza).
+- **Okres krytyczny**: e-poradnik CDR (2025), część IV; dla zbóż wariant dla gleb średnich; dla warzyw jeden wspólny
+  okres 15 kwietnia – 30 września, przycięty do Sezonu uprawy.
+- **Uprawa wieloletnia** (łąka lub pastwisko) jest opisana tym samym modelem: „siew” to początek, a „zbiór” koniec
+  okresu wegetacji.
+
 ## Bilans wodny i dwa werdykty
 
 Podstawą obu werdyktów jest dzienny bilans wody w strefie korzeniowej według FAO-56, rozdział 8
@@ -183,9 +206,8 @@ przed zmianą sposobu liczenia, Symulacja nie odpowiada (`409 report_outdated`),
 Ranking upraw pokazuje do trzech innych Upraw najmniej narażonych na niedobór wody, zawsze obok bieżącej; kolejność
 wynika z udziału lat z niedoborem wody w ocenionych latach (przy tej samej liczbie lat: z liczby lat z niedoborem),
 przy równym udziale z liczby dni z brakiem wody w Okresach krytycznych, potem z kolejności listy Upraw. Pole bez
-uprawy nie jest porównywane, bo nie wyznacza się dla niego Stopnia niedoboru. Lista ma teraz jedną Uprawę i Pole bez
-uprawy, więc Ranking upraw pokazuje samą bieżącą Uprawę i mówi to wprost; po uzupełnieniu listy Symulacja obejmie
-nowe Uprawy bez zmian w kodzie. Porównanie rok po roku zawiera lata, w których obie Uprawy mają ocenę. Symulacja nie
+uprawy nie jest porównywane, bo nie wyznacza się dla niego Stopnia niedoboru. Symulacja obejmuje wszystkie Uprawy
+z listy (21), także oznaczone w katalogu jako warunkowe. Porównanie rok po roku zawiera lata, w których obie Uprawy mają ocenę. Symulacja nie
 korzysta z danych satelitarnych i nie ocenia plonu, opłacalności, przydatności gleby ani zmianowania; te dwa stałe
 Ograniczenia są w każdej odpowiedzi Rankingu upraw. Dla raportu przykładowego `/api/reports/demo` obie trasy
 odpowiadają danymi przykładowymi (atrapą).

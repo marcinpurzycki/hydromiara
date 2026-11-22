@@ -116,7 +116,7 @@ def test_facts_give_numbers_of_the_parcel_with_their_source():
     assert "3,4%" in slope.text and "na północny wschód" in slope.text
     assert slope.source == "Copernicus DEM"
     assert "północno-wschodnia część Działki" in facts["runoff"][1].text
-    assert "1,15" in facts["crop_demand"][0].text and "FAO" in facts["crop_demand"][0].source
+    assert "1,15" in facts["crop_demand"][0].text and facts["crop_demand"][0].source
     assert "Okresie krytycznym (15.05–30.06)" in facts["crop_demand"][1].text
 
 

@@ -83,7 +83,7 @@ def test_agronomy_entry_starts_at_light_multiyear_deficit(level, triggered):
     assert trace_of(outcome, AGRONOMY).values["multiyear_deficit_level"] == level
     if triggered:
         text = placed(outcome, AGRONOMY).recommendation.text
-        assert "W 6 z 10 ocenionych lat" in text and "od 15.05 do 30.06" in text
+        assert "W 6 z 10 ocenionych lat" in text and "od 11.05 do 10.07" in text
     else:
         assert trace_of(outcome, AGRONOMY).result == "nie uruchomiono: warunek niespełniony"
         assert texts(outcome) == []

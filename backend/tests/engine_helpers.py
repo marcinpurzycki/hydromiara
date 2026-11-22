@@ -4,6 +4,7 @@ import json
 from datetime import date, timedelta
 from pathlib import Path
 
+from app.catalog.crop_build import build_crop
 from app.catalog.crops import get_crop
 from app.contracts.common import GeoJsonGeometry
 from app.contracts.source_data import ParcelData, SoilData, SourceData, WeatherData, WeatherDay
@@ -13,7 +14,37 @@ from app.sources.soil import parse_response as parse_soil
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
-WHEAT = get_crop("winter_wheat")
+_HAND = "fixed for hand calculation"
+
+
+def reference_wheat():
+    """Winter wheat with fixed dates and coefficients, used for hand calculations.
+
+    It is not the catalogue entry: tests of the mechanics keep their numbers
+    when the catalogue data are corrected. Sown 25 September, harvested 31
+    July, critical period 15 May - 30 June, Kc 0.4 / 1.15 / 0.3, no maturity date.
+    """
+    return build_crop(
+        id="winter_wheat",
+        name="Pszenica ozima",
+        name_genitive="pszenicy ozimej",
+        tile=True,
+        season=("09-25", "07-31"),
+        stages=("10-27", "03-16", "05-05", "06-30"),
+        critical_period=("05-15", "06-30"),
+        kc=(0.4, 1.15, 0.3),
+        root_depth_m=(1.5, 1.8),
+        depletion_fraction=0.55,
+        dates_source=_HAND,
+        kc_source=_HAND,
+        root_source=_HAND,
+        critical_source=_HAND,
+    )
+
+
+WHEAT = reference_wheat()
+# The catalogue entry itself, for tests of results on real parameters.
+CATALOGUE_WHEAT = get_crop("winter_wheat")
 BARE_FIELD = get_crop("bare_field")
 
 # Round numbers for hand calculation: TAW 100 mm, p 0.5, so RAW 50 mm.

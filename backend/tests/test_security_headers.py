@@ -132,7 +132,7 @@ def test_unexpected_error_has_the_uniform_body(reports_db, monkeypatch):
     def broken():
         raise RuntimeError("secret detail that must not reach the client")
 
-    monkeypatch.setattr(catalog.data, "catalog", broken)
+    monkeypatch.setattr(catalog, "contract_crops", broken)
     with TestClient(app, raise_server_exceptions=False) as quiet:
         response = quiet.get("/api/crops")
     assert_error(response, 500, "internal_error")

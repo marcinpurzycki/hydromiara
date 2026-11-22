@@ -68,7 +68,7 @@ def test_row_of_a_finished_analysis(service):
     assert (written["status"], written["failure"]) == ("done", "")
     assert float(written["total_s"]) > 0 and written["within_budget"] == "true"
     # Both verdicts with their confidence, as the Report states them.
-    assert written["current_level"] == str(report.current_status.deficit_level) == "3"
+    assert written["current_level"] == str(report.current_status.deficit_level) == "2"
     assert written["current_label"] == report.current_status.label
     assert written["current_assessed"] == "true"
     assert written["current_confidence"] == report.current_status.confidence.level
@@ -178,7 +178,7 @@ def test_markdown_table_has_one_line_per_analysis(service):
     assert all(line.count("|") == len(MARKDOWN_HEADERS) + 1 for line in lines)
     cells = [cell.strip() for cell in lines[2].strip("|").split("|")]
     assert cells[:4] == ["first", KNOWN_ID, "winter_wheat", "2023-06-20"]
-    assert cells[4:10] == ["silny niedobór", "wysoka", "9 of 10", "niska", "2 (2023-06-11)", "zgodne"]
+    assert cells[4:10] == ["wyraźny niedobór", "wysoka", "9 of 10", "niska", "2 (2023-06-11)", "zgodne"]
     assert cells[10:12] == ["crop_demand, precipitation", "hydro"]
     assert "analysis failed: parcel_unavailable" in lines[4]
 

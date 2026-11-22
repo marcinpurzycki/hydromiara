@@ -118,7 +118,7 @@ def test_crop_history_is_accepted_while_running_and_refused_afterwards(
     assert client.put(url, json={"same_every_year": True}).status_code == 204
     history = {"years": {"2019": "winter_wheat", "2020": "bare_field"}}
     assert client.put(url, json=history).status_code == 204
-    assert_error(client.put(url, json={"years": {"2019": "maize"}}), 422, "unknown_crop")
+    assert_error(client.put(url, json={"years": {"2019": "soybean"}}), 422, "unknown_crop")
     assert_error(client.put(url, json={}), 422, "validation_error")
 
     weather.hold = False

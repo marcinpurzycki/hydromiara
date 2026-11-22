@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from app.catalog.crops import list_crops
 from app.contracts.analyses import CropHistory
 from app.contracts.report import Report
 from app.contracts.source_data import SourceData
@@ -33,7 +34,7 @@ def test_mock_report_matches_contract():
 
 def test_mock_catalog_matches_contract():
     catalog = data.catalog()
-    crop_ids = {crop.id for crop in catalog.crops}
+    crop_ids = {crop.id for crop in list_crops()}
     assert len(catalog.examples) == 6
     assert {example.crop_id for example in catalog.examples} <= crop_ids
     assert {crop.crop_id for crop in catalog.simulation.others} <= crop_ids
