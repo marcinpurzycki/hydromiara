@@ -5,6 +5,7 @@ import type { Example } from "../api/types";
 import { CropPicker } from "../components/CropPicker";
 import { DateField } from "../components/DateField";
 import { ExamplesMenu } from "../components/ExamplesMenu";
+import { Icon } from "../components/Icon";
 import { ParcelMap } from "../components/ParcelMap";
 import { SystemInfo } from "../components/SystemInfo";
 import { storeAnalysisInfo, useCrops } from "../lib/catalog";
@@ -139,24 +140,39 @@ export function StartScreen() {
                 type="text"
                 autoComplete="off"
                 maxLength={120}
-                placeholder="Adres, numer działki z obrębem lub identyfikator"
+                placeholder="Adres, numer działki z obrębem, identyfikator lub TERYT"
                 value={picker.text}
                 onChange={(event) => picker.setText(event.target.value)}
               />
               <button type="submit" className="button button-large button-soft" disabled={picker.searching}>
                 {picker.searching ? "Szukamy…" : "Szukaj"}
               </button>
+              <button
+                type="button"
+                className="button button-large button-soft"
+                disabled={picker.locating}
+                title="Ustaw mapę tam, gdzie teraz jestem"
+                onClick={picker.locate}
+              >
+                <Icon name="locate" size={24} />
+                {picker.locating ? "Ustalamy…" : "Tu jestem"}
+              </button>
             </div>
             {picker.places.length > 0 && (
               <ul className="place-list">
                 {picker.places.map((place) => (
                   <li key={`${place.lat},${place.lon}`}>
-                    <button type="button" onClick={() => picker.goToPlace(place)}>
+                    <button type="button" onClick={() => picker.goToPlace(place, picker.places)}>
                       {place.label}
                     </button>
                   </li>
                 ))}
               </ul>
+            )}
+            {picker.hint && (
+              <p className="hint" role="status">
+                {picker.hint}
+              </p>
             )}
             {picker.error && <p className="field-error">{picker.error}</p>}
           </form>
