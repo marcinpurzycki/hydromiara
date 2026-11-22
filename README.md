@@ -48,6 +48,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 REPORTS_DB_PATH=./data/reports.sqlite3 .venv/bin/fastapi dev app/main.py   # http://127.0.0.1:8000/api/docs
 .venv/bin/python -m pytest               # testy bez dostępu do sieci
 .venv/bin/python -m tests.smoke.parcels_smoke   # sprawdzenie na żywej usłudze działek (wymaga sieci)
+.venv/bin/python -m tests.smoke.hydro_smoke     # wody w otoczeniu dwóch działek z żywych plików BDOT10k: czas, liczba zapytań, obiekty, pamięć (wymaga sieci)
 .venv/bin/python -m tests.smoke.satellite_smoke # sprawdzenie na żywych usługach scen satelitarnych, w tym przełączenia (wymaga sieci)
 .venv/bin/python -m tests.smoke.analysis_smoke  # cała analiza jednej działki na żywych źródłach, z czasem każdego źródła (wymaga sieci)
 .venv/bin/python -m tests.smoke.season_smoke    # raport poza sezonem lub w spoczynku i przejście na Okres krytyczny, na żywych źródłach (wymaga sieci)
@@ -175,6 +176,7 @@ Ustawienia wdrożenia są w pliku `.env` (wzór: `.env.example`); usługa `api` 
 | `DOMAIN`, `TRAEFIK_ENTRYPOINT`, `TRAEFIK_CERTRESOLVER` | brak (wymagane) | nazwa hosta oraz nazwy punktu wejścia HTTPS i resolvera certyfikatów Traefika |
 | `ACME_EMAIL` | brak | adres konta Let's Encrypt; potrzebny tylko wtedy, gdy Traefika uruchamia skrypt wdrożenia (`deploy/traefik/docker-compose.yml`); dana osobowa, tylko w `.env` |
 | `EDO_DATA_PATH` | `./data/edo` | katalog serwera z rozpakowanymi plikami wskaźnika suszy |
+| `WATER_DATA_PATH` | `/data/water` (w kontenerze) | katalog z kopią plików klas wód BDOT10k (`OT_SWRM_L.parquet`, `OT_SWRS_L.parquet`, `OT_SWKN_L.parquet`, `OT_PTWP_A.parquet`); używany jako zamiennik odczytu na żywo tylko wtedy, gdy są w nim wszystkie cztery pliki |
 | `WEB_IMAGE` | `nginx:alpine` | obraz usługi `web` (strona dla rolnika) |
 | `REPORTS_DB_PATH` | `/data/reports/reports.sqlite3` | plik bazy raportów (w kontenerze: wolumen `reports`); przy uruchomieniu bez Dockera trzeba ją podać |
 | `SATELLITE_PRIMARY` | `planetary-computer` | usługa danych satelitarnych pytana jako pierwsza: `planetary-computer` albo `earth-search` |
@@ -308,8 +310,8 @@ między domenami (CORS nie jest otwarty). Kod usługi `api` (`backend/app/`):
 | `summary/` | podsumowanie Raportu z szablonu albo z modelu językowego, z kontrolą odpowiedzi |
 
 Przebieg analizy. `POST /api/analyses` zwraca identyfikator od razu, a praca biegnie w tle: najpierw działka
-(usługa ULDK), potem równolegle pogoda, gleba, ukształtowanie terenu i obserwacje satelitarne oraz odczyt tła
-suszowego z plików lokalnych; silnik liczy bilans wodny i resztę Raportu; Raport jest zapisywany razem
+(usługa ULDK), potem równolegle pogoda, gleba, ukształtowanie terenu, wody w otoczeniu działki i obserwacje
+satelitarne oraz odczyt tła suszowego z plików lokalnych; silnik liczy bilans wodny i resztę Raportu; Raport jest zapisywany razem
 z wszystkimi pobranymi danymi źródłowymi. Pojemność wodna gleby w bilansie pochodzi z pobranego profilu glebowego;
 gdy gleby nie ma, przyjmowana jest wartość zastępcza, a Raport podaje to jako Ograniczenie i obniża Pewność oceny.
 Bez działki i pogody Raport nie powstaje; każde inne źródło, które nie odpowie, zgłosi błąd albo przekroczy swój
@@ -317,8 +319,8 @@ limit czasu, jest w Raporcie i w postępie oznaczone jako brak, a analiza biegni
 
 Limity czasu (`backend/app/orchestrator/params.py`): całość 30 s, z czego 3 s rezerwy na obliczenia i zapis;
 pogoda 12 s, gleba 24 s, teren 17 s (po 8 s na każde z dwóch ogniw i sekunda zapasu), satelita 17 s, tło suszowe 5 s; żadne źródło poza pogodą nie czeka dłużej niż
-do sekundy przed końcem czasu na pobieranie. Dane o wodach (cieki, rowy, zbiorniki) nie są jeszcze pobierane:
-w postępie analizy to źródło ma stan `missing`. Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego
+do sekundy przed końcem czasu na pobieranie. Wody mają limit 17 s (12 s odczyt na żywo, 4 s kopia lokalna i sekunda zapasu).
+Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego
 pozycji jest stała); jest na liście źródeł Raportu.
 
 Wynik liczy deterministyczny kod: oba werdykty, Przyczyny niedoboru, wybór Rekomendacji, wszystkie liczby
@@ -334,6 +336,21 @@ uruchomić ponownie.
 
 Opis metody (bilans, werdykty, Pewność oceny, Sprawdzenie zgodności, Przyczyny, teren, sezon, Rekomendacje,
 nawadnianie, Historia upraw, Symulacja): [docs/metoda.md](docs/metoda.md).
+
+**Wody w otoczeniu działki** (`backend/app/sources/hydro*.py`, parametry w `hydro_params.py`). Łańcuch zamienników:
+odczyt na żywo plików klas obiektów BDOT10k (rów melioracyjny, rzeka i strumień, kanał, woda powierzchniowa) →
+kopia tych samych plików w katalogu `WATER_DATA_PATH` → brak danych. Każdy plik obejmuje cały kraj (159, 201, 4
+i 199 MB), dlatego usługa czyta przez zapytania HTTP o zakres bajtów tylko grupy wierszy powiatu, w którym leży
+działka (około 15 MB i 60 zapytań na analizę), cztery klasy po kolei i jednym połączeniem naraz, bo serwer zrywa
+połączenia równoległe. Zostają obiekty do 500 m od granicy działki, przycięte do tego otoczenia i zapisane
+w EPSG:4326 z rodzajem `ditch`, `canal`, `watercourse` albo `water_body`. Limit odczytu na żywo to 12 s
+(zmierzone 6–8 s). Ogniwo „kopia lokalna” wchodzi do łańcucha tylko wtedy, gdy w katalogu są wszystkie cztery
+pliki `<klasa>.parquet`; pobieranie i odświeżanie kopii nie należy do adaptera. Na zewnątrz nie wychodzi nic
+o działce: zapytania wskazują tylko publiczny plik i zakres bajtów, z którego można wywnioskować najwyżej powiat.
+Z danych o wodach silnik wyznacza (`backend/app/engine/water_analysis.py`) najbliższy rów lub kanał, ciek
+i zbiornik: odległość od granicy działki, stronę działki i to, czy leży po stronie, w którą opada teren.
+Rekomendacja dotycząca rowu powstaje tylko, gdy rów jest w danych; jej Miejsce zatrzymania wody
+(`map.retention_sites`) to odcinek tego rowu najbliższy działce, bez wymiarów i parametrów budowli.
 
 ## 4. Opis wykorzystanych źródeł i zakresów danych
 
@@ -354,11 +371,10 @@ wykorzystania” to punkt 7. Na zewnątrz wysyłane są tylko współrzędne, Id
 | Gleba w punkcie działki, warstwy do 100 cm: piasek, pył, ił, węgiel organiczny, zawartość wody przy 33 i 1500 kPa; z nich pojemność wodna (różnica zawartości wody, niezweryfikowana pomiarem na działce) | ISRIC – World Soil Information, SoilGrids 2.0 (model globalny, siatka 250 m), `https://rest.isric.org/soilgrids/v2.0/properties/query` | na żywo | mapy statyczne (wersja 2.0), bez daty obserwacji; czas odczytu zapisany w raporcie | CC BY 4.0, wymagane podanie źródła; usługa w fazie beta, bez gwarancji dostępności; limit 5 zapytań na minutę; zmierzony czas odpowiedzi 11–35 s |
 | Obserwacje satelitarne do Daty analizy: klasyfikacja sceny (SCL) oraz pasma czerwone, bliskiej podczerwieni i krótkofalowej podczerwieni nad działką; z nich udział czystych pikseli, NDVI i NDMI | Copernicus Sentinel-2, poziom L2A (ESA / Komisja Europejska), z dwóch wymiennych usług (kolejność w konfiguracji): podstawowa Microsoft Planetary Computer, `https://planetarycomputer.microsoft.com/api/stac/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w Azure West Europe, odczyt z bezpłatnym tokenem pobieranym bez konta; zapasowa Earth Search (Element 84), `https://earth-search.aws.element84.com/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w rejestrze otwartych danych AWS | na żywo | sceny z 30 dni przed Datą analizy i z tego samego okresu w 3 poprzednich latach (archiwum od 2015 r. w usłudze podstawowej, od 2016 r. w zapasowej); data każdej sceny i czas odczytu zapisane w raporcie | bezpłatny, pełny i otwarty dostęp do danych na warunkach noty prawnej danych Sentinel (`https://sentinel.esa.int/documents/247904/690755/Sentinel_Data_Legal_Notice`); wymagane podanie źródła i zaznaczenie przetworzenia danych; obie usługi obecnie w dostępie bezpłatnym, bez klucza i bez gwarancji dostępności (patrz „Konfiguracja”) |
 | Metoda oceny: dzienny bilans wody w strefie korzeniowej, woda łatwo dostępna i współczynnik stresu wodnego Ks, z których powstają Bieżąca sytuacja wodna i Podatność wieloletnia | Allen R.G., Pereira L.S., Raes D., Smith M. (1998), „Crop evapotranspiration: guidelines for computing crop water requirements”, FAO Irrigation and Drainage Paper 56, rozdział 8 (równania 80, 82–86 i 88), tabela 19 | metoda zapisana w kodzie (`backend/app/engine/`); progi i wartości robocze w jednym pliku `backend/app/engine/params.py`, każda bez źródła oznaczona tam jako robocza | publikacja z 1998 r.; metoda zapisana w kodzie, nie jest pobierana | publikacja FAO; równania przytoczone z podaniem źródła |
+| Wody w otoczeniu działki (do 500 m od granicy): rowy melioracyjne, kanały, rzeki i strumienie, wody powierzchniowe; rodzaj, nazwa, geometria | Baza Danych Obiektów Topograficznych BDOT10k, Główny Urząd Geodezji i Kartografii (GUGiK); pliki GeoParquet klas `OT_SWRM_L`, `OT_SWRS_L`, `OT_SWKN_L`, `OT_PTWP_A` z `https://opendata.geoportal.gov.pl/bdot10k/schemat2021/GeoParquet/` | na żywo (części plików dla powiatu działki); zamiennik: kopia plików w `WATER_DATA_PATH`, gdy jest na serwerze (wtedy tryb „plik lokalny”) | data ostatniej zmiany plików (`sources[].data_date`); obiekty mogą być starsze niż rok; czas odczytu zapisany w raporcie | bezpłatnie: zbiory obiektów topograficznych są udostępniane bez opłat (Prawo geodezyjne i kartograficzne, art. 40a ust. 2 pkt 1 lit. h); podajemy źródło „BDOT10k, Główny Urząd Geodezji i Kartografii”; osobnego dokumentu licencji dla katalogu plików nie znaleźliśmy: do sprawdzenia przez człowieka przed wdrożeniem pełnoskalowym |
 
 Źródła, z których aplikacja jeszcze nie korzysta, a które są potrzebne do pełnego zakresu:
 
-- dane o wodach (cieki, rowy, zbiorniki): do uzupełnienia przed zgłoszeniem, jeśli źródło zostanie podłączone
-  (źródło, licencja, tryb i data danych);
 - mapa kategorii podatności gleb na suszę jako podstawowe źródło pojemności wodnej: do uzupełnienia, jeśli zostanie
   podłączona.
 
@@ -367,6 +383,7 @@ wykorzystania” to punkt 7. Na zewnątrz wysyłane są tylko współrzędne, Id
 | Dane | Jak trafiają do analizy | Data |
 |---|---|---|
 | Działka, pogoda, gleba, ukształtowanie terenu, obserwacje satelitarne | **na bieżąco**, w trakcie każdej analizy, z usług wymienionych w punkcie 4 | czas odczytu każdego źródła jest zapisany w Raporcie (`sources[].fetched_at`) razem z datą danych (`data_date`) |
+| Wody w otoczeniu działki (BDOT10k) | **na bieżąco**: części plików klas obiektów dla powiatu działki; gdy odczyt się nie uda, a na serwerze jest kopia plików w `WATER_DATA_PATH`, z tej kopii | data ostatniej zmiany plików i czas odczytu w raporcie (`sources[]`) |
 | Tło suszowe (wskaźnik CDI) | **pobrane wcześniej**: archiwa roczne rozpakowane do plików lokalnych, bez przetwarzania wartości | stan plików na 21.11.2026; dekady od 01.01.2016 do 01.11.2026 |
 | Parametry Upraw, katalog Rekomendacji, progi i reguły metody | **wpisane w kodzie** ze wskazaniem źródła albo z oznaczeniem wartości roboczej | publikacje wymienione w punkcie 4; stan kodu na dzień zgłoszenia |
 | Raport i jego dane źródłowe | **zapisane przez aplikację** przy analizie; Symulacja i raport pochodny liczą z tego zapisu | czas utworzenia Raportu (`meta.created_at`) |
@@ -393,6 +410,7 @@ Wersje są przypięte w `backend/requirements.txt` i `backend/requirements-dev.t
 | pyproj | przeliczenie układów współrzędnych (EPSG:4326 → EPSG:2180) | MIT |
 | Rasterio (z biblioteką GDAL) | odczyt fragmentu rastra nad działką, maska obrysu, odczyt plików GeoTIFF wskaźnika CDI | BSD-3-Clause (GDAL: MIT) |
 | NumPy | tablice wartości rastra (wymagane przez Rasterio) | BSD-3-Clause |
+| PyArrow (Apache Arrow) | odczyt grup wierszy plików GeoParquet z danymi o wodach, także zdalnie po zakresach bajtów | Apache-2.0 |
 
 Do uzupełnienia przed zgłoszeniem: biblioteki strony dla rolnika (usługa `web`).
 
@@ -579,10 +597,13 @@ Zakres danych i katalogów:
 - Współczynnik reakcji plonu Ky i grupa monitoringu suszy są w katalogu, ale silnik jeszcze z nich nie korzysta.
 - `GET /api/examples` zwraca dane przykładowe, a nie sześć sprawdzonych Przykładów; raport `/api/reports/demo`
   jest atrapą.
-- Katalog Rekomendacji ma cztery pozycje wzorcowe, po jednej na grupę; ich treść opiera się na treści zadania
+- Katalog Rekomendacji ma cztery pozycje wzorcowe, po jednej na grupę, i jedną wzorcową pozycję zależną od wód; ich treść opiera się na treści zadania
   i materiale „Podstawy naukowe” organizatora, nie na publikacjach źródłowych.
-- Dane o wodach (cieki, rowy, zbiorniki) nie są pobierane: Rekomendacje zależne od wód się nie uruchamiają,
-  a Miejsce zatrzymania wody nie jest wskazywane na mapie (`map.retention_sites` jest puste).
+- Dane o wodach: katalog ma jedną wzorcową Rekomendację zależną od wód (rów lub kanał do 20 m od granicy działki);
+  pozostałe pozycje zależne od cieków i zbiorników nie są jeszcze wpisane. Odczyt na żywo obejmuje wody z powiatu
+  działki, więc obiekt tuż za granicą powiatu może zostać pominięty (Raport podaje to jako Ograniczenie).
+  Miejsce zatrzymania wody z analizy terenu (najniższa część działki) nie ma jeszcze geometrii na mapie.
+  Kopii danych o wodach usługa sama nie pobiera: bez plików w `WATER_DATA_PATH` łańcuch ma jedno ogniwo.
 - Dla Pola bez uprawy żaden werdykt nie dostaje Stopnia niedoboru (nie ma reguły); Raport zapisuje wtedy stopień
   techniczny 0 z etykietą „nie oceniono” i znacznikiem `details.assessed = false`. Nie ma dla niego Przyczyn,
   Rekomendacji, Historii upraw ani Symulacji.

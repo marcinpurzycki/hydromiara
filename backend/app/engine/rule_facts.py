@@ -23,6 +23,8 @@ from app.contracts.common import Scalar
 from app.engine.assessment import WaterAssessment
 from app.engine.season import season_status
 from app.engine.terrain_analysis import TerrainAnalysis
+from app.engine.water_analysis import WaterAnalysis
+from app.engine.water_report import water_facts
 
 
 @dataclass(frozen=True)
@@ -82,12 +84,14 @@ def rule_facts(
     crop: CatalogCrop,
     terrain: TerrainAnalysis | None,
     *,
+    water: WaterAnalysis | None = None,
     water_available: bool = False,
 ) -> RuleFacts:
     """Facts of one analysis; `terrain` is None without terrain data.
 
-    `water_available` says whether data on watercourses, ditches and water
-    bodies exist for the parcel. No fact is derived from them yet.
+    `water` is the analysis of the waters around the parcel; None without
+    water data. `water_available` alone marks the data as present without
+    giving any fact of them.
     """
     values = _balance_facts(assessment)
     available: set[DataTopic] = {"balance"}
@@ -102,6 +106,8 @@ def rule_facts(
     if terrain is not None and terrain.analysed:
         values |= _terrain_facts(terrain)
         available.add("terrain")
-    if water_available:
+    if water is not None:
+        values |= water_facts(water)
+    if water is not None or water_available:
         available.add("water")
     return RuleFacts(values=values, available=frozenset(available))
