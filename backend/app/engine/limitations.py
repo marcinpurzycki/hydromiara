@@ -1,11 +1,10 @@
 """All limitations of one Report, in a fixed order and without repeats.
 
 Sources of a limitation:
-- the permanent ones, present in every Report;
+- the permanent ones, present in every Report (`permanent_limitations`);
 - what the water assessment shows about its own inputs: a stand-in water
-  capacity, a soil profile covering part of the depth, weather ending before
-  the analysis date, days without weather, years of the multi-year window
-  that could not be assessed;
+  capacity, a soil profile covering part of the depth, and the gaps of the
+  weather series (`weather_limitations`);
 - how the source data were obtained: a missing data category, data from a
   less accurate substitute;
 - the consistency check ending as divergent;
@@ -16,77 +15,32 @@ analysis first, the permanent ones last.
 """
 
 from collections.abc import Collection, Iterable, Sequence
-from datetime import date
 from typing import Literal
 
 from app.contracts.report import Limitation
 from app.contracts.source_data import SourceData, SourceTopic
 from app.engine.assessment import WaterAssessment
 from app.engine.findings import POINTS_DIVERGENT, POINTS_STAND_IN, Finding, plain
+from app.engine.permanent_limitations import PERMANENT_LIMITATIONS, SIMULATION_LIMITATIONS
 from app.engine.source_limitations import (
     Affects,
     missing_source_findings,
     step_down_findings,
 )
+from app.engine.weather_limitations import weather_findings
+
+__all__ = [
+    "PERMANENT_LIMITATIONS",
+    "SIMULATION_LIMITATIONS",
+    "ConsistencyResult",
+    "consistency_findings",
+    "limitations_of",
+    "report_findings",
+    "soil_findings",
+    "weather_findings",
+]
 
 ConsistencyResult = Literal["zgodne", "rozbieżne", "brak danych"]
-
-# Present in every Report, whatever the data.
-PERMANENT_LIMITATIONS: tuple[Limitation, ...] = (
-    Limitation(
-        text="Raport nie jest urzędowym stwierdzeniem suszy rolniczej.",
-        affects="all",
-        permanent=True,
-    ),
-    Limitation(
-        text="Raport nie ocenia nadmiaru wody: podtopień ani zastoisk.",
-        affects="all",
-        permanent=True,
-    ),
-    Limitation(
-        text=(
-            "Raport nie korzysta z prognozy pogody. Rekomendacje nawadniania wynikają "
-            "wyłącznie ze stanu na Datę analizy."
-        ),
-        affects="recommendations",
-        permanent=True,
-    ),
-    Limitation(
-        text=(
-            "Publiczne dane o rowach i ciekach są niekompletne. Rów lub ciek, którego nie ma "
-            "w danych, nie jest brany pod uwagę w Rekomendacjach. Jeśli masz taki rów na "
-            "Działce lub obok niej, uwzględnij go przy planowaniu zatrzymywania wody."
-        ),
-        affects="recommendations",
-        permanent=True,
-    ),
-)
-
-# Permanent limitations of the simulation; shown with its answers, not in the Report.
-SIMULATION_LIMITATIONS: tuple[Limitation, ...] = (
-    Limitation(
-        text="Symulacja nie korzysta z danych satelitarnych: liczy wyłącznie z bilansu wodnego.",
-        affects="multiyear",
-        permanent=True,
-    ),
-    Limitation(
-        text=(
-            "Symulacja nie ocenia plonu, opłacalności, przydatności gleby ani zmianowania."
-        ),
-        affects="multiyear",
-        permanent=True,
-    ),
-)
-
-
-def _pl(day: date) -> str:
-    return day.strftime("%d.%m.%Y")
-
-
-def _days(count: int, *, genitive: bool = False) -> str:
-    if count == 1:
-        return "1 dnia" if genitive else "1 dzień"
-    return f"{count} dni"
 
 
 def _finding(text: str, affects: Affects, reason: str, points: int | None = None) -> Finding:
@@ -122,51 +76,6 @@ def soil_findings(assessment: WaterAssessment) -> list[Finding]:
             )
         ]
     return []
-
-
-def weather_findings(assessment: WaterAssessment) -> list[Finding]:
-    """Gaps of the weather series, as the balance and the verdicts met them."""
-    balance, current = assessment.balance, assessment.current_status
-    multiyear = assessment.multiyear_susceptibility
-    findings: list[Finding] = []
-    behind = balance.days_behind or 0
-    if behind > 0 and current.state_date is not None:
-        findings.append(
-            _finding(
-                f"Dane pogodowe kończą się {_pl(current.state_date)}, czyli {_days(behind)} "
-                f"przed Datą analizy ({_pl(assessment.analysis_date)}). Bieżąca sytuacja "
-                "wodna opisuje stan z tego dnia i nie uwzględnia opadów ani parowania "
-                "z brakującego okresu.",
-                "current",
-                f"dane pogodowe kończą się {_days(behind)} przed Datą analizy",
-            )
-        )
-    inner = balance.incomplete_days + balance.missing_dates - behind
-    if inner > 0 and balance.days:
-        first, last = balance.days[0].date, balance.days[-1].date
-        findings.append(
-            _finding(
-                f"W danych pogodowych z okresu {_pl(first)}–{_pl(last)} brakuje opadu lub "
-                f"parowania dla {_days(inner, genitive=True)}; w bilansie wodnym przyjęto dla "
-                "nich zero. Wpływa to na oba werdykty.",
-                "all",
-                f"w danych pogodowych brakuje {_days(inner, genitive=True)}",
-            )
-        )
-    skipped = [year.year for year in multiyear.years if not year.assessed]
-    if skipped and multiyear.assessed:
-        window = len(multiyear.years)
-        years = ", ".join(str(year) for year in skipped)
-        findings.append(
-            _finding(
-                "Dane pogodowe nie obejmują całego Okna wieloletniego: Podatność wieloletnia "
-                f"jest oceniona z {multiyear.total_years} zamiast {window} lat (bez danych: "
-                f"{years}).",
-                "multiyear",
-                f"Okno wieloletnie ocenione z {multiyear.total_years} zamiast {window} lat",
-            )
-        )
-    return findings
 
 
 def consistency_findings(
@@ -227,7 +136,7 @@ def report_findings(
             *consistency_findings(consistency, consistency_affects),
             *consistency_gaps,
             *soil_findings(assessment),
-            *weather_findings(assessment),
+            *weather_findings(assessment, source_data.outcomes),
             *step_down_findings(source_data.outcomes),
             *missing_source_findings(source_data, replaced_missing),
             *(plain(limitation) for limitation in source_limitations),

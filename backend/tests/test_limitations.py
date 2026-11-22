@@ -45,12 +45,15 @@ AVOIDED = ("fallback", "błąd", "ostrzeże", "dokładność", "prawdopodob", "a
 def test_permanent_limitations_are_the_fixed_ones():
     assert [(item.affects, item.permanent) for item in PERMANENT_LIMITATIONS] == [
         ("all", True), ("all", True), ("recommendations", True), ("recommendations", True),
+        ("all", True), ("all", True),
     ]
     texts = [item.text for item in PERMANENT_LIMITATIONS]
     assert texts[0] == "Raport nie jest urzędowym stwierdzeniem suszy rolniczej."
     assert "nadmiaru wody" in texts[1] and "podtopień" in texts[1] and "zastoisk" in texts[1]
     assert "prognozy pogody" in texts[2]
     assert "rowach" in texts[3] and "niekompletne" in texts[3]
+    assert "modelu obliczeniowego" in texts[4] and "deszczomierza" in texts[4]
+    assert "IMGW" in texts[5] and "więcej opadu" in texts[5]
     assert all(item.permanent for item in SIMULATION_LIMITATIONS)
     simulation = " ".join(item.text for item in SIMULATION_LIMITATIONS)
     for word in ("satelitarnych", "plonu", "opłacalności", "przydatności gleby", "zmianowania"):

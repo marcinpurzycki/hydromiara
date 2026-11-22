@@ -56,7 +56,8 @@ def test_historical_answer_is_normalised():
     assert (data.grid_lat, data.grid_lon) == (52.759224, 18.202248)
     assert [day.date for day in data.days] == [date(2019, 6, d) for d in range(1, 16)]
     first, wet = data.days[0], data.days[12]
-    assert (first.precipitation_mm, first.et0_mm, first.temperature_mean_c) == (0.2, 3.66, 18.4)
+    # The mean temperature is not requested; its field stays empty.
+    assert (first.precipitation_mm, first.et0_mm, first.temperature_mean_c) == (0.2, 3.66, None)
     assert wet.precipitation_mm == 10.8
     assert find_limitations(data, date(2019, 6, 1), date(2019, 6, 15)) == []
 
@@ -121,7 +122,6 @@ def test_series_starting_late_is_reported_for_the_multiyear_verdict():
                 "time": ["2019-06-01", "2019-06-02"],
                 "precipitation_sum": [0.0],
                 "et0_fao_evapotranspiration": [1.0, 2.0],
-                "temperature_2m_mean": [1.0, 2.0],
             },
         },
         {
@@ -131,7 +131,6 @@ def test_series_starting_late_is_reported_for_the_multiyear_verdict():
                 "time": ["2019-06-01"],
                 "precipitation_sum": [None],
                 "et0_fao_evapotranspiration": [None],
-                "temperature_2m_mean": [None],
             },
         },
     ],
@@ -153,7 +152,7 @@ def test_request_carries_only_point_and_date_range():
         "longitude": "18.25000",
         "start_date": series_start(date(2019, 6, 15)).isoformat(),
         "end_date": "2019-06-15",
-        "daily": "precipitation_sum,et0_fao_evapotranspiration,temperature_2m_mean",
+        "daily": "precipitation_sum,et0_fao_evapotranspiration",
         "timezone": "Europe/Warsaw",
     }
     assert request.headers["user-agent"] == params.USER_AGENT
