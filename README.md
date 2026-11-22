@@ -517,9 +517,34 @@ Dane o glebie: ISRIC – World Soil Information, SoilGrids 2.0 (CC BY 4.0); Pogg
 
 Obserwacje satelitarne: zawiera zmodyfikowane dane Copernicus Sentinel (2015–2026).
 
-Do uzupełnienia przed zgłoszeniem: zestawienie licencji i warunków każdej usługi zewnętrznej osobno dla wersji
-pokazowej i dla wdrożenia pełnoskalowego (co wolno, czy potrzebny klucz, konto lub płatny plan, limity zapytań)
-z odnośnikami do instrukcji obu wdrożeń; licencja kodu rozwiązania.
+### Licencje i warunki usług zewnętrznych: wersja demo i wersja pełnoskalowa
+
+Skrót dwóch instrukcji: [wdrożenie pokazowe (demo)](docs/wdrozenie-pokazowe.md) i
+[wdrożenie pełnoskalowe](docs/wdrozenie-pelnoskalowe.md). W każdej jest rozdział o licencjach z adresem strony
+warunków i datą odczytu dla każdego stwierdzenia (strony odczytane 21–22.11.2026). Tabela streszcza strony
+dostawców i nie jest poradą prawną; „do sprawdzenia” oznacza „do sprawdzenia przez człowieka przed wdrożeniem”.
+
+| Usługa | Wersja demo | Wersja pełnoskalowa |
+|---|---|---|
+| ULDK (GUGiK), działki | bezpłatnie, bez konta i klucza; 200 zapytań na minutę w godz. 6–18, 40 poza nimi, 10 000 na dobę na adres IP; wymagane podanie źródła | bezpłatnie także w aplikacji komercyjnej, bez umowy; adresy serwerów można bezpłatnie zgłosić do listy zaufanej bez limitów; wymagane podanie źródła |
+| Open-Meteo, archiwum pogodowe | bezpłatnie tylko niekomercyjnie, bez klucza; 600 zapytań na minutę, 5000 na godzinę, 10 000 na dobę na adres IP (około 56 analiz na godzinę); dane CC BY 4.0, wymagane podanie źródła | przy użyciu komercyjnym lub większym ruchu płatna subskrypcja z kluczem (archiwum od planu Professional) albo własna instalacja serwera (AGPLv3); aplikacja klucza jeszcze nie obsługuje; cena i kwalifikacja użycia: do sprawdzenia |
+| SoilGrids 2.0 (ISRIC), gleba | dane CC BY 4.0, bez konta i klucza; usługa REST w fazie beta, bez gwarancji, 5 zapytań na minutę | ta sama licencja; usługa REST nie nadaje się na podstawę usługi stałej (dostawca zaleca WebDAV lub usługi sieciowe); limit usługi WCS nieopisany |
+| European Drought Observatory, wskaźnik CDI (pliki lokalne) | bezpłatny dostęp, bez konta; wymagana nota o źródle (Copernicus Emergency Management Service) | te same warunki; oznaczenie licencji jako CC BY 4.0: do sprawdzenia |
+| Copernicus DEM GLO-30 (rejestr otwartych danych AWS) | bezpłatnie na warunkach licencji Copernicus DEM, bez konta; wymagana nota o prawach autorskich | te same warunki; limitów nie podano |
+| Copernicus Sentinel-2 L2A (dane) | dostęp bezpłatny, pełny i otwarty; wymagana nota o zmodyfikowanych danych Copernicus Sentinel | te same warunki |
+| Microsoft Planetary Computer (usługa podstawowa danych satelitarnych) | dostęp anonimowy, bez klucza; limity bez podanych liczb, bez gwarancji; strona warunków nieodczytana: do sprawdzenia | potrzebny dostęp z gwarancją i znanymi limitami oraz obsługa klucza w aplikacji; warunki, klucz subskrypcji i cennik: do sprawdzenia |
+| Earth Search (Element 84; usługa zapasowa i katalog arkuszy terenu) | publiczny interfejs bezpłatny w użyciu, bez klucza i bez gwarancji usługi; limity nieopisane | przy użyciu produkcyjnym dostawca odsyła do kontaktu; warunki i cennik: do sprawdzenia |
+| Usługa modelu językowego (opcjonalna) | konto, klucz i opłaty według cennika wybranego dostawcy; aplikacja działa w pełni bez niej | jak w demo; umowa, limity i zasady przetwarzania danych u dostawcy: do sprawdzenia |
+| Let's Encrypt (certyfikat TLS) | bezpłatnie, konto na adres e-mail administratora; do 50 certyfikatów na domenę w 7 dni | te same warunki |
+| Po podłączeniu: BDOT10k (GUGiK), wody | bezpłatnie na podstawie ustawy, bez konta; limity nieopublikowane | kopia lokalna całego kraju; dokument licencji plików: do sprawdzenia |
+| Po podłączeniu: usługa wysokości punktów GUGiK (model terenu 1 m) | dane NMT bezpłatne i do dowolnego wykorzystania; bez konta; limity usługi nieopisane | limity i warunki usługi przy stałym ruchu: do sprawdzenia |
+| Po podłączeniu: mapa kategorii podatności gleb na suszę (IUNG-PIB) | usługa publiczna i bezpłatna; licencji ani regulaminu nie opublikowano; pojedyncze odczyty z podaniem źródła | wymagane zapytanie do IUNG-PIB o zgodę i warunki ponownego wykorzystania: do sprawdzenia |
+| Po podłączeniu: SoilGrids przez usługę WCS (ISRIC) | dane CC BY 4.0, bez konta; limit nieopisany | ta sama licencja; przy stałym ruchu własna kopia map |
+
+Tło suszowe: wygenerowano z użyciem informacji usługi Copernicus Emergency Management Service (2016–2026)
+(Generated using Copernicus Emergency Management Service information 2016–2026).
+
+Do uzupełnienia przed zgłoszeniem: licencja kodu rozwiązania.
 
 ## 8. Opis znanych ograniczeń technicznych rozwiązania
 
