@@ -36,6 +36,13 @@
 .examples-group button:hover { background: var(--sand-dark); }
 .examples-group b { font-size: 17px; }
 .examples-group span { font-size: 14px; color: var(--muted); overflow-wrap: anywhere; }
+/* On a narrow screen the button moves under the main one, so a list anchored to its
+   right edge would open half outside the screen; there it is pinned to the screen. */
+@media (max-width: 640px) {
+  .examples { flex: 1 1 100%; }
+  .examples > .button { width: 100%; }
+  .examples-list { position: fixed; left: 16px; right: 16px; bottom: 16px; width: auto; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); z-index: 1100; }
+}
 
 .start-map { display: flex; flex-direction: column; gap: 10px; min-height: 460px; min-width: 0; }
 .chosen-parcel { font-size: 22px; font-weight: 700; overflow-wrap: anywhere; }
