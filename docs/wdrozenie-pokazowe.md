@@ -166,8 +166,8 @@ danych. Data odczytu stron: 22.11.2026, o ile nie podano inaczej.
 - Podanie źródła: wymagana nota „Generated using Copernicus Emergency Management Service information [rok]”,
   a przy danych zmienionych „Contains modified Copernicus Emergency Management Service information [rok]”.
 - Źródło: `https://drought.emergency.copernicus.eu/terms&conditions/`.
-- Do sprawdzenia przez człowieka przed wdrożeniem: tabela źródeł w README i Raport opisują te dane jako CC BY 4.0;
-  strona warunków, odczytana 22.11.2026, nie wymienia tej licencji z nazwy, tylko podaje prawa i noty opisane wyżej.
+- Licencja: CC BY 4.0 (ustalenie zespołu z 22.11.2026). Strona warunków, odczytana 22.11.2026, nie wymienia tej
+  licencji z nazwy, tylko podaje prawa i noty opisane wyżej.
 
 **Copernicus DEM GLO-30, ukształtowanie terenu (pliki w rejestrze otwartych danych AWS)**
 
@@ -279,7 +279,6 @@ odczytane z wyprzedzeniem i wchodzą w życie dopiero po podłączeniu danego ź
 - Pełny przebieg skryptu na czystym serwerze z domeną (instalacja Dockera, własny Traefik, certyfikat).
 - Warunki korzystania z Planetary Computer (strona nieodczytana) i z publicznego interfejsu Earth Search
   (dokumentu nie znaleziono).
-- Oznaczenie licencji danych EDO (CC BY 4.0 w README wobec treści strony warunków).
 - Warunki i cennik wybranego dostawcy modelu językowego, jeśli jest używany.
 - Po podłączeniu kolejnych źródeł: warunki usługi IUNG-PIB, usługi wysokości punktów GUGiK, plików BDOT10k
   i publicznego serwera Overpass.

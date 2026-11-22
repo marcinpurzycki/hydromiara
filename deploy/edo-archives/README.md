@@ -7,7 +7,23 @@ Są w repozytorium po to, żeby aplikację dało się uruchomić od razu, bez os
   `https://drought.emergency.copernicus.eu/data/Drought_Observatories_datasets/`.
 - **Stan plików:** pobrane 21.11.2026; dekady od 01.01.2016 do 01.11.2026 (jedno archiwum na rok,
   `cdinx_m_edo_RRRR0101_RRRRMMDD_t.zip`, w środku jeden plik GeoTIFF na dekadę).
-- **Warunki korzystania i wymagana nota o źródle:** README w katalogu głównym, punkt o licencjach.
+- **Pliki są niezmienione:** archiwa leżą tu w postaci pobranej ze źródła.
+
+## Licencja i nota o źródle
+
+Dane: Combined Drought Indicator (CDI), European Drought Observatory (EDO), Komisja Europejska,
+Wspólne Centrum Badawcze (JRC); © Unia Europejska, 1995–2026. Usługa Copernicus Emergency Management Service.
+
+Licencja: Creative Commons Uznanie autorstwa 4.0 Międzynarodowe (CC BY 4.0),
+`https://creativecommons.org/licenses/by/4.0/`. Przy dalszym udostępnianiu trzeba podać źródło, wskazać licencję
+i zaznaczyć ewentualne zmiany. Warunki korzystania z danych EDO: `https://drought.emergency.copernicus.eu/terms&conditions/`.
+
+Nota wymagana przez warunki źródła:
+
+> Generated using Copernicus Emergency Management Service information 2016–2026.
+
+Dla danych zmienionych (np. przyciętych lub przeliczonych) obowiązuje brzmienie
+„Contains modified Copernicus Emergency Management Service information [rok]".
 
 ## Rozpakowanie
 
