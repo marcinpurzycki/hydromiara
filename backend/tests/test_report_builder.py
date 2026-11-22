@@ -9,7 +9,7 @@ from app.engine.soil_limitations import NO_SOIL_TEXT
 from app.mock import data as mock_data
 from app.orchestrator import report_pending as pending
 from app.orchestrator.report_builder import ReportInputs, build_report
-from app.orchestrator.report_verdicts import NOT_ASSESSED_LABEL
+from app.orchestrator.report_verdicts import NO_CROP_LABEL
 from tests.analysis_helpers import ANALYSIS_DATE, NOW, stored_source_data
 from tests.engine_helpers import recorded_soil
 from tests.limitation_helpers import complete_source_data
@@ -148,17 +148,19 @@ def test_confidence_follows_the_limitations_of_each_verdict():
 def test_field_without_a_crop_is_not_assessed_and_says_so():
     report = build("bare_field")
     current, multiyear = report.current_status, report.multiyear_susceptibility
-    assert (current.deficit_level, current.label) == (0, NOT_ASSESSED_LABEL)
+    assert (current.deficit_level, current.label) == (0, "bez uprawy, nie oceniane")
     assert current.details["assessed"] is False
     assert current.details["not_assessed_reason"] == "no_crop"
     assert current.details["depletion_mm"] is not None
     assert (multiyear.deficit_level, multiyear.total_years, multiyear.years) == (0, 0, [])
-    assert report.headline.count(NOT_ASSESSED_LABEL) == 2
+    assert report.headline.count("bez uprawy, nie oceniane") == 2
+    assert NO_CROP_LABEL == "bez uprawy, nie oceniane"
     assert "w normie" not in report.headline
-    assert NOT_ASSESSED_LABEL in texts(report)[0] and "Pola bez uprawy" in texts(report)[0]
+    assert "„bez uprawy, nie oceniane”" in texts(report)[0] and "Pola bez uprawy" in texts(report)[0]
     for verdict in (current, multiyear):
         assert verdict.confidence.level == "niska"
         assert "Pola bez uprawy" in verdict.confidence.why
     assert not report.season.in_season and report.season.last_season is None
     assert not report.irrigation.applicable
-    assert json.loads(report.model_dump_json())["trace"][1]["result"] == NOT_ASSESSED_LABEL
+    assert json.loads(report.model_dump_json())["trace"][1]["result"] == "bez uprawy, nie oceniane"
+    assert json.loads(report.model_dump_json())["trace"][2]["result"] == "bez uprawy, nie oceniane"

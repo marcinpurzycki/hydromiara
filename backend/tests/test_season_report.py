@@ -204,7 +204,7 @@ def test_field_without_a_crop_gets_no_season_and_no_store_wording():
     report = build(BARE_FIELD, DORMANT)
     assert not report.season.in_season and report.season.last_season is None
     assert report.season.note == "Pole bez uprawy nie ma Sezonu uprawy."
-    assert report.current_status.label == NOT_ASSESSED_LABEL
+    assert report.current_status.label == "bez uprawy, nie oceniane"
     assert report.current_status.details["season_state"] == "no_crop"
     assert not report.irrigation.applicable and report.irrigation.justified is None
     assert report.trace[3].values["critical_period_analysis_date"] is None
