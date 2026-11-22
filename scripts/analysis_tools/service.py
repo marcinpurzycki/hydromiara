@@ -63,8 +63,12 @@ def open_service(base_url: str | None, *, quiet: bool = True) -> Iterator[Servic
         path = Path(directory) / "reports.sqlite3"
         os.environ[DB_PATH_ENV] = str(path)
         try:
+            from app.api.limits import NO_LIMITS
             from app.main import app
 
+            # The only client is this tool, which keeps its own pace towards
+            # the data services; the request limits of the service do not apply.
+            app.state.rate_limiter.configure(NO_LIMITS)
             with TestClient(app) as client:
                 if quiet:
                     # The service logs every source of every analysis; the tool

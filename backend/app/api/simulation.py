@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends, Query
 from app.api.analyses import not_found, require_catalog_crop
 from app.api.errors import ApiError, error_responses
 from app.api.reports import require_report
+from app.api.validation import ReportId
 from app.catalog.crop_model import CatalogCrop
 from app.catalog.crops import get_crop, list_crops
 from app.contracts.report import Report
@@ -204,7 +205,7 @@ def _compare(store: ReportStore, report_id: str, crop_id: str) -> CompareRespons
     responses=error_responses(404, 409, 425),
     summary="Ranking upraw: trzy najmniej narażone na niedobór wody i bieżąca Uprawa",
 )
-async def ranking(report_id: str, service: Service) -> RankingResponse:
+async def ranking(report_id: ReportId, service: Service) -> RankingResponse:
     if _is_placeholder(report_id):
         return _mock_ranking()
     # Reading the store and running the balances block, so they run in a thread.
@@ -218,7 +219,7 @@ async def ranking(report_id: str, service: Service) -> RankingResponse:
     summary="Porównanie bieżącej Uprawy z jedną wybraną, rok po roku",
 )
 async def compare(
-    report_id: str,
+    report_id: ReportId,
     crop_id: Annotated[str, Query(min_length=1, max_length=64)],
     service: Service,
 ) -> CompareResponse:

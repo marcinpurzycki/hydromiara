@@ -62,6 +62,10 @@ class Orchestrator:
         # Strong references: the event loop keeps only weak ones to its tasks.
         self._tasks: set[asyncio.Task] = set()
 
+    @property
+    def running_count(self) -> int:
+        return len(self._running)
+
     async def recover(self) -> int:
         """Close analyses left unfinished by a previous process; returns how many."""
         code = "analysis_interrupted"

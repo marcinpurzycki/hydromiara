@@ -23,5 +23,10 @@ USER app
 
 EXPOSE 8000
 
-# --proxy-headers: the service runs behind a TLS-terminating reverse proxy.
-CMD ["fastapi", "run", "app/main.py", "--proxy-headers", "--port", "8000"]
+# --proxy-headers: the service runs behind a TLS-terminating reverse proxy; the
+#   forwarding headers are trusted only from the addresses in FORWARDED_ALLOW_IPS.
+# --no-access-log: the access log would hold client addresses and whole report
+#   addresses, and the address of a Report is the only key to it.
+# --no-server-header: the answer does not name the server software.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", \
+     "--proxy-headers", "--no-access-log", "--no-server-header"]

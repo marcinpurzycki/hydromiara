@@ -1,4 +1,14 @@
+# Only requirements.txt and app/ are copied into the image; everything that
+# must never get there is listed anyway, wherever it lies.
 .venv/
-__pycache__/
-.pytest_cache/
 tests/
+data/
+.git/
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+**/.env
+**/.env.*
+**/*.sqlite
+**/*.sqlite3
+**/*.db

@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from app.api.errors import ApiError, error_responses
+from app.api.validation import has_parcel_id_form, is_plain_text
 from app.contracts.parcels import ParcelDetail, ParcelMatch, ParcelSearchResponse
 from app.contracts.source_data import ParcelData
 from app.sources.parcel_query import ParcelQueryError, in_poland
@@ -43,6 +44,8 @@ async def search(
     q: Annotated[str, Query(min_length=1, max_length=120)], source: Source
 ) -> ParcelSearchResponse:
     try:
+        if not is_plain_text(q):
+            raise ParcelQueryError(q)
         parcels = await source.search(q)
     except ParcelQueryError:
         raise ApiError(
@@ -88,7 +91,8 @@ async def at(
 )
 async def detail(parcel_id: str, source: Source) -> ParcelDetail:
     try:
-        parcel = await source.by_id(parcel_id)
+        # A text that cannot be an identifier is not sent to the parcel service.
+        parcel = await source.by_id(parcel_id) if has_parcel_id_form(parcel_id) else None
     except ParcelSourceError:
         raise _unavailable() from None
     if parcel is None:

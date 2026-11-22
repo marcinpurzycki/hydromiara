@@ -7,6 +7,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api.limits import NO_LIMITS
 from app.main import app
 from app.orchestrator.sources import OptionalSources, get_optional_sources, get_weather_source
 from app.sources.parcels import ParcelSource, get_parcel_source
@@ -156,6 +157,14 @@ def no_summary_provider(monkeypatch):
     """No test reaches a language model: its configuration is cleared from the environment."""
     for name in ("API_KEY_ENV", "MODEL_ENV", "BASE_URL_ENV", "TIMEOUT_ENV", "REASONING_EFFORT_ENV"):
         monkeypatch.delenv(getattr(summary_params, name), raising=False)
+
+
+@pytest.fixture(autouse=True)
+def no_request_limits():
+    """Tests send requests as fast as they can; the limits are tested on their own."""
+    app.state.rate_limiter.configure(NO_LIMITS)
+    yield
+    app.state.rate_limiter.configure(NO_LIMITS)
 
 
 @pytest.fixture
