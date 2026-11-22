@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Stand-in for getent: no name resolves (the tests run without network).
+exit 2

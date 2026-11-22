@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Stand-in for the docker command: records every call and answers the read
+# calls of the deployment script from the fixtures. Controlled by STUB_* variables.
+printf '%s\n' "$*" >>"$STUB_LOG"
+fixtures=$(cd "$(dirname "$0")/../fixtures" && pwd)
+case "$*" in
+  info) exit 0 ;;
+  "info --format"*) echo json-file ;;
+  "version --format"*) echo 29.0.0 ;;
+  "compose version --short") echo 5.0.0 ;;
+  "network inspect proxy --format"*) [[ ! -e "$STUB_STATE/proxy" ]] || echo 172.30.0.0/16 ;;
+  "network inspect proxy") [[ -e "$STUB_STATE/proxy" ]] || exit 1 ;;
+  "network create proxy") touch "$STUB_STATE/proxy" ;;
+  "ps -aq") [[ "$STUB_TRAEFIK" != 1 ]] || printf 'c1\nc2\n' ;;
+  "ps --format"*) [[ "$STUB_TRAEFIK" != 1 ]] || printf 'c1 traefik:v3 edge\nc2 registry.example.org/shop:1 shop-web-1\n' ;;
+  "inspect --format {{range .Args}}"*) cat "$fixtures/traefik_args.txt" ;;
+  "inspect --format {{range \$k, \$v := .NetworkSettings"*) echo proxy ;;
+  "inspect --format {{\$n"*) cat "${STUB_LABELS:-$fixtures/labels.tsv}" ;;
+  compose*) exit 0 ;;
+  *) echo "docker stub: unexpected call: $*" >&2 && exit 64 ;;
+esac
+exit 0

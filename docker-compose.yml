@@ -3,10 +3,19 @@
 
 name: hydromiara
 
+# Size limit of the container logs, set here so that it holds also where the
+# Docker daemon has no log rotation configured.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 services:
   api:
     build: ./backend
     restart: unless-stopped
+    logging: *default-logging
     environment:
       SATELLITE_PRIMARY: ${SATELLITE_PRIMARY:-planetary-computer}
       SATELLITE_SECONDARY: ${SATELLITE_SECONDARY:-earth-search}
@@ -53,6 +62,7 @@ services:
   web:
     image: ${WEB_IMAGE:-nginx:alpine}
     restart: unless-stopped
+    logging: *default-logging
     networks:
       - proxy
     labels:

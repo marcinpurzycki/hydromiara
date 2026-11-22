@@ -1,0 +1,8 @@
+/edge	com.docker.compose.project=edge
+/edge	com.docker.compose.project.working_dir=/srv/edge
+/shop-web-1	com.docker.compose.project=shop
+/shop-web-1	com.docker.compose.project.working_dir=/srv/shop
+/shop-web-1	traefik.http.routers.shop.rule=Host(`shop.example.org`)
+/shop-web-1	traefik.http.routers.shop.entrypoints=websecure
+/shop-web-1	traefik.http.routers.shop.tls.certresolver=le
+/shop-web-1	traefik.http.services.shop.loadbalancer.server.port=80
