@@ -8,6 +8,7 @@ import { BrowserRouter } from "react-router";
 import { App } from "./App";
 import "./styles/base.css";
 import "./styles/start.css";
+import "./styles/info.css";
 import "./styles/analysis.css";
 import "./styles/report.css";
 import "./styles/print.css";

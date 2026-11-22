@@ -1,0 +1,29 @@
+/* "About the system" window on the start screen */
+html:has(.info-dialog[open]) { overflow: hidden; }
+.info-dialog { width: min(980px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; color: var(--ink); background: #fff; border: 0; border-radius: 16px; box-shadow: 0 20px 60px rgba(42, 37, 33, 0.3); overflow: auto; }
+.info-dialog::backdrop { background: rgba(42, 37, 33, 0.45); }
+.info-body { display: flex; flex-direction: column; gap: 26px; padding: 0 30px 30px; text-wrap: pretty; }
+.info-body section { display: flex; flex-direction: column; gap: 8px; }
+.info-body h3 { font-size: 19px; }
+.info-head { position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 0 -30px; padding: 20px 30px 14px; background: #fff; border-bottom: 1px solid var(--line-soft); }
+
+.info-table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 1.4; }
+.info-table th, .info-table td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line-soft); }
+.info-table thead th { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; border-bottom-color: var(--line-strong); }
+.info-table tbody th { width: 30%; font-weight: 700; }
+.info-table td:last-child { width: 32%; color: var(--muted); }
+
+.info-body .info-note { padding: 16px 20px; background: var(--accent); border: 1px solid var(--accent-strong); border-radius: 12px; }
+.info-references { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; font-size: 15px; color: var(--muted); }
+
+.info-body .info-directions { gap: 14px; padding-top: 24px; border-top: 2px solid var(--ink); }
+.info-direction { display: flex; flex-direction: column; gap: 6px; padding: 16px 20px; background: var(--sand-light); border: 1px solid var(--line); border-radius: 12px; }
+.info-direction-note { font-size: 15px; font-weight: 600; }
+
+@media (max-width: 640px) {
+  .info-body { padding: 0 16px 20px; }
+  .info-head { margin: 0 -16px; padding: 14px 16px 10px; }
+  .info-table thead { display: none; }
+  .info-table tr { display: block; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+  .info-table tbody th, .info-table td, .info-table td:last-child { display: block; width: auto; padding: 2px 0; border: 0; }
+}
