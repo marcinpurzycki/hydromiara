@@ -28,6 +28,10 @@ SOIL_TIMEOUT_S = 24.0
 # the target server: at most 3.5 s and 2.6 s), plus the adapter grace.
 TERRAIN_TIMEOUT_S = 17.0
 SATELLITE_TIMEOUT_S = 17.0
+# Waters: the adapter's chain ends on its own (the live read of the class
+# files within 12 s, then a local copy when there is one); this limit only
+# stops a chain that does not.
+HYDRO_TIMEOUT_S = 17.0
 # Local files, read in well under a second.
 DROUGHT_BACKGROUND_TIMEOUT_S = 5.0
 # Added to an adapter's own limit, so that the adapter's reason for having no

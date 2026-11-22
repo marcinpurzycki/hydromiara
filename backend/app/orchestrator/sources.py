@@ -22,6 +22,7 @@ from fastapi import Depends
 from app.orchestrator import params
 from app.orchestrator.source_fetches import (
     drought_background_fetch,
+    hydro_fetch,
     satellite_fetch,
     soil_fetch,
     terrain_fetch,
@@ -29,6 +30,7 @@ from app.orchestrator.source_fetches import (
 )
 from app.orchestrator.source_types import Fetch, FetchContext, SourceFetch, SourceSpec
 from app.sources.drought_background import DroughtBackgroundSource
+from app.sources.hydro import HydroSource
 from app.sources.parcels import ParcelSource, get_parcel_source
 from app.sources.satellite import SatelliteSource
 from app.sources.soil import SoilSource
@@ -56,6 +58,7 @@ class OptionalSources:
     soil: SoilSource | None = None
     terrain: TerrainSource | None = None
     satellite: SatelliteSource | None = None
+    hydro: HydroSource | None = None
     drought_background: DroughtBackgroundSource | None = None
 
 
@@ -102,8 +105,12 @@ def default_specs(
             timeout_s=params.SATELLITE_TIMEOUT_S,
             fetch=_fetch(satellite_fetch, optional.satellite),
         ),
-        # Not connected yet: no fetch function, so reported as missing.
-        SourceSpec(topic="hydro", status_id="hydro", timeout_s=0.0),
+        SourceSpec(
+            topic="hydro",
+            status_id="hydro",
+            timeout_s=params.HYDRO_TIMEOUT_S,
+            fetch=_fetch(hydro_fetch, optional.hydro),
+        ),
         SourceSpec(
             topic="drought_background",
             status_id=None,
@@ -118,6 +125,8 @@ _default_weather = WeatherSource()
 _default_soil = SoilSource(timeout_s=params.SOIL_TIMEOUT_S)
 _default_terrain = TerrainSource()
 _default_satellite = SatelliteSource()
+# One instance per process: the water adapter reads on one connection at a time.
+_default_hydro = HydroSource()
 
 
 def get_weather_source() -> WeatherSource:
@@ -131,6 +140,7 @@ def get_optional_sources() -> OptionalSources:
         soil=_default_soil,
         terrain=_default_terrain,
         satellite=_default_satellite,
+        hydro=_default_hydro,
         # Made per analysis: reads the configured directory of the drought files.
         drought_background=DroughtBackgroundSource(),
     )
