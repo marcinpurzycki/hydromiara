@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from app.catalog.crops import list_crops
 from app.contracts.analyses import CropHistory
 from app.contracts.report import Report
-from app.contracts.source_data import SourceData
+from app.contracts.source_data import SoilData, SourceData
 from app.mock import data
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -102,3 +102,38 @@ def test_crop_history_needs_exactly_one_form(payload):
 def test_crop_history_accepts_years_from_json():
     history = CropHistory.model_validate_json('{"years": {"2019": "maize"}}')
     assert history.years == {2019: "maize"}
+
+
+def test_source_data_stored_before_soil_categories_is_still_read():
+    raw = (FIXTURES / "stored" / "source_data_before_soil_categories.json").read_text(
+        encoding="utf-8"
+    )
+    soil = SourceData.model_validate_json(raw).soil
+    assert len(soil.layers) == 5
+    assert soil.layers[0].water_33kpa_vol_pct == 38.1
+    # The category map was not read for that analysis.
+    assert soil.drought_categories is None
+    assert soil.unclassified_areas is None
+
+
+def test_soil_data_carry_category_shares_and_unclassified_areas():
+    soil = SoilData.model_validate(
+        {
+            "layers": [],
+            "drought_categories": [
+                {"category": 3, "share_pct": 56.0},
+                {"category": 1, "share_pct": 36.0},
+            ],
+            "unclassified_areas": [{"code": 11, "share_pct": 8.0}],
+        }
+    )
+    assert [(item.category, item.share_pct) for item in soil.drought_categories] == [
+        (3, 56.0),
+        (1, 36.0),
+    ]
+    assert soil.unclassified_areas[0].code == 11
+    assert SoilData.model_validate_json(soil.model_dump_json()) == soil
+    with pytest.raises(ValidationError):
+        SoilData.model_validate(
+            {"layers": [], "drought_categories": [{"category": 5, "share_pct": 1.0}]}
+        )
