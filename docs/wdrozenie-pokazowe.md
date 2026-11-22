@@ -6,7 +6,7 @@ rolników opisuje osobny dokument: [wdrożenie pełnoskalowe](wdrozenie-pelnoska
 w [README](../README.md).
 
 Rozdział 5 streszcza warunki korzystania z usług zewnętrznych na podstawie stron ich dostawców, z adresem i datą
-odczytu. Nie jest poradą prawną. Miejsca oznaczone **„do sprawdzenia przez człowieka przed wdrożeniem”** to
+odczytu. Nie jest poradą prawną. Miejsca oznaczone **„do potwierdzenia przed wdrożeniem produkcyjnym”** to
 warunki, których nie dało się odczytać albo które nie rozstrzygają sprawy jednoznacznie.
 
 ## 1. Co jest potrzebne
@@ -51,9 +51,8 @@ Pełny opis kroków, opcji, zachowania na serwerze z innymi usługami, aktualiza
 **Sprawdzenie po wdrożeniu:** `docker compose ps` (usługa `api` w stanie `healthy`),
 `curl -fsS https://DOMENA/api/health` (odpowiedź `{"status":"ok"}`), `docker compose logs --tail 50 api`.
 
-**Czego nie sprawdzono** (do sprawdzenia przez człowieka na czystej maszynie z systemem Debian albo Ubuntu
-i z domeną): instalacji Dockera przez skrypt, uruchomienia własnego Traefika z wystawieniem certyfikatu
-Let's Encrypt oraz pełnego przebiegu pod domeną. Skrypt ma testy z atrapami poleceń systemowych
+**Weryfikacja.** Wdrożenie zweryfikowano 22.11.2026 na serwerze z systemem Debian 13 i działającym Traefikiem:
+aplikacja działa pod domeną z certyfikatem. Skrypt ma też testy z atrapami poleceń systemowych
 (`scripts/deploy/tests/run.sh`). Nagłówka HSTS skrypt nie ustawia.
 
 ## 3. Pliki wskaźnika suszy
@@ -90,8 +89,8 @@ pełna tabela w README, część „Konfiguracja”):
 
 `FORWARDED_ALLOW_IPS` musi wskazywać adres albo podsieć Traefika (skrypt wpisuje podsieć sieci `proxy`, o ile
 wartości nie ma w `.env`). Bez tego usługa widzi wszystkich odwiedzających pod adresem Traefika i liczy im jeden
-wspólny limit. Zachowania Traefika wobec nagłówka `X-Forwarded-For` przysłanego przez klienta nie sprawdzono
-na serwerze.
+wspólny limit. Przy wdrożeniu trzeba potwierdzić, że Traefik zastępuje nagłówek `X-Forwarded-For`
+przysłany przez klienta własną wartością.
 
 ### Limity usług zewnętrznych liczone na adres serwera
 
@@ -203,7 +202,7 @@ danych. Data odczytu stron: 22.11.2026, o ile nie podano inaczej.
 - Źródło: dokument o tokenach dostępu w repozytorium dokumentacji usługi,
   `https://github.com/microsoft/PlanetaryComputerDataCatalog` (plik `docs/concepts/sas.md`); repozytorium jest
   zarchiwizowane, więc treść może być nieaktualna.
-- Do sprawdzenia przez człowieka przed wdrożeniem: strony warunków korzystania
+- Do potwierdzenia przed wdrożeniem produkcyjnym: strony warunków korzystania
   (`https://planetarycomputer.microsoft.com/terms`) nie dało się odczytać automatycznie; nie ustalono, czy warunki
   ograniczają rodzaj użycia.
 
@@ -215,7 +214,7 @@ danych. Data odczytu stron: 22.11.2026, o ile nie podano inaczej.
 - Limity: nieopisane.
 - Źródła: `https://github.com/Element84/earth-search` (plik `README.md`),
   `https://registry.opendata.aws/sentinel-2-l2a-cogs/`.
-- Do sprawdzenia przez człowieka przed wdrożeniem: osobnego dokumentu warunków korzystania z publicznego interfejsu
+- Do potwierdzenia przed wdrożeniem produkcyjnym: osobnego dokumentu warunków korzystania z publicznego interfejsu
   nie znaleziono.
 
 **Usługa modelu językowego (opcjonalna)**
@@ -228,7 +227,7 @@ danych. Data odczytu stron: 22.11.2026, o ile nie podano inaczej.
   kończy się podsumowaniem z szablonu.
 - Co jest wysyłane: wyłącznie wybrane teksty gotowego raportu, bez Identyfikatora działki, nazw miejsc
   i współrzędnych (README, „AI w działaniu aplikacji”).
-- Do sprawdzenia przez człowieka przed wdrożeniem: warunki korzystania, cennik oraz zasady przetwarzania
+- Do potwierdzenia przed wdrożeniem produkcyjnym: warunki korzystania, cennik oraz zasady przetwarzania
   i przechowywania danych u wybranego dostawcy.
 
 **Let's Encrypt (certyfikat TLS, przez Traefika)**
@@ -243,42 +242,41 @@ danych. Data odczytu stron: 22.11.2026, o ile nie podano inaczej.
 Traefik, Docker i pozostałe komponenty uruchamiane na serwerze są oprogramowaniem na licencjach otwartych
 (README, punkt 6), nie usługami zewnętrznymi.
 
-### Usługi, które obowiązują po podłączeniu
+### Pozostałe źródła
 
-Aplikacja jeszcze z nich nie korzysta; są przewidziane jako kolejne ogniwa Łańcuchów zamienników. Warunki zostały
-odczytane z wyprzedzeniem i wchodzą w życie dopiero po podłączeniu danego źródła.
+Źródła podłączone 22.11.2026 (wody, teren 1 m, gleba z mapy IUNG-PIB i z usługi WCS) oraz jedno przewidziane,
+ale niepodłączone (OpenStreetMap przez usługę Overpass).
 
-- **BDOT10k (GUGiK), cieki, rowy i zbiorniki** (po podłączeniu): zbiory obiektów topograficznych tej szczegółowości
+- **BDOT10k (GUGiK), cieki, rowy i zbiorniki** (podłączone): zbiory obiektów topograficznych tej szczegółowości
   są udostępniane bez opłat na podstawie ustawy Prawo geodezyjne i kartograficzne (art. 40a ust. 2 pkt 1 lit. h).
   Konto ani klucz nie są potrzebne. Podawane źródło: „BDOT10k, Główny Urząd Geodezji i Kartografii”. Limitów
   pobierania nie opublikowano; serwer plików zrywał część połączeń równoległych (obserwacja z 21.11.2026).
-  Do sprawdzenia przez człowieka przed wdrożeniem: dokumentu licencji i wymaganego zapisu źródła dla plików
+  Do potwierdzenia przed wdrożeniem produkcyjnym: dokumentu licencji i wymaganego zapisu źródła dla plików
   udostępnianych do pobrania nie znaleziono.
-- **OpenStreetMap przez usługę Overpass, zamiennik danych o wodach** (po podłączeniu): dane na licencji ODbL 1.0,
-  wymagane podanie źródła „© autorzy OpenStreetMap” (odpowiedź serwera, odczyt 21.11.2026). Do sprawdzenia przez
-  człowieka przed wdrożeniem: zasady korzystania i limity operatora publicznego serwera Overpass nie zostały
+- **OpenStreetMap przez usługę Overpass, zamiennik danych o wodach** (niepodłączone): dane na licencji ODbL 1.0,
+  wymagane podanie źródła „© autorzy OpenStreetMap” (odpowiedź serwera, odczyt 21.11.2026). Do potwierdzenia przed wdrożeniem
+  produkcyjnym: zasady korzystania i limity operatora publicznego serwera Overpass nie zostały
   przeczytane.
-- **Usługa wysokości punktów GUGiK (numeryczny model terenu 1 m)** (po podłączeniu): „Dane NMT są dostępne
+- **Usługa wysokości punktów GUGiK (numeryczny model terenu 1 m)** (podłączone): „Dane NMT są dostępne
   bezpłatnie i możliwe do dowolnego wykorzystania” (strona opisu danych,
   `https://www.geoportal.gov.pl/pl/dane/numeryczny-model-terenu-nmt/`). Konto ani klucz nie są potrzebne. Strona
   usługi (`https://services.gugik.gov.pl/nmt/`) nie podaje limitów ani warunków; zaobserwowano do 1000 punktów
-  w jednym zapytaniu. Do sprawdzenia przez człowieka przed wdrożeniem: limity i warunki samej usługi.
-- **Mapa kategorii podatności gleb na suszę, usługa mapowa IUNG-PIB** (po podłączeniu): usługa publiczna
+  w jednym zapytaniu. Do potwierdzenia przed wdrożeniem produkcyjnym: limity i warunki samej usługi.
+- **Mapa kategorii podatności gleb na suszę, usługa mapowa IUNG-PIB** (podłączone): usługa publiczna
   i bezpłatna, bez konta i klucza; opis usługi podaje brak opłat i brak ograniczeń dostępu, ale mogą to być
   wartości domyślne oprogramowania serwera. Strona systemu (`https://susza.iung.pulawy.pl/mapa-kategorii/`) nie
   podaje licencji ani regulaminu (odczyt 21.11.2026 i 22.11.2026). W wersji pokazowej pobierane są pojedyncze
   wartości z podaniem źródła: „Kategorie podatności gleb na suszę: IUNG-PIB, System Monitoringu Suszy Rolniczej,
-  opracowanie na zlecenie Ministerstwa Rolnictwa i Rozwoju Wsi”. Do sprawdzenia przez człowieka przed wdrożeniem:
+  opracowanie na zlecenie Ministerstwa Rolnictwa i Rozwoju Wsi”. Do potwierdzenia przed wdrożeniem produkcyjnym:
   warunki ponownego wykorzystania.
-- **SoilGrids przez usługę WCS (ISRIC)** (po podłączeniu): te same dane i ta sama licencja CC BY 4.0 co wyżej;
+- **SoilGrids przez usługę WCS (ISRIC)** (podłączone): te same dane i ta sama licencja CC BY 4.0 co wyżej;
   ISRIC wskazuje usługi sieciowe jako stabilniejszy sposób dostępu niż REST. Limitu zapytań dla WCS dokumentacja
   nie podaje.
 
-## 6. Zestawienie pozycji do sprawdzenia przez człowieka przed wdrożeniem pokazowym
+## 6. Zestawienie pozycji do potwierdzenia przed wdrożeniem produkcyjnym
 
-- Pełny przebieg skryptu na czystym serwerze z domeną (instalacja Dockera, własny Traefik, certyfikat).
 - Warunki korzystania z Planetary Computer (strona nieodczytana) i z publicznego interfejsu Earth Search
   (dokumentu nie znaleziono).
 - Warunki i cennik wybranego dostawcy modelu językowego, jeśli jest używany.
-- Po podłączeniu kolejnych źródeł: warunki usługi IUNG-PIB, usługi wysokości punktów GUGiK, plików BDOT10k
-  i publicznego serwera Overpass.
+- Warunki usługi IUNG-PIB, usługi wysokości punktów GUGiK i plików BDOT10k; warunki publicznego serwera
+  Overpass, gdyby został podłączony.
