@@ -69,7 +69,9 @@ def test_verdicts_come_from_the_engine():
 def test_parts_without_a_module_are_marked_as_not_assessed():
     report = build()
     assert report.historical_course is None
-    assert all(cause.recommendations == [] for cause in report.causes)
+    # Recommendations are computed; the irrigation part is still pending.
+    assert "Rekomendacji" not in pending.pending_limitation().text
+    assert any(cause.recommendations for cause in report.causes)
     assert "Przyczyn niedoboru" not in pending.pending_limitation().text
     assert report.irrigation.justified is None and report.irrigation.amount_mm is None
     assert report.summary.source == "template"
@@ -137,8 +139,11 @@ def test_confidence_follows_the_limitations_of_each_verdict():
         assert verdict.confidence.level == "wysoka"
     own = [limitation for limitation in report.limitations if not limitation.permanent]
     # The stand-in terrain grid of the helper is not geographic, which the Report says.
-    assert own[0] == pending.pending_limitation() and len(own) == 2
+    # The recommendation that needs the terrain is therefore named as not checked.
+    assert own[0] == pending.pending_limitation() and len(own) == 3
     assert own[1].affects == "recommendations" and "ukształtowaniu terenu" in own[1].text
+    assert own[2].affects == "recommendations"
+    assert own[2].text.startswith("Nie sprawdzono Rekomendacji") and "spadku" in own[2].text
 
 
 def test_field_without_a_crop_is_not_assessed_and_says_so():

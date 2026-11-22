@@ -15,7 +15,6 @@ from app.contracts.verdicts import HistoricalCourse
 
 # Names of the parts below as they appear in the limitation shown to the user.
 PENDING_PARTS = (
-    "Rekomendacji",
     "zaleceń nawadniania",
     "podsumowania słownego",
 )

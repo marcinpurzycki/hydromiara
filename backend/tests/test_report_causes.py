@@ -1,6 +1,7 @@
 """Deficit causes and terrain analysis in the Report, from the builder and the whole analysis."""
 
 from app.catalog.crops import get_crop
+from app.catalog.recommendations import list_recommendations
 from app.contracts.report import Report
 from app.contracts.source_data import SourceData, WeatherDay
 from app.engine.causes import NO_DEFICIT_SENTENCE
@@ -60,7 +61,7 @@ def test_deficit_gives_four_causes_with_indicator_threshold_and_value():
     for cause in report.causes:
         assert cause.indicator.name and cause.indicator.threshold is not None
         assert cause.indicator.value is not None and cause.facts
-        assert cause.recommendations == []
+        assert cause.found or cause.recommendations == []
     assert causes["soil"].indicator.value == 213 and not causes["soil"].found
     assert causes["soil"].facts[0].source == "ISRIC SoilGrids 2.0"
     assert causes["runoff"].found and causes["runoff"].indicator.value == 3.0
@@ -79,7 +80,9 @@ def test_terrain_goes_to_the_map_and_the_trace():
     assert [entry.rule_id for entry in report.trace] == [
         "root_zone.capacity", "current_status.level", "multiyear.deficit_years",
         "season.state", "terrain.slope", "causes.gate", "cause.precipitation", "cause.soil",
-        "cause.runoff", "cause.crop_demand", "consistency_check.result",
+        "cause.runoff", "cause.crop_demand",
+        *(f"recommendation.{entry.id}" for entry in list_recommendations()),
+        "consistency_check.result",
     ]
     slope = next(entry for entry in report.trace if entry.rule_id == "terrain.slope")
     assert slope.values["slope_pct"] == 3.0 and slope.values["downhill_azimuth_deg"] == 45
