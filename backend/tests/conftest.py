@@ -12,6 +12,7 @@ from app.orchestrator.sources import OptionalSources, get_optional_sources, get_
 from app.sources.parcels import ParcelSource, get_parcel_source
 from app.sources.weather import WeatherSource
 from app.storage.params import DB_PATH_ENV
+from app.summary import params as summary_params
 
 ULDK_FIXTURES = Path(__file__).parent / "fixtures" / "uldk"
 
@@ -148,6 +149,13 @@ def reports_db(tmp_path, monkeypatch) -> Path:
     path = tmp_path / "reports.sqlite3"
     monkeypatch.setenv(DB_PATH_ENV, str(path))
     return path
+
+
+@pytest.fixture(autouse=True)
+def no_summary_provider(monkeypatch):
+    """No test reaches a language model: its configuration is cleared from the environment."""
+    for name in ("API_KEY_ENV", "MODEL_ENV", "BASE_URL_ENV", "TIMEOUT_ENV", "REASONING_EFFORT_ENV"):
+        monkeypatch.delenv(getattr(summary_params, name), raising=False)
 
 
 @pytest.fixture

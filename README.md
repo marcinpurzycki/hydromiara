@@ -21,6 +21,55 @@ według planu zespołu, pod nadzorem programisty.
 
 Szczegółowy wykaz narzędzi i modeli AI oraz zakres ich użycia zostanie uzupełniony przed zgłoszeniem.
 
+### AI w działaniu aplikacji: podsumowanie raportu
+
+To jedyne miejsce, w którym działająca aplikacja korzysta z AI. Oba werdykty, Przyczyny niedoboru, Rekomendacje,
+wszystkie liczby i Ograniczenia raportu wyznacza deterministyczny kod, a teksty raportu pochodzą z szablonów
+przypisanych do reguł. Raport jest kompletny bez modelu językowego: pole `summary` zawiera wtedy podsumowanie złożone
+z gotowych tekstów raportu (`summary.source = "template"`). To stan domyślny, gdy klucz lub nazwa modelu nie są ustawione.
+
+- **Dostawca i model.** Usługa z interfejsem zgodnym z OpenAI Chat Completions (`POST {AI_BASE_URL}/chat/completions`,
+  domyślnie `https://api.openai.com/v1`). Nazwa modelu pochodzi wyłącznie ze zmiennej `OPENAI_MODEL`; kod nie ma
+  nazwy domyślnej. Nazwa modelu, który zredagował podsumowanie, jest zapisana w śladzie decyzyjnym raportu
+  (`trace`, wpis `summary.source`). Jedno zapytanie na analizę, bez ponowień, bez dodatkowej biblioteki (HTTPX).
+- **Co model dostaje.** Wyłącznie wybrane części gotowego raportu: nazwę Uprawy, Datę analizy, zdanie nagłówka,
+  notę o Sezonie uprawy, oba werdykty z Pewnością oceny i jej uzasadnieniem, zdanie o Przebiegu historycznym,
+  stwierdzone Przyczyny niedoboru z ich Rekomendacjami (grupa, tekst, „Co uzyskasz”), tekst i termin nawadniania,
+  wynik i zdanie Sprawdzenia zgodności oraz do trzech Ograniczeń raportu dotyczących werdyktów. Instrukcja dla modelu
+  jest stałą w kodzie (`backend/app/summary/prompt.py`), a dane raportu są przekazywane osobno, jako dane.
+- **Czego model nie dostaje.** Identyfikatora i Numeru działki, nazw obrębu, gminy, powiatu i województwa, geometrii,
+  współrzędnych, mapy, adresu raportu ani danych źródłowych (pogody, gleby, terenu, scen satelitarnych). Tekst raportu,
+  w którym wystąpiłaby któraś z tych nazw albo współrzędna, jest pomijany w całości.
+- **Czego model nie robi.** Niczego nie liczy i o niczym nie decyduje: nie zmienia werdyktów, nie dodaje liczb, dat ani
+  działań, nie uśrednia dwóch werdyktów. Redaguje kilka zdań z tego, co już jest w raporcie.
+- **Kontrola odpowiedzi** (`backend/app/summary/check.py`, `numbers.py`). Odpowiedź jest przyjmowana tylko wtedy, gdy:
+  ma od 60 do 900 znaków i jest zwykłym tekstem; każda liczba, data, nazwa miesiąca i para „X z Y lat” występuje
+  w danych wysłanych do modelu, a liczba nie zmienia jednostki (różnice zapisu nie są błędem: przecinek i kropka
+  dziesiętna, `20.06.2023` / `2023-06-20` / „20 czerwca 2023”, `%` i „procent”, `1 790` i `1790`); Stopnie niedoboru,
+  grupy Rekomendacji, wynik Sprawdzenia zgodności i słowa nakazujące działanie („warto”, „należy”, „trzeba”…) pojawiają
+  się tylko, jeśli są w danych; poziom Pewności oceny jest jednym z podanych w raporcie; nie ma słów, których
+  słownik projektu każe unikać (np. „ryzyko”, „porada”, „wilgotność”), a słowo „susza” występuje wyłącznie w stałych
+  zwrotach raportu („nie jest urzędowym stwierdzeniem suszy”, „wskaźnik suszy”); gdy werdykty nie mają Stopnia
+  niedoboru, odpowiedź mówi to wprost.
+- **Granice kontroli.** Kontrola nie wykryje liczby użytej w innym znaczeniu niż w raporcie, liczby zapisanej słownie,
+  zmienionego znaku ani zmyślonego działania opisanego bez żadnego z pilnowanych słów. To ryzyko ograniczają:
+  instrukcja, krótka forma, mały zakres przekazanych danych oraz to, że pełne Rekomendacje z regułą i wartościami
+  stoją w raporcie obok podsumowania. Podsumowanie modelu nie jest powtarzalne między uruchomieniami; raz zapisane
+  w raporcie już się nie zmienia.
+- **Wyjście awaryjne.** Brak konfiguracji, limit czasu, błąd usługi (np. 401, 429, 5xx), odpowiedź pusta, ucięta,
+  nieczytelna albo odrzucona przez kontrolę kończą się podsumowaniem z szablonu; analiza nigdy nie kończy się
+  niepowodzeniem z powodu modelu. Powód jest zapisany kodem w `trace` i w logu.
+- **Kiedy i jak długo.** Model jest pytany po zbudowaniu raportu, a przed jego zapisem, tylko dla nowej analizy
+  (także analizy na Okres krytyczny). Czeka się najwyżej `AI_TIMEOUT_S` sekund i nigdy dłużej, niż zostało z 30 s
+  przeznaczonych na analizę (minus 1 s na zapis). Raport pochodny z Historią upraw nie jest nigdzie wysyłany
+  i dostaje podsumowanie z szablonu.
+- **Klucz.** Tylko w `.env` na serwerze; jest wysyłany wyłącznie w nagłówku zapytania do usługi (po HTTPS) i nie trafia
+  do logów, raportu, bazy ani komunikatów błędów. Log zawiera czas wywołania, źródło podsumowania, kod powodu
+  i nazwę modelu, bez treści zapytania i odpowiedzi.
+- **Warunki korzystania.** Usługa modelu językowego jest płatna według cennika dostawcy i wymaga konta oraz klucza;
+  aplikacja działa w pełni bez niej. Przekazane dane przetwarza dostawca na własnych warunkach: przed wdrożeniem
+  pełnoskalowym człowiek powinien sprawdzić warunki przetwarzania i przechowywania danych u wybranego dostawcy.
+
 ## Uruchomienie
 
 Usługa `api` (FastAPI) wystawia wszystkie trasy pod `/api`. Wyszukiwanie działek (`/api/parcels/...`) korzysta
@@ -36,8 +85,8 @@ gleba 24 s, teren i satelita po 17 s, tło suszowe 5 s; żadne źródło poza po
 przed końcem czasu na pobieranie. Usługa gleby odpowiada wolno (zmierzone 11–35 s), więc część analiz kończy się
 bez gleby. Dane o wodach (cieki, rowy, zbiorniki) nie są jeszcze pobierane: w postępie analizy to źródło ma stan
 `missing`. Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego pozycji jest stała); jest na liście
-źródeł raportu. Część raportu, której jeszcze nie liczy żaden moduł (podsumowanie), jest w nim opisana
-wprost jako nieoceniona.
+źródeł raportu. Raport zawiera krótkie podsumowanie (`summary`): z szablonu albo, gdy skonfigurowano model językowy,
+zredagowane przez model i sprawdzone (część „AI w działaniu aplikacji: podsumowanie raportu”).
 Lista upraw i przykłady odpowiadają na obecnym etapie danymi przykładowymi (atrapą). Analiza na Okres krytyczny
 (`POST /api/reports/{report_id}/critical-period`), raport pochodny z Historią upraw
 (`POST /api/reports/{report_id}/derive`) i Symulacja są prawdziwe; dla raportu przykładowego `/api/reports/demo`
@@ -226,6 +275,11 @@ Ustawienia wdrożenia są w pliku `.env` (wzór: `.env.example`); usługa `api` 
 | `SATELLITE_PRIMARY` | `planetary-computer` | usługa danych satelitarnych pytana jako pierwsza: `planetary-computer` albo `earth-search` |
 | `SATELLITE_SECONDARY` | `earth-search` | usługa zapasowa; `none` wyłącza przełączanie |
 | `SATELLITE_FALLBACK_AFTER_S` | `4` | po tylu sekundach bez pierwszego odczytu z usługi podstawowej analiza przechodzi na zapasową |
+| `AI_API_KEY` | brak | klucz usługi modelu językowego (sekret); bez klucza albo modelu podsumowanie raportu pochodzi z szablonu |
+| `OPENAI_MODEL` | brak | nazwa modelu w usłudze; nie ma wartości domyślnej |
+| `AI_BASE_URL` | `https://api.openai.com/v1` | adres bazowy usługi zgodnej z OpenAI Chat Completions; tylko `https` (wyjątek: `http` dla tej samej maszyny) |
+| `AI_TIMEOUT_S` | `12` | najdłuższe oczekiwanie na model w sekundach; skracane do czasu, który został z budżetu analizy |
+| `AI_REASONING_EFFORT` | brak | opcjonalne pole `reasoning_effort` zapytania (`none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`) dla modeli, które je obsługują; puste = niewysyłane |
 
 ### Dane satelitarne: dwie wymienne usługi
 

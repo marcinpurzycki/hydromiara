@@ -3,8 +3,9 @@
 The same inputs always give the same Report, so a Report can be computed again
 from what is stored with it. The identifier and the creation time are inputs.
 
-Adding a part of the Report: compute it in its own module from `ReportInputs`
-and the engine assessment, and replace the matching `pending_*` call below.
+The summary is the template one, made from the finished Report itself; asking
+a language model for another wording is a step of the orchestrator, not of this
+function.
 
 The limitations and the confidence of both verdicts come from the engine: the
 limitations are collected once and the confidence is derived from them. The
@@ -16,7 +17,14 @@ from datetime import date, datetime
 
 from app.catalog.crop_model import CatalogCrop
 from app.contracts.analyses import CropHistory
-from app.contracts.report import Limitation, Report, ReportMap, ReportMeta, ReportParcel
+from app.contracts.report import (
+    Limitation,
+    Report,
+    ReportMap,
+    ReportMeta,
+    ReportParcel,
+    Summary,
+)
 from app.contracts.source_data import SourceData
 from app.contracts.verdicts import CropRef
 from app.engine import history_texts, season_store, season_texts
@@ -28,10 +36,10 @@ from app.engine.irrigation import assess_irrigation
 from app.engine.limitations import limitations_of, report_findings
 from app.engine.params import DEFAULT_PARAMS, EngineParams
 from app.engine.season import critical_period_date, past_season, season_status
-from app.orchestrator import report_pending as pending
 from app.orchestrator import report_sources as sources
 from app.orchestrator import report_verdicts as verdicts
 from app.orchestrator.report_causes import causes_part
+from app.summary.template import template_summary
 
 _PARCEL_FIELDS = {"parcel_id", "number", "region", "commune", "county", "voivodeship", "area_ha"}
 
@@ -88,7 +96,7 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
         consistency_gaps=consistency.findings,
         replaced_missing=consistency.replaces_missing,
         first=() if not_assessed is None else (not_assessed,),
-        last=(pending.pending_limitation(), *causes.limitations),
+        last=causes.limitations,
     )
     confidence = verdict_confidences(
         findings,
@@ -97,14 +105,15 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
             assessment.multiyear_susceptibility
         ),
     )
-    return Report(
+    report = Report(
         meta=_meta(inputs),
         headline=verdicts.headline(
             assessment,
             analysis_date,
             season_texts.headline_sentence(status, analysis_date, current),
         ),
-        summary=pending.pending_summary(),
+        # Replaced below: the summary is made from the finished Report.
+        summary=Summary(text="", source="template"),
         season=season_texts.season_section(crop, status, analysis_date),
         current_status=season_store.current_status(
             verdicts.current_status(assessment, confidence.current),
@@ -136,3 +145,4 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
             *([] if course is None else [history_texts.trace_entry(course, susceptibility)]),
         ],
     )
+    return report.model_copy(update={"summary": template_summary(report)})

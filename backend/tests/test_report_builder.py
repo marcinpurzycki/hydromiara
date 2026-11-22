@@ -69,17 +69,13 @@ def test_verdicts_come_from_the_engine():
 def test_parts_without_a_module_are_marked_as_not_assessed():
     report = build()
     assert report.historical_course is None
-    # Recommendations are computed; the irrigation part is still pending.
-    assert "Rekomendacji" not in pending.pending_limitation().text
     assert any(cause.recommendations for cause in report.causes)
-    assert "Przyczyn niedoboru" not in pending.pending_limitation().text
-    assert "nawadniania" not in pending.pending_limitation().text
+    # The summary is the template one, made from this Report; nothing is pending in it.
     assert report.summary.source == "template"
+    assert report.headline in report.summary.text
+    assert not any("nie wyznacza jeszcze" in text for text in texts(report))
     assert report.current_status.reason == pending.REASON_PENDING
     assert report.multiyear_susceptibility.typical_period is None
-    assert "Pewności oceny" not in pending.pending_limitation().text
-    assert "Sprawdzenia zgodności" not in pending.pending_limitation().text
-    assert pending.pending_limitation() in report.limitations
     assert report.map.retention_sites == [] and report.map.water_objects == []
 
 
@@ -140,10 +136,10 @@ def test_confidence_follows_the_limitations_of_each_verdict():
     own = [limitation for limitation in report.limitations if not limitation.permanent]
     # The stand-in terrain grid of the helper is not geographic, which the Report says.
     # The recommendation that needs the terrain is therefore named as not checked.
-    assert own[0] == pending.pending_limitation() and len(own) == 3
-    assert own[1].affects == "recommendations" and "ukształtowaniu terenu" in own[1].text
-    assert own[2].affects == "recommendations"
-    assert own[2].text.startswith("Nie sprawdzono Rekomendacji") and "spadku" in own[2].text
+    assert len(own) == 2
+    assert own[0].affects == "recommendations" and "ukształtowaniu terenu" in own[0].text
+    assert own[1].affects == "recommendations"
+    assert own[1].text.startswith("Nie sprawdzono Rekomendacji") and "spadku" in own[1].text
 
 
 def test_field_without_a_crop_is_not_assessed_and_says_so():

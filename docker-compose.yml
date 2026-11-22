@@ -11,6 +11,12 @@ services:
       SATELLITE_PRIMARY: ${SATELLITE_PRIMARY:-planetary-computer}
       SATELLITE_SECONDARY: ${SATELLITE_SECONDARY:-earth-search}
       SATELLITE_FALLBACK_AFTER_S: ${SATELLITE_FALLBACK_AFTER_S:-4}
+      # Report summary by a language model; empty key or model = template summary.
+      AI_API_KEY: ${AI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_TIMEOUT_S: ${AI_TIMEOUT_S:-}
+      AI_REASONING_EFFORT: ${AI_REASONING_EFFORT:-}
     volumes:
       - reports:/data/reports
       - ${EDO_DATA_PATH:-./data/edo}:/data/edo:ro

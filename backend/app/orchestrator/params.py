@@ -10,6 +10,10 @@ ANALYSIS_BUDGET_S = 30.0
 # Kept back from the budget for the engine and for writing the Report.
 COMPUTE_RESERVE_S = 3.0
 
+# Kept back from the budget for storing the Report: the summary step, which may
+# wait for a language model, has to end this long before the budget does.
+SAVE_RESERVE_S = 1.0
+
 # Own limit of every source; a source that exceeds it is recorded as missing.
 PARCEL_TIMEOUT_S = 8.0
 WEATHER_TIMEOUT_S = 12.0
