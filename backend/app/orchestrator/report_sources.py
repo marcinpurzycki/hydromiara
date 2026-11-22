@@ -4,6 +4,7 @@ from typing import Literal
 
 from app.contracts.report import ReportSource
 from app.contracts.source_data import SourceData, SourceOutcome, SourceTopic
+from app.sources.hydro_params import BDOT_LOCAL_SOURCE_NAME, BDOT_SOURCE_NAME
 from app.sources.terrain_params import GUGIK_SOURCE_NAME
 
 Mode = Literal["na żywo", "plik lokalny"]
@@ -33,6 +34,12 @@ _SOURCE_TERMS: dict[SourceTopic, tuple[str, str, Mode]] = {
         "wymagane podanie źródła i zaznaczenie przetworzenia danych",
         LIVE,
     ),
+    "hydro": (
+        BDOT_SOURCE_NAME,
+        "bezpłatnie (Prawo geodezyjne i kartograficzne, art. 40a ust. 2 pkt 1 lit. h); "
+        "podajemy źródło",
+        LIVE,
+    ),
     "drought_background": (
         "European Drought Observatory (EDO), Combined Drought Indicator (CDI)",
         "CC BY 4.0; wymagane podanie źródła i zaznaczenie zmian",
@@ -40,6 +47,8 @@ _SOURCE_TERMS: dict[SourceTopic, tuple[str, str, Mode]] = {
     ),
 }
 _UNKNOWN_TERMS: tuple[str, str, Mode] = ("źródło nieokreślone", "nie podano", LIVE)
+# Chain links that read files kept on the server instead of asking a service.
+_LOCAL_FILE_LINKS: frozenset[str] = frozenset({BDOT_LOCAL_SOURCE_NAME})
 
 # Licence of a link of a substitute chain whose terms differ from those of
 # the entry of its topic above, by the name of the link.
@@ -58,7 +67,7 @@ def report_source(outcome: SourceOutcome) -> ReportSource:
         topic=outcome.topic,
         name=outcome.source_name or name,
         license=licence,
-        mode=mode,
+        mode=LOCAL_FILE if outcome.source_name in _LOCAL_FILE_LINKS else mode,
         data_date=outcome.data_date,
         fetched_at=outcome.fetched_at,
         # The contract needs a chain step even for a missing source; `missing` tells.

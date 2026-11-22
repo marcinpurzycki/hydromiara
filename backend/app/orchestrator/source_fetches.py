@@ -8,6 +8,7 @@ from the data is left out here, so that it is not listed and counted twice.
 from app.contracts.report import Limitation
 from app.orchestrator.source_types import Fetch, FetchContext, SourceFetch
 from app.sources.drought_background import DroughtBackgroundSource
+from app.sources.hydro import HydroSource
 from app.sources.satellite import SatelliteSource
 from app.sources.soil import SoilSource
 from app.sources.terrain import TerrainSource
@@ -62,6 +63,17 @@ def satellite_fetch(source: SatelliteSource) -> Fetch:
         data, outcome, limitations = await source.fetch(
             context.parcel.geometry, context.analysis_date
         )
+        return SourceFetch(data=data, outcome=outcome, limitations=list(limitations))
+
+    return fetch
+
+
+def hydro_fetch(source: HydroSource) -> Fetch:
+    async def fetch(context: FetchContext) -> SourceFetch:
+        # A step down the chain is named by the engine from the outcome; the
+        # adapter's limitations say what the water data cannot show.
+        parcel = context.parcel
+        data, outcome, limitations = await source.fetch(parcel.parcel_id, parcel.geometry)
         return SourceFetch(data=data, outcome=outcome, limitations=list(limitations))
 
     return fetch

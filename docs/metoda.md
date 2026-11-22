@@ -7,8 +7,9 @@ w [README](../README.md). Wszystkie reguły poniżej wykonuje deterministyczny k
 Wartość, która nie ma źródła naukowego, jest w kodzie oznaczona komentarzem `PROVISIONAL` (wartość robocza)
 i zebrana w pliku parametrów swojego modułu, więc jej wymiana jest zmianą danych, a nie kodu. Pliki z wartościami
 roboczymi: `backend/app/engine/params.py`, `cause_params.py`, `consistency_params.py`, `findings.py`,
-`irrigation_params.py`, `backend/app/catalog/crop_data.py`, `recommendation_data.py`,
-`backend/app/sources/satellite_params.py`, `soil_params.py`, `terrain_params.py`, `weather_params.py`, `raster.py`,
+`irrigation_params.py`, `water_params.py`, `backend/app/catalog/crop_data.py`, `recommendation_data.py`,
+`backend/app/sources/hydro_params.py`, `satellite_params.py`, `soil_params.py`, `terrain_params.py`,
+`weather_params.py`, `raster.py`,
 `backend/app/storage/params.py`, `backend/app/summary/params.py`.
 
 ## Katalog Upraw
@@ -153,6 +154,21 @@ data już jest takim środkowym dniem, oraz Pole bez uprawy (nie ma Okresu kryty
 (`already_critical_period`, `no_critical_period`). Datę, którą da to przejście, raport podaje w śladzie decyzyjnym
 (`trace`, reguła `season.state`).
 
+## Wody w otoczeniu Działki
+
+Z obiektów bazy BDOT10k leżących do 500 m od granicy Działki (wartość robocza) silnik wybiera
+(`backend/app/engine/water_analysis.py`, parametry w `water_params.py`) najbliższy obiekt każdej z trzech grup: rów
+(rów melioracyjny albo kanał), ciek (rzeka albo strumień, także powierzchnia wody płynącej) i zbiornik wodny (woda
+powierzchniowa inna niż płynąca). Dla każdego podaje odległość od granicy Działki w metrach (0, gdy obiekt przecina
+Działkę), stronę Działki (kierunek od środka Działki do środka tej części obiektu, która leży najbliżej granicy:
+nie dalej niż najbliższy punkt plus 50 m) oraz to, czy jest to strona, w którą opada teren (kierunek do obiektu różni
+się od kierunku spadku najwyżej o 45°; bez wyznaczonego kierunku spadku wartość jest nieznana). Odległości są liczone
+na lokalnej płaskiej siatce w metrach wokół Działki. Miejsce zatrzymania wody związane z rowem to ta sama najbliższa
+część rowu; pojawia się na mapie tylko razem z uruchomioną Rekomendacją i nie ma wymiarów ani parametrów. Progi 50 m
+i 45° nie mają źródła w literaturze i są wartościami roboczymi. Odczyt danych obejmuje powiat, w którym leży
+Działka, co raport podaje jako Ograniczenie razem z tym, czego baza nie zawiera (dreny, stan techniczny rowów, rowy
+przydrożne, bieżący stan wody).
+
 ## Rekomendacje
 
 Rekomendacje pochodzą z zamkniętego katalogu (`backend/app/catalog/recommendation_data.py`). Pozycja katalogu to
@@ -167,8 +183,10 @@ nigdy nie podają wymiarów, kosztów ani parametrów budowli. Katalog zawiera n
 grupę; ich treść opiera się na treści zadania konkursowego i materiale „Podstawy naukowe” organizatora, a nie na
 publikacjach źródłowych, więc wszystkie są oznaczone jako robocze, podobnie jak progi ich reguł (Stopień niedoboru
 od „lekki niedobór”). Pozycja z grupy nawadnianie nie trafia do sekcji Przyczyn: o nawadnianiu raport mówi w jednym
-miejscu, na końcu (część o nawadnianiu, opisana niżej), a tekst tej pozycji katalogu nie jest w nim pokazywany. Pozycje wymagające danych o wodach nie uruchamiają się,
-dopóki dane o ciekach, rowach i zbiornikach nie są pobierane.
+miejscu, na końcu (część o nawadnianiu, opisana niżej), a tekst tej pozycji katalogu nie jest w nim pokazywany. Jedna pozycja wzorcowa zależy od danych
+o wodach: zatrzymywanie wody w rowie przy Działce, gdy rów melioracyjny albo kanał z danych leży najwyżej 20 m od
+granicy Działki (wartość robocza: zapas na dokładność położenia obiektów). Bez danych o wodach reguła się nie
+uruchamia i raport podaje to jako Ograniczenie; rów, którego nie ma w danych, nie jest brany pod uwagę.
 
 ## Nawadnianie
 

@@ -133,8 +133,8 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
         map=ReportMap(
             parcel_geometry=source_data.parcel.geometry,
             downhill_direction=causes.downhill_direction,
-            retention_sites=[],
-            water_objects=[],
+            retention_sites=list(causes.retention_sites),
+            water_objects=list(causes.water_objects),
         ),
         trace=[
             *verdicts.trace(assessment, params),

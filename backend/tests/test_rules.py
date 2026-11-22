@@ -12,6 +12,7 @@ from tests.cause_helpers import assessment, terrain
 from tests.rule_helpers import (
     AGRONOMY,
     BARE_FIELD,
+    DITCH,
     IRRIGATION,
     LANDSCAPE,
     SOIL,
@@ -186,7 +187,9 @@ def test_trace_is_complete_and_the_result_is_deterministic():
     ]
     for entry in first.trace:
         assert entry.condition.startswith("stwierdzona co najmniej jedna z Przyczyn niedoboru")
-        assert entry.result.startswith("uruchomiono") and entry.values["cause"]
+        # No ditch in the water data of this parcel, so the entry about one is not met.
+        expected = "nie uruchomiono" if entry.rule_id.endswith(DITCH) else "uruchomiono"
+        assert entry.result.startswith(expected) and entry.values["cause"]
     dumped = [item.recommendation.model_dump_json() for item in first.placed]
     assert dumped == [item.recommendation.model_dump_json() for item in second.placed]
 

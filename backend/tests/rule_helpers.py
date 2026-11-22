@@ -16,6 +16,7 @@ WHEAT = get_crop("winter_wheat")
 BARE_FIELD = get_crop("bare_field")
 
 LANDSCAPE = "hold_rainwater_in_lowest_part"
+DITCH = "ditch_water_retention"
 SOIL = "catch_crops_and_residues"
 AGRONOMY = "watch_crop_in_critical_period"
 IRRIGATION = "irrigation_when_water_is_short"
@@ -32,7 +33,7 @@ def run(
     slope_error: float = 0.2,
     day: date | None = None,
     crop=WHEAT,
-    water: bool = False,
+    water: bool | None = None,
     catalog=None,
     sites=None,
 ) -> RulesOutcome:
@@ -40,8 +41,11 @@ def run(
 
     `dry` makes precipitation cover less than half of the evaporation, so the
     cause "too little precipitation" is found. `slope=None` means no terrain
-    data. The crop cause is always found for winter wheat.
+    data. The crop cause is always found for winter wheat. `water` says whether
+    water data exist (without any object in them); by default they do for the
+    real catalogue and do not for a catalogue given by the test.
     """
+    water = catalog is None if water is None else water
     rain = 150.0 if dry else 320.0
     years = None
     if multiyear:

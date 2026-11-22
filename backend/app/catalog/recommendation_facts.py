@@ -6,8 +6,7 @@ the slope, the lowest part). Each fact belongs to one data topic, so a rule
 that requires a topic without data is not run and the Report says so.
 
 Adding a catalogue entry that uses the facts below is a change of data only.
-A new fact (for example the distance to a ditch, once water data are
-connected) is added here with its topic and wording, and filled by the
+A new fact is added here with its topic and wording, and filled by the
 engine where the other facts are filled.
 """
 
@@ -82,4 +81,22 @@ FACTS: dict[str, FactSpec] = {
     "slope_pct": FactSpec("terrain", "średni spadek terenu Działki, %"),
     "downhill_label": FactSpec("terrain", "kierunek, w którym opada teren Działki"),
     "lowest_part": FactSpec("terrain", "najniższa część Działki"),
+    # Waters around the parcel: the nearest object of each group in the data.
+    "water_objects_count": FactSpec("water", "liczba obiektów wodnych w danych wokół Działki"),
+    **{
+        f"{group}_{suffix}": FactSpec("water", f"{label}: {what}")
+        for group, label in (
+            ("ditch", "najbliższy rów lub kanał"),
+            ("watercourse", "najbliższy ciek"),
+            ("water_body", "najbliższy zbiornik wodny"),
+        )
+        for suffix, what in (
+            ("distance_m", "odległość od granicy Działki, m"),
+            ("side", "strona Działki"),
+            ("location", "położenie względem Działki"),
+            ("downhill", "po stronie, w którą opada teren"),
+            ("label", "rodzaj obiektu"),
+            ("name", "nazwa"),
+        )
+    },
 }

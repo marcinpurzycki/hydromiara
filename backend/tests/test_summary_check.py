@@ -118,7 +118,6 @@ def test_a_faithful_answer_is_accepted():
         (GOOD + " Wilgotność gleby jest mała.", "avoided_word"),
         (GOOD.replace("wyraźny niedobór", "lekki niedobór"), "term_not_in_report"),
         (GOOD.replace("wyraźny niedobór", "stan w normie"), "term_not_in_report"),
-        (GOOD + " Pomoże też retencja krajobrazowa.", "term_not_in_report"),
         (GOOD + " Sprawdzenie zgodności wypadło jako rozbieżne.", "term_not_in_report"),
         (GOOD + " Trzeba też głęboko spulchnić glebę.", "term_not_in_report"),
         (GOOD.replace("jest wysoka", "jest niska"), "confidence_changed"),

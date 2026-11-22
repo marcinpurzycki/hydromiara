@@ -12,7 +12,9 @@ from app.catalog.recommendations import check_catalog, get_recommendation, list_
 from app.catalog.texts import MissingValue, TemplateError, fill, placeholders, polish
 from app.engine.rule_facts import rule_facts
 from app.engine.rules import rule_condition
+from app.engine.water_analysis import analyse_waters
 from tests.cause_helpers import assessment, terrain
+from tests.limitation_helpers import complete_source_data
 from tests.rule_helpers import WHEAT, entry, threshold
 
 ENTRIES = list_recommendations()
@@ -33,15 +35,29 @@ AVOIDED = (
 
 def sample_facts() -> dict:
     """Facts of a parcel where every topic has data, to fill every template."""
-    return dict(rule_facts(assessment(2, 2), WHEAT, terrain(3.0), water_available=True).values)
+    data = complete_source_data()
+    water = analyse_waters(data.hydro, data.parcel.geometry, terrain(3.0))
+    return dict(rule_facts(assessment(2, 2), WHEAT, terrain(3.0), water=water).values)
+
+
+def without_measured_distance(text: str) -> str:
+    """The text without the distance to an object of the water data.
+
+    That distance is a measured fact about the surroundings of the parcel, not
+    a size of anything to be built.
+    """
+    return re.sub(r"\(\d+ m od granicy Działki[^)]*\)", "()", text)
 
 
 def filled(item) -> list[str]:
     return [fill(template, sample_facts()) for template in item.templates()]
 
 
-def test_catalog_has_one_pattern_entry_per_group():
-    assert [item.group for item in ENTRIES] == list(GROUP_ORDER)
+def test_catalog_has_a_pattern_entry_per_group_and_one_that_depends_on_waters():
+    groups = [item.group for item in ENTRIES]
+    assert list(dict.fromkeys(groups)) == list(GROUP_ORDER)
+    assert [item.id for item in ENTRIES if "water" in item.requires] == ["ditch_water_retention"]
+    assert len(ENTRIES) == len(GROUP_ORDER) + 1
     assert len({item.id for item in ENTRIES}) == len(ENTRIES)
     assert get_recommendation(ENTRIES[0].id) is ENTRIES[0]
     with pytest.raises(KeyError):
@@ -74,7 +90,7 @@ def test_templates_fill_without_gaps(item):
 @pytest.mark.parametrize("item", ENTRIES, ids=lambda item: item.id)
 def test_texts_have_no_sizes_costs_or_avoided_words(item):
     for text in (*filled(item), item.title):
-        assert not SIZE_OR_COST.search(text), text
+        assert not SIZE_OR_COST.search(without_measured_distance(text)), text
         lowered = text.lower()
         assert not [word for word in AVOIDED if word in lowered], text
 
@@ -84,6 +100,10 @@ def test_size_and_cost_pattern_catches_what_it_should():
         assert SIZE_OR_COST.search(text), text
     for text in ("w 6 z 10 lat", "od 15.05 do 30.06. W tym czasie", "20 mm opadu"):
         assert not SIZE_OR_COST.search(text), text
+    measured = "biegnie rów (12 m od granicy Działki, strona wschodnia) i ma 3 m"
+    assert SIZE_OR_COST.search(measured)
+    assert SIZE_OR_COST.search(without_measured_distance(measured)).group(0) == "3 m"
+    assert not SIZE_OR_COST.search(without_measured_distance(measured.removesuffix(" i ma 3 m")))
 
 
 def test_thresholds_carry_a_source_or_a_provisional_reason():
