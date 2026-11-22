@@ -23,10 +23,13 @@ def rule_trace(report: Report) -> list:
 
 
 def test_deficit_report_has_recommendations_under_found_causes():
-    report = build(data_with(grid(plane(3.0, 45))))
+    report = build(data_with(grid(plane(8.0, 45))))
     listed = recommendations(report)
     assert [item.id for item in listed] and len({item.id for item in listed}) == len(listed)
-    assert {item.id for item in listed} == {LANDSCAPE, SOIL, AGRONOMY}
+    assert {item.id for item in listed} == {
+        LANDSCAPE, SOIL, AGRONOMY, "midfield_trees", "crop_residue_mulch", "reduced_tillage",
+        "contour_farming",
+    }
     for cause in report.causes:
         assert cause.found or cause.recommendations == []
         for item in cause.recommendations:
@@ -41,7 +44,7 @@ def test_deficit_report_has_recommendations_under_found_causes():
 
 
 def test_irrigation_is_not_among_the_cause_sections():
-    data = data_with(grid(plane(3.0, 45)))
+    data = data_with(grid(plane(8.0, 45)))
     report = build(data)
     assert report.current_status.deficit_level >= 1 and report.season.in_season
     assert all(item.group != "nawadnianie" for item in recommendations(report))
@@ -56,7 +59,7 @@ def test_irrigation_is_not_among_the_cause_sections():
 
 
 def test_report_without_deficit_has_no_recommendations_and_says_so_once():
-    report = build(wet_days(data_with(grid(plane(3.0, 45)))))
+    report = build(wet_days(data_with(grid(plane(8.0, 45)))))
     assert report.causes == [] and recommendations(report) == []
     assert texts(report).count(NO_DEFICIT_SENTENCE) == 1
     assert [entry.rule_id for entry in rule_trace(report)] == RULE_IDS
@@ -65,7 +68,7 @@ def test_report_without_deficit_has_no_recommendations_and_says_so_once():
 
 
 def test_field_without_a_crop_has_no_recommendations():
-    report = build(data_with(grid(plane(3.0, 45))), "bare_field")
+    report = build(data_with(grid(plane(8.0, 45))), "bare_field")
     assert report.causes == [] and recommendations(report) == []
     assert all(entry.result.startswith("nie sprawdzano") for entry in rule_trace(report))
 
@@ -76,21 +79,20 @@ def test_missing_terrain_names_the_recommendation_that_was_not_checked():
     # the landscape recommendation answers.
     report = build(data_with(None).model_copy(update={"soil": soil_with({4: 100.0})}))
     assert LANDSCAPE not in {item.id for item in recommendations(report)}
-    named = [text for text in texts(report) if text.startswith("Nie sprawdzono Rekomendacji")]
-    assert len(named) == 1 and "spadku i kierunku spływu" in named[0]
-    limitation = next(item for item in report.limitations if item.text == named[0])
-    assert limitation.affects == "recommendations" and not limitation.permanent
+    # Without terrain the cause "water runs off" is not found, so no entry on it applies.
+    assert "contour_farming" not in {item.id for item in recommendations(report)}
+    assert not [text for text in texts(report) if text.startswith("Nie sprawdzono Rekomendacji")]
     # Missing water data are named once, by the limitation of the missing category.
     assert texts(report).count(TOPICS["hydro"].missing_text) == 1
     assert len(set(texts(report))) == len(report.limitations)
     # Limitations about recommendations do not lower the confidence of a verdict.
-    with_terrain = build(data_with(grid(plane(3.0, 45))))
+    with_terrain = build(data_with(grid(plane(8.0, 45))))
     assert report.current_status.confidence == with_terrain.current_status.confidence
 
 
 def test_same_inputs_give_the_same_recommendations():
-    first = build(data_with(grid(plane(3.0, 45))))
-    second = build(data_with(grid(plane(3.0, 45))))
+    first = build(data_with(grid(plane(8.0, 45))))
+    second = build(data_with(grid(plane(8.0, 45))))
     assert first.model_dump_json() == second.model_dump_json()
     assert by_id(first)["crop_demand"].recommendations == by_id(second)["crop_demand"].recommendations
 

@@ -1,17 +1,20 @@
-"""Recommendation catalogue data. Adding or correcting an entry changes this file only.
+"""Recommendation catalogue: the irrigation pattern entry and the whole list.
 
-One entry per group, as a pattern for the full catalogue. The content of each
-comes from the competition task of the organiser and from its supporting
-summary of the scientific basis; neither names the primary publication behind
-a single statement, so every entry is marked provisional until it cites one.
-No entry states an effect in numbers, sizes, costs or parameters of a structure.
+Landscape and agrotechnical entries are in `recommendation_data_terrain`, soil
+entries in `recommendation_data_soil`; this module joins them in the order of
+the Report. The irrigation group still holds one pattern entry that states the
+justification only, without amounts, and is marked provisional. Entries do not
+state sizes, costs or parameters of a structure.
 
 Order matters twice: entries of one group appear in the Report in the order
 listed here, and a `fired` condition may only name entries listed before it.
 """
 
 from app.catalog.crop_model import Sourced
-from app.catalog.recommendation_model import CatalogRecommendation, Compare, Known, Threshold
+from app.catalog.recommendation_data_soil import SOIL_ENTRIES
+from app.catalog.recommendation_data_water import WATER_ENTRIES
+from app.catalog.recommendation_data_terrain import AGROTECHNICS_ENTRIES, LANDSCAPE_ENTRIES
+from app.catalog.recommendation_model import CatalogRecommendation, Compare, Threshold
 
 TASK = (
     "KOWR, zadanie konkursowe HackNation 2026 „Zatrzymaj wodę, chroń plony”, "
@@ -34,140 +37,7 @@ _FROM_LIGHT_DEFICIT = Sourced[Threshold](
     provisional="working value: the lowest deficit level, as in the gate of the causes",
 )
 
-# PROVISIONAL: a ditch counts as lying at the parcel up to this distance from
-# its outline, in metres; a margin for the position accuracy of the water
-# data, which has not been verified.
-_DITCH_AT_PARCEL_WITHIN_M = Sourced[Threshold](
-    value=20,
-    provisional="working value: margin for the position accuracy of the water data",
-)
-
-CATALOG: tuple[CatalogRecommendation, ...] = (
-    # PROVISIONAL: organiser's documents instead of a primary publication. The
-    # terrain shows where water gathers, not whether holding it there is feasible.
-    CatalogRecommendation(
-        id="hold_rainwater_in_lowest_part",
-        title="Okresowe zatrzymywanie wód opadowych w najniższej części Działki",
-        group="retencja krajobrazowa",
-        causes=("runoff", "precipitation"),
-        requires=("terrain",),
-        conditions=(
-            Known(
-                fact="lowest_part",
-                wording="analiza terenu wskazuje najniższą część Działki",
-            ),
-        ),
-        text=(
-            "Teren Działki opada na {downhill_label}, a jej najniżej położona część to część "
-            "{lowest_part}. W tę stronę spływa woda po deszczach. Warto rozważyć okresowe "
-            "zatrzymywanie wód opadowych w tej części Działki albo spowolnienie ich odpływu. "
-            "Sposób omów z doradcą rolniczym: niektóre działania wymagają zgłoszenia "
-            "w urzędzie."
-        ),
-        gain=(
-            "Woda opadowa dłużej zostaje na Działce i wolniej z niej odpływa. Takie działania "
-            "zwiększają dostępność wody dla upraw i ograniczają erozję." + _NO_NUMBERS
-        ),
-        citation=f"{BASIS}; {TASK} (przykładowa rekomendacja o retencji krajobrazowej).",
-        provisional=(
-            f"{_NOT_PRIMARY}; suitability of the lowest part for holding water is not "
-            "assessed (no water data, coarse terrain grid)"
-        ),
-        retention_site="lowest_part",
-    ),
-    # PROVISIONAL: pattern entry of the recommendations that depend on waters in
-    # the data. It appears only when a ditch or canal is in the data; the
-    # distance limit is a working value.
-    CatalogRecommendation(
-        id="ditch_water_retention",
-        title="Zatrzymywanie wody w rowie przy Działce",
-        group="retencja krajobrazowa",
-        causes=("precipitation", "runoff"),
-        requires=("water",),
-        conditions=(
-            Known(
-                fact="ditch_distance_m",
-                wording="w danych o wodach jest rów melioracyjny lub kanał w otoczeniu Działki",
-            ),
-            Compare(
-                fact="ditch_distance_m",
-                op="le",
-                value=_DITCH_AT_PARCEL_WITHIN_M,
-                wording="rów lub kanał leży najwyżej 20 m od granicy Działki",
-            ),
-        ),
-        text=(
-            "Przy Działce biegnie {ditch_label} ({ditch_location}). Warto rozważyć "
-            "zatrzymywanie w nim wody po roztopach i po większych deszczach, zamiast pozwalać "
-            "jej od razu odpłynąć. Woda zatrzymana w rowie podnosi poziom wody w gruncie obok "
-            "rowu. Zanim zaczniesz, omów to z doradcą rolniczym: część działań wymaga "
-            "zgłoszenia lub pozwolenia, a jeśli rów utrzymuje spółka wodna, także uzgodnienia "
-            "z nią."
-        ),
-        gain=(
-            "Wyższy poziom wody gruntowej w pasie przy rowie i dłuższy dostęp roślin do wody "
-            "w okresach bez deszczu. Efekt zależy od gleby i od tego, jak długo woda stoi "
-            "w rowie." + _NO_NUMBERS
-        ),
-        citation=(
-            "Kaca E. (red.), „Melioracje, retencja i gospodarka wodna w rolnictwie. "
-            "E-poradnik”, Centrum Doradztwa Rolniczego, Brwinów 2025, s. 81 (gromadzenie "
-            "wody w rowach), s. 120–121 i 131 (odpływ regulowany); "
-            f"{BASIS}; {TASK} (przykładowa rekomendacja o rowach i małych ciekach)."
-        ),
-        provisional=(
-            "pattern entry of the water-dependent group; working distance limit; formal "
-            "requirements are left to the advisor until the full catalogue words them"
-        ),
-        retention_site="water_object",
-    ),
-    # PROVISIONAL: organiser's documents instead of a primary publication.
-    CatalogRecommendation(
-        id="catch_crops_and_residues",
-        title="Międzyplony i resztki pożniwne",
-        group="retencja glebowa",
-        causes=("soil", "precipitation", "runoff"),
-        requires=("crop",),
-        text=(
-            "W uprawie {crop_name_genitive} na tej Działce warto rozważyć międzyplony "
-            "i pozostawianie resztek pożniwnych, a także działania spowalniające odpływ wód "
-            "opadowych w obrębie Działki."
-        ),
-        gain=(
-            "Te działania poprawiają strukturę gleby i zwiększają wsiąkanie wody, więc opady "
-            "są lepiej wykorzystane." + _NO_NUMBERS
-        ),
-        citation=f"{BASIS}; {TASK} (przykładowa rekomendacja o międzyplonach).",
-        provisional=_NOT_PRIMARY,
-    ),
-    # PROVISIONAL: the task gives the action only; the wording of the gain is
-    # ours and the threshold of the rule is a working value.
-    CatalogRecommendation(
-        id="watch_crop_in_critical_period",
-        title="Obserwacja Uprawy w Okresie krytycznym",
-        group="agrotechnika",
-        causes=("precipitation", "crop_demand"),
-        requires=("balance", "crop"),
-        conditions=(
-            Compare(
-                fact="multiyear_deficit_level",
-                op="ge",
-                value=_FROM_LIGHT_DEFICIT,
-                wording="Podatność wieloletnia wskazuje co najmniej lekki niedobór",
-            ),
-        ),
-        text=(
-            "W {deficit_years} z {total_years} ocenionych lat Uprawie brakowało wody w Okresie "
-            "krytycznym, który trwa od {critical_period_start} do {critical_period_end}. "
-            "W tym czasie warto częściej sprawdzać stan Uprawy i dostępność wody."
-        ),
-        gain="Wcześniej zauważysz, że Uprawie zaczyna brakować wody, i zdążysz zareagować.",
-        citation=f"{TASK} (przykładowa rekomendacja o okresie największego niedoboru wody).",
-        provisional=(
-            f"{_NOT_PRIMARY}; the task names the action only, the gain is worded by us; "
-            "working threshold of the rule"
-        ),
-    ),
+IRRIGATION_ENTRIES: tuple[CatalogRecommendation, ...] = (
     # PROVISIONAL: a pattern entry of the group. It states the justification
     # only; amount and timing belong to the irrigation part of the Report.
     CatalogRecommendation(
@@ -217,4 +87,12 @@ CATALOG: tuple[CatalogRecommendation, ...] = (
             "of the rule"
         ),
     ),
+)
+
+CATALOG: tuple[CatalogRecommendation, ...] = (
+    *LANDSCAPE_ENTRIES,
+    *WATER_ENTRIES,
+    *SOIL_ENTRIES,
+    *AGROTECHNICS_ENTRIES,
+    *IRRIGATION_ENTRIES,
 )

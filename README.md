@@ -641,8 +641,8 @@ Zakres danych i katalogów:
 - Współczynnik reakcji plonu Ky i grupa monitoringu suszy są w katalogu, ale silnik jeszcze z nich nie korzysta.
 - `GET /api/examples` zwraca dane przykładowe, a nie sześć sprawdzonych Przykładów; raport `/api/reports/demo`
   jest atrapą.
-- Katalog Rekomendacji ma cztery pozycje wzorcowe, po jednej na grupę, i jedną wzorcową pozycję zależną od wód; ich treść opiera się na treści zadania
-  i materiale „Podstawy naukowe” organizatora, nie na publikacjach źródłowych.
+- Katalog Rekomendacji zawiera pozycje niezależne od danych o wodach (retencja glebowa, zadrzewienia, trwała okrywa,
+  uprawa w poprzek spadku, obserwacja w Okresie krytycznym); pozycja nawadniania jest wzorcowa, bez dawek.
 - Dane o wodach: katalog ma jedną wzorcową Rekomendację zależną od wód (rów lub kanał do 20 m od granicy działki);
   pozostałe pozycje zależne od cieków i zbiorników nie są jeszcze wpisane. Odczyt na żywo obejmuje wody z powiatu
   działki, więc obiekt tuż za granicą powiatu może zostać pominięty (Raport podaje to jako Ograniczenie).
@@ -655,7 +655,7 @@ Zakres danych i katalogów:
 Wartości robocze. Progi i reguły bez źródła naukowego są w kodzie oznaczone `PROVISIONAL` i zebrane w plikach
 parametrów (lista w [docs/metoda.md](docs/metoda.md)): definicja roku z niedoborem (co najmniej 10 dni stresu
 w Okresie krytycznym; zbyt czuła, zob. niżej), progi Stopni niedoboru, wartości Upraw warunkowych wymienione wyżej,
-współczynnik gołej gleby, progi czterech Przyczyn, reguły Pewności oceny i Sprawdzenia zgodności,
+współczynnik gołej gleby, progi Przyczyn opadów i potrzeb wodnych uprawy, reguły Pewności oceny i Sprawdzenia zgodności,
 dwa progi interpretacji odczytu satelitarnego (3 lata tej samej Uprawy do porównania, NDVI 0,4 w kwietniu dla
 Uprawy ozimej),
 zasadność i dolna granica nawadniania, czas przechowywania Raportów. Przy progu Kc 1,0 przyczyna „uprawa o dużych

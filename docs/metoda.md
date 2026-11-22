@@ -186,8 +186,9 @@ ma wskaźnik, próg i wartość dla Działki oraz jeden z trzech stanów: stwier
 do oceny (w raporcie: `found = false` i `indicator.value = null`). Wskaźniki: opad jako część parowania
 wskaźnikowego ET0 (w latach z niedoborem, a gdy niedobór wskazuje tylko Bieżąca sytuacja wodna, w ostatnich 30
 dniach), woda dostępna dla roślin na metr gleby, średni spadek terenu, współczynnik uprawy Kc w środkowej fazie
-wzrostu. Wszystkie cztery progi (50%, 140 mm/m, 2%, Kc 1,0) są wartościami roboczymi bez źródła naukowego,
-zapisanymi jako nazwane parametry w `backend/app/engine/cause_params.py`. Wodę dostępną na metr gleby wyznacza
+wzrostu. Progi gleby (poniżej 150 mm/m; FAO-56, tab. 19) i spadku (co najmniej 6%; Wawer, Nowocień 2018, tab. 1) mają
+źródło. Progi opadów (50% ET0) i potrzeb wodnych uprawy (Kc 1,0) są wartościami roboczymi bez źródła naukowego.
+Wszystkie są nazwanymi parametrami w `backend/app/engine/cause_params.py`. Wodę dostępną na metr gleby wyznacza
 kategoria gleby (z mapy IUNG-PIB albo oszacowana z uziarnienia). Pojemność wodna przyjęta zastępczo nie
 jest podstawą do stwierdzenia przyczyny glebowej. Gdy żaden werdykt nie wskazuje niedoboru albo werdykty nie mają
 Stopnia niedoboru (Pole bez uprawy), lista przyczyn jest pusta, a raport mówi to wprost.
@@ -261,11 +262,11 @@ wtedy, gdy stwierdzono co najmniej jedną z jej Przyczyn; bez wymaganych danych 
 podaje to jako Ograniczenie. Każda Rekomendacja stoi w raporcie raz, przy najsilniejszej ze stwierdzonych Przyczyn,
 na które odpowiada, i podaje regułę, wartości, które ją uruchomiły, oraz źródło; każda sprawdzona pozycja zostawia
 wpis w śladzie decyzyjnym. Bez stwierdzonej Przyczyny raport nie zawiera Rekomendacji i mówi to wprost. Rekomendacje
-nigdy nie podają wymiarów, kosztów ani parametrów budowli. Katalog zawiera na razie po jednej pozycji wzorcowej na
-grupę; ich treść opiera się na treści zadania konkursowego i materiale „Podstawy naukowe” organizatora, a nie na
-publikacjach źródłowych, więc wszystkie są oznaczone jako robocze, podobnie jak progi ich reguł (Stopień niedoboru
-od „lekki niedobór”). Pozycja z grupy nawadnianie nie trafia do sekcji Przyczyn: o nawadnianiu raport mówi w jednym
-miejscu, na końcu (część o nawadnianiu, opisana niżej), a tekst tej pozycji katalogu nie jest w nim pokazywany. Jedna pozycja wzorcowa zależy od danych
+nigdy nie podają wymiarów, kosztów ani parametrów budowli. Katalog zawiera pozycje retencji krajobrazowej, retencji glebowej i agrotechniki z cytowaniami źródeł,
+oraz jedną pozycję wzorcową nawadniania, oznaczoną jako roboczą; progi reguł dotyczące Stopnia niedoboru są robocze. Pozycja z grupy nawadnianie nie trafia do sekcji Przyczyn: o nawadnianiu raport mówi w jednym
+miejscu, na końcu (część o nawadnianiu, opisana niżej), a tekst tej pozycji katalogu nie jest w nim pokazywany. Pozycje wymagające danych o wodach nie uruchamiają się,
+dopóki dane o ciekach, rowach i zbiornikach nie są pobierane.
+Jedna pozycja zależy od danych
 o wodach: zatrzymywanie wody w rowie przy Działce, gdy rów melioracyjny albo kanał z danych leży najwyżej 20 m od
 granicy Działki (wartość robocza: zapas na dokładność położenia obiektów). Bez danych o wodach reguła się nie
 uruchamia i raport podaje to jako Ograniczenie; rów, którego nie ma w danych, nie jest brany pod uwagę.

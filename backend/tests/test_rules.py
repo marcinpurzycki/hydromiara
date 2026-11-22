@@ -10,6 +10,8 @@ from app.contracts.causes import Recommendation
 from app.engine.rule_facts import rule_facts
 from tests.cause_helpers import assessment, terrain
 from tests.rule_helpers import (
+    entry,
+    threshold,
     AGRONOMY,
     BARE_FIELD,
     DITCH,
@@ -24,27 +26,26 @@ from tests.rule_helpers import (
     trace_of,
 )
 
-ALL = [LANDSCAPE, SOIL, AGRONOMY, IRRIGATION]
+ALL = [item.id for item in list_recommendations() if "water" not in item.requires]
 
 
 def test_landscape_entry_follows_the_terrain():
-    outcome = run(slope=3.0)
+    outcome = run(slope=8.0)
     item = placed(outcome, LANDSCAPE)
-    assert item.cause in ("runoff", "precipitation")
-    assert "opada na północny wschód" in item.recommendation.text
-    assert "część północno-wschodnia" in item.recommendation.text
-    assert item.recommendation.inputs["lowest_part"] == "północno-wschodnia"
+    assert item.cause == "runoff"
+    assert "opada na północny wschód ze spadkiem 8%" in item.recommendation.text
+    assert item.recommendation.inputs["slope_pct"] == 8.0
     # No geometry of the lowest part exists yet, so no retention site is given.
     assert item.recommendation.retention_site is None
-    # A gentle but resolved slope still shows where water gathers.
-    assert LANDSCAPE in ids(run(slope=1.0))
+    # The cause "water runs off" starts at a slope of 6%.
+    assert LANDSCAPE in ids(run(slope=6.0))
+    assert LANDSCAPE not in ids(run(slope=5.9))
 
 
 def test_landscape_entry_is_not_triggered_on_flat_ground_or_without_its_causes():
     flat = run(slope=0.1, slope_error=0.2)
     assert LANDSCAPE not in ids(flat)
-    assert trace_of(flat, LANDSCAPE).result == "nie uruchomiono: warunek niespełniony"
-    assert trace_of(flat, LANDSCAPE).values["lowest_part"] is None
+    assert trace_of(flat, LANDSCAPE).result.startswith("nie dotyczy")
     assert texts(flat) == []
     other_causes = run(slope=1.0, dry=False)
     assert LANDSCAPE not in ids(other_causes)
@@ -52,17 +53,20 @@ def test_landscape_entry_is_not_triggered_on_flat_ground_or_without_its_causes()
 
 
 def test_missing_required_data_stop_the_rule_and_leave_a_limitation():
-    outcome = run(slope=None)
-    assert LANDSCAPE not in ids(outcome)
-    assert trace_of(outcome, LANDSCAPE).result.startswith("nie uruchomiono: brak danych o")
+    catalog = [entry("needs_terrain", requires=("terrain",), conditions=(threshold(3.0),))]
+    outcome = run(slope=None, catalog=catalog)
+    assert ids(outcome) == []
+    assert trace_of(outcome, "needs_terrain").result.startswith("nie uruchomiono: brak danych o")
     assert texts(outcome) == [
-        "Nie sprawdzono Rekomendacji „Okresowe zatrzymywanie wód opadowych w najniższej "
-        "części Działki”: brak danych o spadku i kierunku spływu wody na Działce."
+        "Nie sprawdzono Rekomendacji „Pozycja needs_terrain”: brak danych o spadku "
+        "i kierunku spływu wody na Działce."
     ]
     limitation = outcome.limitations[0]
     assert limitation.affects == "recommendations" and not limitation.permanent
-    # The other entries do not need the terrain.
-    assert ids(outcome) == [SOIL, AGRONOMY, IRRIGATION]
+    # Without terrain data the cause "water runs off" is not found: its entries do not apply.
+    without = run(slope=None)
+    assert LANDSCAPE not in ids(without) and "contour_farming" not in ids(without)
+    assert SOIL in ids(without) and AGRONOMY in ids(without)
 
 
 def test_soil_entry_answers_any_of_its_causes():
@@ -71,7 +75,7 @@ def test_soil_entry_answers_any_of_its_causes():
     assert "pszenicy ozimej" in placed(by_soil, SOIL).recommendation.text
     assert placed(by_soil, SOIL).recommendation.inputs["cause_value"] == 110.0
     assert placed(run(dry=True, slope=1.0), SOIL).cause == "precipitation"
-    assert placed(run(dry=False, slope=3.0), SOIL).cause == "runoff"
+    assert placed(run(dry=False, slope=8.0), SOIL).cause == "runoff"
     none_found = run(dry=False, slope=1.0)
     assert SOIL not in ids(none_found)
     assert trace_of(none_found, SOIL).result.startswith("nie dotyczy")
@@ -96,7 +100,8 @@ def test_unknown_value_stops_the_rule_and_is_named():
     label = FACTS["multiyear_deficit_level"].label
     assert trace_of(outcome, AGRONOMY).result == f"nie uruchomiono: brak wartości ({label})"
     assert texts(outcome) == [
-        f"Nie sprawdzono Rekomendacji „Obserwacja Uprawy w Okresie krytycznym”: "
+        "Nie sprawdzono Rekomendacji „Obserwacja Uprawy w okresie największego "
+        "zapotrzebowania na wodę”: "
         f"brak wartości „{label}”."
     ]
 
@@ -166,13 +171,13 @@ def test_every_recommendation_has_a_found_cause_rule_values_and_source():
 
 
 def test_recommendation_stands_once_under_its_strongest_found_cause():
-    outcome = run(soil_mm=40.0, dry=True, slope=3.0)
+    outcome = run(soil_mm=40.0, dry=True, slope=8.0)
     given = assessment(2, 2)
     # Soil is far below its threshold, so it is the strongest of the three causes.
     assert placed(outcome, SOIL).cause == "soil"
     sections = outcome.by_cause
     listed = [item.id for items in sections.values() for item in items]
-    assert len(listed) == len(set(listed)) == 3
+    assert len(listed) == len(set(listed)) == len(ALL) - 1
     for items in sections.values():
         order = [GROUP_ORDER.index(item.group) for item in items]
         assert order == sorted(order)

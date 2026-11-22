@@ -53,11 +53,10 @@ def filled(item) -> list[str]:
     return [fill(template, sample_facts()) for template in item.templates()]
 
 
-def test_catalog_has_a_pattern_entry_per_group_and_one_that_depends_on_waters():
-    groups = [item.group for item in ENTRIES]
-    assert list(dict.fromkeys(groups)) == list(GROUP_ORDER)
+def test_catalog_lists_every_group_in_the_order_of_the_report():
+    order = [GROUP_ORDER.index(item.group) for item in ENTRIES]
+    assert order == sorted(order) and set(order) == set(range(len(GROUP_ORDER)))
     assert [item.id for item in ENTRIES if "water" in item.requires] == ["ditch_water_retention"]
-    assert len(ENTRIES) == len(GROUP_ORDER) + 1
     assert len({item.id for item in ENTRIES}) == len(ENTRIES)
     assert get_recommendation(ENTRIES[0].id) is ENTRIES[0]
     with pytest.raises(KeyError):
@@ -73,9 +72,9 @@ def test_entry_is_complete(item):
     rule = rule_condition(item)
     assert all(CAUSE_LABELS[cause] in rule for cause in item.causes)
     assert item.text.strip() and item.gain.strip() and item.citation.strip()
-    # Every entry so far rests on the organiser's documents, and says so.
-    assert item.is_provisional and item.provisional.strip()
-    assert "KOWR" in item.citation
+    # An entry cites its source; a working content says why it is one.
+    assert len(item.citation) > 20
+    assert not item.is_provisional or item.provisional.strip()
     for name in item.facts_used():
         assert FACTS[name].topic in item.requires
 

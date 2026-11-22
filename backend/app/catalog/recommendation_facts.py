@@ -71,6 +71,8 @@ FACTS: dict[str, FactSpec] = {
     # The crop of the analysis, from the crop catalogue.
     "crop_name": FactSpec("crop", "Uprawa"),
     "crop_name_genitive": FactSpec("crop", "Uprawa (dopełniacz)"),
+    "crop_perennial": FactSpec("crop", "Uprawa wieloletnia"),
+    "harvest_by_august_end": FactSpec("crop", "zbiór Uprawy do końca sierpnia"),
     "in_season": FactSpec("crop", "Data analizy w Sezonie uprawy"),
     "dormant": FactSpec("crop", "Uprawa w spoczynku w dniu Daty analizy"),
     "critical_period_start": FactSpec("crop", "początek Okresu krytycznego"),

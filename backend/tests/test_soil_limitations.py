@@ -112,11 +112,11 @@ def test_trace_values_say_what_the_capacity_rests_on():
     ("soil", "state", "value"),
     [
         (soil_with({1: 100.0}), "found", 110.0),
-        (soil_with({2: 100.0}), "not_found", 149.0),
+        (soil_with({2: 100.0}), "found", 149.0),
         (soil_with({3: 56.0, 1: 44.0}), "not_found", 153.0),
         (soil_with({1: 60.0, 2: 40.0}), "found", 126.0),
         # Estimated category I (sand) and II (the recorded texture).
-        (soil_with({}, {11: 100.0}, LAYERS), "not_found", 149.0),
+        (soil_with({}, {11: 100.0}, LAYERS), "found", 149.0),
         (None, "no_data", None),
         (soil_with({}, {13: 100.0}), "no_data", None),
         (soil_with({}, {5: 100.0}, LAYERS), "no_data", None),
@@ -132,7 +132,7 @@ def test_soil_cause_on_every_link(soil, state, value):
     if state == "no_data":
         assert "Nie można ocenić" in result.finding and not result.facts
     else:
-        assert result.threshold == 140.0
+        assert result.threshold == 150.0
         assert any("Kategoria" in fact.text or "kategoria" in fact.text for fact in result.facts)
 
 

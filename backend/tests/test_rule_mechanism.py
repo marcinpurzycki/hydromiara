@@ -89,7 +89,8 @@ def test_entry_may_depend_on_another_entry_and_on_a_named_cause():
         entry("by_runoff", conditions=(CauseFound(cause="runoff"),)),
     ]
     assert ids(run(slope=6.0, catalog=catalog)) == ["steep", "follows", "by_runoff"]
-    assert ids(run(slope=3.0, catalog=catalog)) == ["by_runoff"]
+    assert ids(run(slope=5.5, catalog=catalog)) == ["steep", "follows"]
+    assert ids(run(slope=3.0, catalog=catalog)) == []
     assert ids(run(slope=1.0, catalog=catalog)) == []
     rule = placed(run(slope=6.0, catalog=catalog), "by_runoff").recommendation.rule
     assert "stwierdzono Przyczynę niedoboru „woda szybko odpływa z pola”" in rule

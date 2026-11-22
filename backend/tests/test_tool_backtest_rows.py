@@ -87,7 +87,7 @@ def test_row_of_a_finished_analysis(service):
     assert (written["cdi_dekad"], written["cdi_class"]) == ("2023-06-11", "2")
     assert written["satellite_scene"] == "2023-06-19"
     assert written["causes_found"] == "crop_demand"
-    assert written["recommendations"].split(";")[0] == "watch_crop_in_critical_period"
+    assert written["recommendations"].split(";")[0] == "critical_period_watch"
     assert written["irrigation_justified"] == "true"
     assert written["water_capacity_source"] == "iung_category"
     assert written["limitations"] == str(sum(1 for i in report.limitations if not i.permanent))
