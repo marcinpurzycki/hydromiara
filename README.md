@@ -38,7 +38,7 @@ Miejsca oznaczone „do uzupełnienia przed zgłoszeniem” opisują to, czego w
 ## 1. Instrukcja uruchomienia rozwiązania
 
 Rozwiązanie składa się z dwóch usług w jednym pliku `docker-compose.yml`: `api` (kod w katalogu `backend/`) i `web`
-(strona dla rolnika; do czasu dołączenia jej obrazu usługa `web` to zastępczy serwer `nginx`).
+(strona dla rolnika: kod w katalogu `frontend/`, zbudowane pliki serwuje `nginx`).
 
 ### Lokalnie, bez Dockera
 
@@ -61,12 +61,22 @@ Opis interfejsu: `/api/docs` (Swagger UI) i `/api/openapi.json`.
 
 ### Lokalnie w Dockerze
 
-API na `http://127.0.0.1:8000`:
+Strona na `http://localhost:8080`, API na `http://127.0.0.1:8000` (strona sięga do niego pod ścieżką `/api`):
 
 ```bash
 cp .env.example .env                     # uzupełnij DOMAIN, TRAEFIK_ENTRYPOINT, TRAEFIK_CERTRESOLVER
 docker network create proxy              # jednorazowo
-docker compose -f docker-compose.yml -f docker-compose.local.yml up --build api
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+```
+
+Praca nad samą stroną (Node.js 22; API uruchomione jak wyżej albo bez Dockera):
+
+```bash
+cd frontend
+npm ci
+npm run dev                              # http://localhost:5173, zapytania /api idą do 127.0.0.1:8000
+npm test                                 # testy
+npm run build                            # sprawdzenie typów i zbudowanie plików do katalogu dist/
 ```
 
 ### Wdrożenie
@@ -177,7 +187,6 @@ Ustawienia wdrożenia są w pliku `.env` (wzór: `.env.example`); usługa `api` 
 | `ACME_EMAIL` | brak | adres konta Let's Encrypt; potrzebny tylko wtedy, gdy Traefika uruchamia skrypt wdrożenia (`deploy/traefik/docker-compose.yml`); dana osobowa, tylko w `.env` |
 | `EDO_DATA_PATH` | `./data/edo` | katalog serwera z rozpakowanymi plikami wskaźnika suszy |
 | `WATER_DATA_PATH` | `/data/water` (w kontenerze) | katalog z kopią plików klas wód BDOT10k (`OT_SWRM_L.parquet`, `OT_SWRS_L.parquet`, `OT_SWKN_L.parquet`, `OT_PTWP_A.parquet`); używany jako zamiennik odczytu na żywo tylko wtedy, gdy są w nim wszystkie cztery pliki |
-| `WEB_IMAGE` | `nginx:alpine` | obraz usługi `web` (strona dla rolnika) |
 | `REPORTS_DB_PATH` | `/data/reports/reports.sqlite3` | plik bazy raportów (w kontenerze: wolumen `reports`); przy uruchomieniu bez Dockera trzeba ją podać |
 | `SATELLITE_PRIMARY` | `planetary-computer` | usługa danych satelitarnych pytana jako pierwsza: `planetary-computer` albo `earth-search` |
 | `SATELLITE_SECONDARY` | `earth-search` | usługa zapasowa; `none` wyłącza przełączanie |
@@ -283,8 +292,22 @@ Trasy interfejsu (wszystkie pod `/api`, odpowiedzi JSON, błędy w postaci `{cod
 
 Raport przykładowy `/api/reports/demo` i trasy wywołane dla niego odpowiadają danymi przykładowymi (atrapą).
 
-Do uzupełnienia przed zgłoszeniem: opis strony dla rolnika (ekrany, mapa, wydruk Raportu i zapis do PDF) oraz
-sześć Przykładów podpowiadanych w aplikacji.
+**Strona dla rolnika** (usługa `web`) prowadzi przez trzy etapy: Działka → Analiza → Raport.
+
+- **Start.** Jedno pole przyjmuje identyfikator działki, numer działki z nazwą obrębu albo adres. Adres tylko
+  przesuwa mapę (ortofotomapa); działkę wybiera kliknięcie na mapie, po którym strona od razu rysuje jej obrys.
+  Wybór można zmieniać dowolnie wiele razy przed uruchomieniem analizy. Uprawę wybiera się kaflem albo z listy,
+  Datę analizy z ostatnich 10 lat. Przycisk „Demo” wypełnia formularz gotowym Przykładem.
+- **Analiza w toku.** Stan każdego źródła danych (czeka, sprawdzamy, gotowe, brak danych) i nieobowiązkowe pytanie
+  o Historię upraw; Raport otwiera się sam.
+- **Raport.** Podsumowanie, dwie oceny ze skalą i Pewnością, kafle stwierdzonych przyczyn ze wskaźnikiem, po
+  rozwinięciu ścieżka Przyczyna → Zalecenia → Efekt ze szkicem działki (kierunek spływu, wody, Miejsce zatrzymania
+  wody), nawadnianie oraz „Dodatkowe informacje”: Ograniczenia, źródła danych z datami i licencjami, Sprawdzenie
+  zgodności i ślad decyzji. Raport ma własny adres, drukuje się w całości i zapisuje do PDF przez okno druku
+  przeglądarki.
+- **Historia upraw i Symulacja** otwierają się z Raportu; zapisanie Historii tworzy nowy Raport pod nowym adresem.
+
+Do uzupełnienia przed zgłoszeniem: sześć Przykładów podpowiadanych w aplikacji (dziś dane zastępcze).
 
 ## 3. Skrócony opis architektury rozwiązania
 
@@ -412,7 +435,17 @@ Wersje są przypięte w `backend/requirements.txt` i `backend/requirements-dev.t
 | NumPy | tablice wartości rastra (wymagane przez Rasterio) | BSD-3-Clause |
 | PyArrow (Apache Arrow) | odczyt grup wierszy plików GeoParquet z danymi o wodach, także zdalnie po zakresach bajtów | Apache-2.0 |
 
-Do uzupełnienia przed zgłoszeniem: biblioteki strony dla rolnika (usługa `web`).
+Biblioteki strony dla rolnika (usługa `web`, katalog `frontend/`):
+
+| Biblioteka | Zastosowanie | Licencja |
+|---|---|---|
+| React, React DOM | interfejs strony | MIT |
+| React Router | adresy ekranów (Raport pod własnym adresem) | MIT |
+| Leaflet | mapa wyboru działki | BSD-2-Clause |
+| Open Sans (paczka `@fontsource/open-sans`) | czcionka, serwowana z własnego serwera | SIL Open Font License 1.1 |
+| Vite, `@vitejs/plugin-react` | budowanie strony | MIT |
+| TypeScript | sprawdzanie typów przy budowaniu | Apache-2.0 |
+| Vitest | testy | MIT |
 
 ### Komponenty
 
@@ -422,7 +455,8 @@ Do uzupełnienia przed zgłoszeniem: biblioteki strony dla rolnika (usługa `web
 | SQLite (z biblioteki standardowej Pythona) | baza raportów | domena publiczna |
 | Docker Engine z Docker Compose | uruchomienie usług | Apache-2.0 |
 | Traefik (obraz `traefik:v3`, gdy uruchamia go skrypt wdrożenia) | serwer pośredniczący na serwerze docelowym: TLS, kierowanie ruchu | MIT |
-| nginx (obraz `nginx:alpine`) | zastępcza usługa `web` do czasu dołączenia strony | BSD-2-Clause |
+| nginx (obraz `nginx:1.29-alpine`) | usługa `web`: serwuje stronę dla rolnika | BSD-2-Clause |
+| Node.js (obraz `node:22-alpine`) | budowanie strony; nie ma go w obrazie końcowym | MIT |
 | Swagger UI | strona `/api/docs` z opisem interfejsu; skrypt i styl ładowane przez przeglądarkę z publicznej sieci CDN | Apache-2.0 |
 
 ### Usługi zewnętrzne
@@ -431,6 +465,13 @@ Usługi danych: ULDK (GUGiK), usługa wysokości punktów GUGiK, archiwum pogodo
 otwartych danych AWS, katalog Earth Search), Sentinel-2 przez Microsoft Planetary Computer i Earth Search
 (Element 84). Adresy, zakres i warunki: tabela w punkcie 4. Opcjonalnie usługa modelu językowego (niżej).
 Żadna z usług danych nie wymaga konta ani klucza.
+
+Strona dla rolnika woła z przeglądarki dwie publiczne usługi GUGiK, obie bez konta i klucza: ortofotomapę jako
+podkład mapy (WMTS, `https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMTS/StandardResolution`; usługa podaje
+„brak ograniczeń” i odsyła do Regulaminu Geoportalu) oraz Usługę Uniwersalnego Geokodowania do wyszukania adresu
+(`https://services.gugik.gov.pl/uug/`). Do geokodera trafia wyłącznie tekst wpisany w pole działki, i tylko wtedy,
+gdy nie jest on identyfikatorem ani numerem działki z obrębem. Wynik geokodera przesuwa mapę; działkę i wszystkie
+dane do oceny pobiera usługa `api`.
 
 Certyfikaty TLS wystawia Let's Encrypt (protokół ACME, obsługiwany przez Traefika): usługa bezpłatna, na warunkach
 umowy subskrybenta Let's Encrypt (`https://letsencrypt.org/repository/`); konto zakłada Traefik na adres e-mail
@@ -795,7 +836,8 @@ nie jest przekazywany dalej), `X-Frame-Options: DENY`, `Content-Security-Policy:
 frame-ancestors 'none'`, `Cross-Origin-Resource-Policy: same-origin` i `Cache-Control: no-store` (kopia Raportu nie
 zostaje w pamięci podręcznej po drodze). Serwer aplikacji nie wysyła nagłówka `Server`. CORS nie jest otwarty,
 bo strona i API są pod jedną domeną. TLS, przekierowanie na HTTPS i HSTS zapewnia Traefik; nagłówki strony dla
-rolnika ustawia usługa `web`.
+rolnika ustawia usługa `web` (`frontend/nginx/headers.conf`): jej polityka treści pozwala tylko na własne pliki,
+kafle ortofotomapy z Geoportalu i zapytania do geokodera GUGiK.
 
 **Opis interfejsu jest publiczny.** `/api/docs` i `/api/openapi.json` są dostępne bez ograniczeń: korzysta z nich
 zespół budujący stronę, a interfejs nie ma tras administracyjnych. Strona `/api/docs` ładuje skrypt z publicznej

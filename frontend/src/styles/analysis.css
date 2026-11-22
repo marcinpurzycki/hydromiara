@@ -1,0 +1,57 @@
+.progress-card { display: flex; flex-direction: column; gap: 12px; }
+.progress-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.progress-head strong { font-size: 20px; }
+.progress-bar { height: 14px; border-radius: 7px; background: #ddd6ca; overflow: hidden; }
+.progress-bar div { height: 100%; border-radius: 7px; background: linear-gradient(90deg, #4a423a, var(--ink)); transition: width 0.4s ease; }
+.ready-row { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px; }
+.ready-row div { display: flex; flex-direction: column; gap: 2px; flex: 1 1 320px; }
+.ready-row b { font-size: 19px; }
+
+.analysis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; align-items: start; }
+.analysis-grid-single { grid-template-columns: minmax(0, 1fr); }
+.analysis-grid .panel { order: -1; }
+.sources-card { padding: 8px 24px; }
+.sources-card h2 { margin: 14px 0 4px; }
+.sources { list-style: none; margin: 0; padding: 0; }
+.source { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-top: 1px solid #ddd6ca; }
+.source:first-child { border-top-color: transparent; }
+.source-text { flex: 1; min-width: 0; }
+.source-name { font-size: 19px; font-weight: 600; }
+.source-state { font-size: 16px; font-weight: 600; white-space: nowrap; color: var(--faint); }
+.source-dot { width: 32px; height: 32px; border-radius: 50%; flex: none; display: grid; place-items: center; border: 4px solid var(--line-strong); background: #fff; font-weight: 800; font-size: 18px; line-height: 1; color: #c8501e; }
+.source-wait .source-name { color: var(--muted); }
+.source-run .source-dot { border-color: var(--line); border-top-color: var(--ink); animation: spin 1s linear infinite; }
+.source-run .source-state { color: var(--ink); }
+.source-done .source-dot { border: 0; background: #1f8a55; }
+.source-done .source-dot::after { content: ""; width: 13px; height: 7px; border-left: 3px solid #fff; border-bottom: 3px solid #fff; transform: rotate(-45deg) translateY(-2px); }
+.source-done .source-state { color: #1f8a55; }
+.source-missing .source-dot { border-color: #c8501e; }
+.source-missing .source-state { color: #c8501e; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.question { font-size: 23px; font-weight: 700; line-height: 1.3; text-wrap: pretty; }
+.answers { display: flex; flex-direction: column; gap: 10px; }
+.answers button { min-height: 56px; padding: 0 20px; text-align: left; font-size: 19px; font-weight: 600; border: 2px solid var(--line-strong); border-radius: 10px; background: #fff; }
+.answers button:hover { border-color: var(--ink); }
+.answer-chosen { min-height: 56px; padding: 0 20px; display: flex; align-items: center; font-size: 19px; font-weight: 700; border-radius: 10px; background: var(--ink); color: #fff; }
+.answer-info { display: flex; flex-direction: column; gap: 4px; font-size: 15px; }
+.history-actions { padding-left: 76px; }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 10px; }
+.tab { min-height: 52px; padding: 8px 22px; font-size: 17px; font-weight: 700; border: 2px solid var(--ink); border-radius: 10px; background: #fff; }
+.tab-on { color: #fff; background: var(--ink); }
+.sim-section { display: flex; flex-direction: column; gap: 14px; }
+.sim-select { max-width: 480px; }
+.sim-select select { height: 52px; font-size: 18px; }
+.sim-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.sim-row { display: grid; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr) auto; align-items: center; gap: 12px 24px; padding: 16px 22px; border-radius: 14px; border: 1px solid #ddd6ca; background: #fff; }
+.sim-row-current { border-color: var(--ink); background: var(--sand); }
+.sim-name { font-size: 20px; font-weight: 700; }
+.sim-name small { display: block; font-size: 14px; font-weight: 600; color: var(--muted); }
+.sim-count { font-size: 20px; font-weight: 800; white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .sim-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .sim-row .year-strip { grid-column: 1 / -1; grid-row: 2; }
+  .history-actions { padding-left: 0; }
+}

@@ -49,7 +49,11 @@ services:
       timeout: 5s
       retries: 3
     networks:
-      - proxy
+      proxy:
+        # Name under which the page reaches the API when there is no reverse
+        # proxy in front (docker-compose.local.yml).
+        aliases:
+          - hydromiara-api
     labels:
       - traefik.enable=true
       - traefik.docker.network=proxy
@@ -58,9 +62,9 @@ services:
       - traefik.http.routers.hydromiara-api.tls.certresolver=${TRAEFIK_CERTRESOLVER:?set TRAEFIK_CERTRESOLVER in .env}
       - traefik.http.services.hydromiara-api.loadbalancer.server.port=8000
 
-  # Placeholder until the frontend image exists; set WEB_IMAGE to replace it.
+  # Page for the farmer (static files served by nginx).
   web:
-    image: ${WEB_IMAGE:-nginx:alpine}
+    build: ./frontend
     restart: unless-stopped
     logging: *default-logging
     networks:

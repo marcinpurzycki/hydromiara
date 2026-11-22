@@ -79,7 +79,7 @@ OPT_SKIP_DNS=0
 # come from .env only, so the same names are removed from the environment.
 OPT_AI_KEY=${AI_API_KEY:-}
 unset AI_API_KEY DOMAIN TRAEFIK_ENTRYPOINT TRAEFIK_CERTRESOLVER ACME_EMAIL OPENAI_MODEL \
-  AI_BASE_URL AI_TIMEOUT_S AI_REASONING_EFFORT EDO_DATA_PATH WEB_IMAGE FORWARDED_ALLOW_IPS
+  AI_BASE_URL AI_TIMEOUT_S AI_REASONING_EFFORT EDO_DATA_PATH FORWARDED_ALLOW_IPS
 
 # Check with: shellcheck -x scripts/deploy.sh (follows the files below).
 # shellcheck source=deploy/lib.sh
