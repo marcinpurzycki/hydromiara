@@ -29,3 +29,8 @@ data/
 .DS_Store
 .idea/
 .vscode/
+
+# results of the backtest and source timing tools
+backtest-results*
+source-timings*
+/results/

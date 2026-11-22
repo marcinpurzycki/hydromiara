@@ -72,6 +72,18 @@ Na serwerze za Traefikiem (istniejąca sieć `proxy`): `docker compose up -d --b
 usługi `web`, a dla `DOMAIN` ze ścieżką `/api` do usługi `api`. Raporty są zapisywane w wolumenie `reports`,
 a pliki wskaźnika suszy są czytane z katalogu `EDO_DATA_PATH` (domyślnie `./data/edo`).
 
+Narzędzia do sprawdzania wyników i czasów (katalog `scripts/`, wymagają sieci): `scripts/backtest.py` uruchamia
+zwykłą analizę dla każdego wiersza pliku CSV (`parcel_id,crop_id,analysis_date`, opcjonalnie `label,region`; wzór
+formatu: `scripts/examples/input_format_example.csv`) i zapisuje tabelę: oba werdykty z Pewnością oceny, klasę
+wskaźnika CDI i wynik Sprawdzenia zgodności, stwierdzone Przyczyny, źródła z danymi i bez, czasy.
+`scripts/measure_sources.py` dla tej samej listy mierzy czas każdego źródła osobno i w całej analizie, w kilku
+powtórzeniach, i podaje odsetek odpowiedzi w limicie czasu oraz minimum, medianę, 90. percentyl i maksimum.
+Oba narzędzia używają kodu aplikacji i żywych źródeł, piszą plik CSV wiersz po wierszu (przerwane uruchomienie
+można wznowić tym samym poleceniem) i na koniec wypisują tabelę Markdown. Domyślne tempo (jedna analiza naraz,
+13 s odstępu, najwyżej 50 na godzinę i 100 na dobę) mieści się w limitach bezpłatnych usług. Uruchomienie z katalogu
+głównego: `EDO_DATA_PATH=./data/edo backend/.venv/bin/python scripts/backtest.py scripts/examples/input_format_example.csv`;
+opis opcji, uruchomienia w kontenerze usługi i przez adres działającej usługi (`--base-url`): `--help` obu narzędzi.
+
 Raporty są przechowywane w jednym pliku SQLite; jego ścieżkę podaje zmienna środowiskowa `REPORTS_DB_PATH`
 (domyślnie `/data/reports/reports.sqlite3`, czyli wolumen `reports` kontenera). Raport ma losowy adres, nie zmienia
 się po zapisaniu i jest usuwany po 30 dniach (wartość robocza). Usługa działa w jednym procesie: analiza przerwana
