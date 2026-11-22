@@ -36,7 +36,7 @@ gleba 24 s, teren i satelita po 17 s, tło suszowe 5 s; żadne źródło poza po
 przed końcem czasu na pobieranie. Usługa gleby odpowiada wolno (zmierzone 11–35 s), więc część analiz kończy się
 bez gleby. Dane o wodach (cieki, rowy, zbiorniki) nie są jeszcze pobierane: w postępie analizy to źródło ma stan
 `missing`. Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego pozycji jest stała); jest na liście
-źródeł raportu. Części raportu, których jeszcze nie liczy żaden moduł (przyczyny, rekomendacje, nawadnianie,
+źródeł raportu. Części raportu, których jeszcze nie liczy żaden moduł (rekomendacje, nawadnianie,
 podsumowanie), są w nim opisane wprost jako nieocenione.
 Lista upraw, przykłady, symulacja, raport pochodny i analiza na okres krytyczny odpowiadają na obecnym etapie danymi
 przykładowymi (atrapą) i działają tylko dla raportu przykładowego `/api/reports/demo`.
@@ -97,6 +97,24 @@ poza Sezonem uprawy i dla Pola bez uprawy opisuje tylko pokrywę pola. Wynik „
 sytuacji wodnej i jest Ograniczeniem raportu; Ograniczeniem jest też brak wartości wskaźnika dla potrzebnej dekady
 (wskaźnik jest dostępny od 2016 r. i ukazuje się z opóźnieniem). Podatność wieloletnia nie jest zestawiana. Werdykt
 bez Stopnia niedoboru (Pole bez uprawy) daje „brak danych” z podaniem powodu.
+
+Przyczyny niedoboru są wyznaczane tylko wtedy, gdy co najmniej jeden werdykt wskazuje niedobór. Każda z czterech
+ma wskaźnik, próg i wartość dla Działki oraz jeden z trzech stanów: stwierdzona, niestwierdzona albo brak danych
+do oceny (w raporcie: `found = false` i `indicator.value = null`). Wskaźniki: opad jako część parowania
+wskaźnikowego ET0 (w latach z niedoborem, a gdy niedobór wskazuje tylko Bieżąca sytuacja wodna, w ostatnich 30
+dniach), woda dostępna dla roślin na metr gleby, średni spadek terenu, współczynnik uprawy Kc w środkowej fazie
+wzrostu. Wszystkie cztery progi (50%, 140 mm/m, 2%, Kc 1,0) są wartościami roboczymi bez źródła naukowego,
+zapisanymi jako nazwane parametry w `backend/app/engine/cause_params.py`. Pojemność wodna przyjęta zastępczo nie
+jest podstawą do stwierdzenia przyczyny glebowej. Gdy żaden werdykt nie wskazuje niedoboru albo werdykty nie mają
+Stopnia niedoboru (Pole bez uprawy), lista przyczyn jest pusta, a raport mówi to wprost.
+
+Spadek, kierunek spływu i najniższa część Działki pochodzą z płaszczyzny dopasowanej metodą najmniejszych kwadratów
+do punktów siatki wysokości leżących wewnątrz obrysu Działki; odległości są liczone z położenia punktów i szerokości
+geograficznej, bo oczka siatki nie są kwadratowe (ok. 28 × 31 m). Rozrzut wysokości wokół płaszczyzny daje niepewność
+spadku: kierunek i najniższa część są podawane tylko wtedy, gdy spadek jest co najmniej 2 razy większy od swojej
+niepewności. Poniżej 6 punktów wewnątrz obrysu albo gdy punkty leżą w jednej linii, spadek nie jest wyznaczany
+i raport to podaje. Dane Copernicus DEM opisują powierzchnię razem z budynkami i roślinnością, co raport podaje jako
+Ograniczenie; na siatce 30 m najniższa część jest wskazywana tylko jako strona Działki, nie punkt.
 
 ## Konfiguracja
 

@@ -9,13 +9,12 @@ state; it is an open question for both teams: `irrigation.applicable` is
 filled from the crop season alone.
 """
 
-from app.contracts.causes import Cause, Irrigation
+from app.contracts.causes import Irrigation
 from app.contracts.report import Limitation, Summary
 from app.contracts.verdicts import HistoricalCourse
 
 # Names of the parts below as they appear in the limitation shown to the user.
 PENDING_PARTS = (
-    "Przyczyn niedoboru",
     "Rekomendacji",
     "zaleceń nawadniania",
     "podsumowania słownego",
@@ -33,10 +32,6 @@ def pending_summary() -> Summary:
 
 def pending_historical_course() -> HistoricalCourse | None:
     return None
-
-
-def pending_causes() -> list[Cause]:
-    return []
 
 
 def pending_irrigation(in_season: bool) -> Irrigation:

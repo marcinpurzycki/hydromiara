@@ -55,10 +55,11 @@ def test_verdicts_come_from_the_engine():
     assert current.label in report.headline
     assert report.season.in_season
     assert report.season.last_season.start.isoformat() == "2022-09-25"
-    assert [entry.rule_id for entry in report.trace] == [
+    rule_ids = [entry.rule_id for entry in report.trace]
+    assert rule_ids[:3] == [
         "root_zone.capacity", "current_status.level", "multiyear.deficit_years",
-        "consistency_check.result",
     ]
+    assert rule_ids[-1] == "consistency_check.result"
     assert report.map.parcel_geometry == stored_source_data().parcel.geometry
     assert [source.topic for source in report.sources] == ["parcel", "weather"]
     assert not any(source.missing for source in report.sources)
@@ -66,7 +67,9 @@ def test_verdicts_come_from_the_engine():
 
 def test_parts_without_a_module_are_marked_as_not_assessed():
     report = build()
-    assert report.causes == [] and report.historical_course is None
+    assert report.historical_course is None
+    assert all(cause.recommendations == [] for cause in report.causes)
+    assert "Przyczyn niedoboru" not in pending.pending_limitation().text
     assert report.irrigation.justified is None and report.irrigation.amount_mm is None
     assert report.summary.source == "template"
     assert report.current_status.reason == pending.REASON_PENDING
@@ -74,7 +77,7 @@ def test_parts_without_a_module_are_marked_as_not_assessed():
     assert "Pewności oceny" not in pending.pending_limitation().text
     assert "Sprawdzenia zgodności" not in pending.pending_limitation().text
     assert pending.pending_limitation() in report.limitations
-    assert report.map.retention_sites == [] and report.map.downhill_direction is None
+    assert report.map.retention_sites == [] and report.map.water_objects == []
 
 
 def test_nothing_is_copied_from_the_placeholder_report():
@@ -132,7 +135,9 @@ def test_confidence_follows_the_limitations_of_each_verdict():
     for verdict in (report.current_status, report.multiyear_susceptibility):
         assert verdict.confidence.level == "wysoka"
     own = [limitation for limitation in report.limitations if not limitation.permanent]
-    assert own == [pending.pending_limitation()]
+    # The stand-in terrain grid of the helper is not geographic, which the Report says.
+    assert own[0] == pending.pending_limitation() and len(own) == 2
+    assert own[1].affects == "recommendations" and "ukształtowaniu terenu" in own[1].text
 
 
 def test_field_without_a_crop_is_not_assessed_and_says_so():

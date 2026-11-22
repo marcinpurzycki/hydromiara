@@ -27,6 +27,7 @@ from app.engine.params import DEFAULT_PARAMS, EngineParams
 from app.orchestrator import report_pending as pending
 from app.orchestrator import report_sources as sources
 from app.orchestrator import report_verdicts as verdicts
+from app.orchestrator.report_causes import causes_part
 
 _PARCEL_FIELDS = {"parcel_id", "number", "region", "commune", "county", "voivodeship", "area_ha"}
 
@@ -63,6 +64,7 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
     source_data, crop, analysis_date = inputs.source_data, inputs.crop, inputs.analysis_date
     assessment = assess_water(source_data, crop, analysis_date, params)
     season = verdicts.season(crop, analysis_date)
+    causes = causes_part(source_data, assessment, crop)
 
     consistency = check_consistency(source_data, assessment, crop, analysis_date)
 
@@ -76,7 +78,7 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
         consistency_gaps=consistency.findings,
         replaced_missing=consistency.replaces_missing,
         first=() if not_assessed is None else (not_assessed,),
-        last=(pending.pending_limitation(),),
+        last=(pending.pending_limitation(), *causes.limitations),
     )
     confidence = verdict_confidences(
         findings,
@@ -95,16 +97,16 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
             assessment, crop, confidence.multiyear
         ),
         historical_course=pending.pending_historical_course(),
-        causes=pending.pending_causes(),
+        causes=causes.causes,
         irrigation=pending.pending_irrigation(season.in_season),
         consistency_check=consistency.check,
         sources=sources.report_sources(source_data),
         limitations=limitations_of(findings),
         map=ReportMap(
             parcel_geometry=source_data.parcel.geometry,
-            downhill_direction=None,
+            downhill_direction=causes.downhill_direction,
             retention_sites=[],
             water_objects=[],
         ),
-        trace=[*verdicts.trace(assessment, params), consistency.trace],
+        trace=[*verdicts.trace(assessment, params), *causes.trace, consistency.trace],
     )
