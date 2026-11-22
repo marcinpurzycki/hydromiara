@@ -10,21 +10,17 @@ Assumptions of this module:
 - The field without a crop has no roots and no depletion fraction p. Its soil
   water store is followed over the whole profile depth and no stress
   coefficient is defined (Ks = 1).
-- Without a usable soil profile the capacity is a flagged stand-in value.
-- A profile with data for only part of the root zone is extended with the
-  capacity per metre of the part that has data, and flagged.
+- The capacity per metre of soil comes from the soil category of the parcel,
+  from a category estimated from its texture, or is a flagged stand-in value
+  (`soil_capacity`); it is the same at every depth of the root zone.
 """
 
 from dataclasses import dataclass
-from typing import Literal
 
 from app.catalog.crop_model import CatalogCrop
 from app.contracts.source_data import SoilData
 from app.engine.params import DEFAULT_PARAMS, EngineParams
-from app.sources.soil_water import available_water_capacity
-
-# Where the capacity of the root zone comes from.
-CapacitySource = Literal["soil_profile", "partial_soil_profile", "fallback"]
+from app.engine.soil_capacity import CapacitySource, SoilCapacity, soil_capacity
 
 
 @dataclass(frozen=True)
@@ -36,11 +32,11 @@ class RootZone:
     taw_mm: float
     # Depletion fraction p of the crop; None for the field without a crop.
     depletion_fraction: float | None
-    capacity_source: CapacitySource = "soil_profile"
-    # Soil depth inside the root zone that has water contents, cm.
-    covered_cm: float = 0.0
+    capacity_source: CapacitySource = "iung_category"
     # True when the crop roots deeper than the depth used here.
     limited_by_profile: bool = False
+    # What the capacity per metre was derived from; None when given directly.
+    soil: SoilCapacity | None = None
 
     def __post_init__(self) -> None:
         if self.depth_cm <= 0 or self.taw_mm <= 0:
@@ -88,21 +84,12 @@ def root_zone(
     """Root zone of the crop on the given soil; soil may be missing."""
     depth, limited = root_depth_cm(crop, params)
     p = None if crop.growth is None else crop.growth.depletion_fraction.value
-    capacity = None if soil is None else available_water_capacity(soil, profile_cm=depth)
-    if capacity is None or capacity.total_mm <= 0:
-        return RootZone(
-            depth_cm=depth,
-            taw_mm=params.fallback_available_water_mm_per_m * depth / 100.0,
-            depletion_fraction=p,
-            capacity_source="fallback",
-            covered_cm=0.0,
-            limited_by_profile=limited,
-        )
+    capacity = soil_capacity(soil, params.fallback_available_water_mm_per_m)
     return RootZone(
         depth_cm=depth,
-        taw_mm=capacity.total_mm if capacity.complete else capacity.mm_per_m * depth / 100.0,
+        taw_mm=capacity.mm_per_m * depth / 100.0,
         depletion_fraction=p,
-        capacity_source="soil_profile" if capacity.complete else "partial_soil_profile",
-        covered_cm=capacity.covered_cm,
+        capacity_source=capacity.source,
         limited_by_profile=limited,
+        soil=capacity,
     )

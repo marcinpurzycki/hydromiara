@@ -27,9 +27,9 @@ def notes(history, **options) -> dict[int, str]:
 def test_comparison_gives_the_numbers_of_both_views():
     _, part = section(years(y2015="bare_field", y2016="bare_field"))
     sentence = part.comparison_sentence
-    assert "wody brakowało w 7 z 8 ocenionych lat" in sentence
+    assert "wody brakowało w 8 z 8 ocenionych lat" in sentence
     assert "Bieżącej Uprawie (Pszenica ozima)" in sentence
-    assert "brakowałoby w 9 z 10 lat — to Podatność wieloletnia" in sentence
+    assert "brakowałoby w 10 z 10 lat — to Podatność wieloletnia" in sentence
     assert "nie oceniono: 2015 (Pole bez uprawy), 2016 (Pole bez uprawy)" in sentence
     assert sentence.endswith(history_texts.NOT_REPLACING)
     assert "jej nie zastępuje" in sentence
@@ -37,7 +37,7 @@ def test_comparison_gives_the_numbers_of_both_views():
 
 def test_comparison_says_when_both_views_agree():
     sentence = section(SAME)[1].comparison_sentence
-    assert "wody brakowało w 9 z 10 lat." in sentence
+    assert "wody brakowało w 10 z 10 lat." in sentence
     assert "W każdym roku oba ujęcia dają ten sam wynik." in sentence
     assert "nie oceniono" not in sentence
 
@@ -45,8 +45,8 @@ def test_comparison_says_when_both_views_agree():
 def test_comparison_names_the_years_in_which_the_views_differ():
     day = date(2023, 3, 1)
     sentence = section(years(y2013=SPRING.id), day=day)[1].comparison_sentence
-    assert "wody brakowało w 9 z 10 lat." in sentence
-    assert "brakowałoby w 8 z 10 lat" in sentence
+    assert "wody brakowało w 10 z 10 lat." in sentence
+    assert "brakowałoby w 9 z 10 lat" in sentence
     assert "Oba ujęcia różnią się w roku 2013." in sentence
 
 
@@ -123,10 +123,10 @@ def test_trace_entry_holds_both_counts():
     course, assessment = course_of(years(y2015="bare_field"))
     entry = history_texts.trace_entry(course, assessment.multiyear_susceptibility)
     assert entry.rule_id == "crop_history.course"
-    assert entry.values["course_deficit_years"] == 8
+    assert entry.values["course_deficit_years"] == 9
     assert entry.values["course_assessed_years"] == 9
-    assert entry.values["susceptibility_deficit_years"] == 9
-    assert entry.result == "8 z 9 lat"
+    assert entry.values["susceptibility_deficit_years"] == 10
+    assert entry.result == "9 z 9 lat"
 
 
 @pytest.mark.parametrize(

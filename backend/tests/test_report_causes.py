@@ -15,6 +15,7 @@ from tests.limitation_helpers import outcome
 from tests.terrain_helpers import FIELD, grid, plane, rectangle
 
 CAUSE_IDS = {"precipitation", "soil", "runoff", "crop_demand"}
+SOIL_SOURCE_NAME = "IUNG-PIB, mapa kategorii podatności gleb na suszę"
 
 
 def data_with(terrain=None, *, soil=True, outline=FIELD, terrain_name=COPERNICUS_SOURCE_NAME) -> SourceData:
@@ -24,7 +25,7 @@ def data_with(terrain=None, *, soil=True, outline=FIELD, terrain_name=COPERNICUS
     if terrain is not None:
         outcomes.append(outcome("terrain", name=terrain_name))
     if soil:
-        outcomes.append(outcome("soil", name="ISRIC SoilGrids 2.0"))
+        outcomes.append(outcome("soil", name=SOIL_SOURCE_NAME))
     return data.model_copy(
         update={
             "parcel": parcel,
@@ -62,8 +63,10 @@ def test_deficit_gives_four_causes_with_indicator_threshold_and_value():
         assert cause.indicator.name and cause.indicator.threshold is not None
         assert cause.indicator.value is not None and cause.facts
         assert cause.found or cause.recommendations == []
-    assert causes["soil"].indicator.value == 213 and not causes["soil"].found
-    assert causes["soil"].facts[0].source == "ISRIC SoilGrids 2.0"
+    # Category III of the soil map: 186 mm per metre, above the threshold.
+    assert causes["soil"].indicator.value == 186 and not causes["soil"].found
+    assert causes["soil"].facts[0].source == SOIL_SOURCE_NAME
+    assert "kategoria III na 92% powierzchni" in causes["soil"].facts[1].text
     assert causes["runoff"].found and causes["runoff"].indicator.value == 3.0
     assert causes["runoff"].facts[0].source == COPERNICUS_SOURCE_NAME
     assert causes["precipitation"].facts[0].source.startswith("Open-Meteo")
@@ -182,7 +185,7 @@ def test_whole_analysis_gives_a_valid_report_with_causes(client):
     assert wait_finished(client, report_id)["state"] == "done"
     report = Report.model_validate(client.get(f"/api/reports/{report_id}").json())
     assert {cause.id for cause in report.causes} == CAUSE_IDS
-    assert by_id(report)["soil"].indicator.value == 213
+    assert by_id(report)["soil"].indicator.value == 186
     rule_ids = [entry.rule_id for entry in report.trace]
     assert "terrain.slope" in rule_ids and "causes.gate" in rule_ids
     assert any("razem z budynkami i roślinnością" in text for text in texts(report))

@@ -1,8 +1,9 @@
 """Two deficit causes read from the parcel itself: its soil and its terrain.
 
 - "The soil stores water poorly": available water capacity per metre of the
-  root zone the balance was run for. A stand-in capacity (no soil data) is
-  never a basis for the cause: the state is then "no data".
+  root zone the balance was run for, from the soil category of the parcel or
+  from a category estimated from texture. A stand-in capacity (no soil data,
+  organic soil) is never a basis for the cause: the state is then "no data".
 - "Water runs off the field quickly": mean slope of the parcel from the
   terrain analysis. A slope above the threshold that cannot be told apart from
   the scatter of the elevations is "no data", not a found cause.
@@ -15,6 +16,8 @@ from app.contracts.causes import Fact
 from app.engine.assessment import WaterAssessment
 from app.engine.cause_model import CauseResult, SourceNames, pl_number
 from app.engine.cause_params import CauseParams
+from app.engine.soil_capacity import CATEGORY_LABELS
+from app.engine.soil_limitations import soil_basis_pl
 from app.engine.terrain_analysis import TerrainAnalysis
 
 _SOIL = "gleba słabo magazynuje wodę"
@@ -51,17 +54,9 @@ def soil_cause(
             source=sources.soil,
         )
     ]
-    if zone.capacity_source == "partial_soil_profile":
-        facts.append(
-            Fact(
-                text=(
-                    f"Dane o glebie obejmują {pl_number(zone.covered_cm)} cm z "
-                    f"{pl_number(zone.depth_cm)} cm tej warstwy; dla reszty przyjęto taką "
-                    "samą pojemność wodną."
-                ),
-                source=sources.soil,
-            )
-        )
+    basis = soil_basis_pl(zone)
+    if basis is not None:
+        facts.append(Fact(text=basis, source=sources.soil))
     start = f"Na tej Działce {_SOIL}" if found else f"Nie stwierdzono, że {_SOIL}"
     return CauseResult(
         id="soil", state="found" if found else "not_found", indicator_name=name,
@@ -75,7 +70,8 @@ def soil_cause(
             **trace_values,
             "available_water_mm_per_m": value,
             "root_zone_depth_cm": round(zone.depth_cm),
-            "covered_cm": round(zone.covered_cm),
+            **({} if zone.soil is None or zone.soil.category is None
+               else {"soil_category": CATEGORY_LABELS[zone.soil.category]}),
         },
     )
 

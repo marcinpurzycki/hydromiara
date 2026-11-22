@@ -34,6 +34,8 @@ class TopicWording:
     # True when the links are services delivering the same data, so a later
     # link is not less accurate and creates no limitation.
     equivalent_links: bool = False
+    # True when a step down the chain is named elsewhere, from the data used.
+    step_down_named_elsewhere: bool = False
 
 
 # In the order the limitations are listed in the Report.
@@ -51,7 +53,9 @@ TOPICS: dict[SourceTopic, TopicWording] = {
         substitute_conclusion=(
             "oba werdykty, bo od gleby zależy pojemność wodna przyjęta w bilansie wodnym"
         ),
-        # Missing soil is reported from the root zone the balance really used.
+        # Missing soil and a soil substitute are reported from the root zone
+        # the balance really used.
+        step_down_named_elsewhere=True,
     ),
     "satellite": TopicWording(
         affects="all",
@@ -104,7 +108,7 @@ def step_down_finding(outcome: SourceOutcome) -> Finding | None:
     same outcome always gives the same text.
     """
     wording = TOPICS.get(outcome.topic)
-    if wording is None or wording.equivalent_links:
+    if wording is None or wording.equivalent_links or wording.step_down_named_elsewhere:
         return None
     if not outcome.ok or outcome.chain_step is None or outcome.chain_step <= 1:
         return None

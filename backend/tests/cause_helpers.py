@@ -13,13 +13,12 @@ from tests.engine_helpers import balance_with_stress
 DAY = date(2023, 6, 20)
 
 
-def zone(mm_per_m: float = 180.0, source: str = "soil_profile", covered: float = 100.0) -> RootZone:
+def zone(mm_per_m: float = 180.0, source: str = "iung_category") -> RootZone:
     return RootZone(
         depth_cm=100.0,
         taw_mm=mm_per_m,
         depletion_fraction=0.55,
         capacity_source=source,
-        covered_cm=covered,
     )
 
 

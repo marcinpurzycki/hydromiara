@@ -91,11 +91,11 @@ def test_clean_answer_makes_one_paragraph_without_quotes():
 
 
 GOOD = (
-    "Na 20 czerwca 2023 Bieżąca sytuacja wodna to wyraźny niedobór, a Pewność oceny jest "
+    "Na 20 czerwca 2023 Bieżąca sytuacja wodna to silny niedobór, a Pewność oceny jest "
     "wysoka. "
-    "Podatność wieloletnia: wody brakowało w 9 z 10 lat. Stwierdzone Przyczyny niedoboru to "
-    "uprawa o dużych potrzebach wodnych oraz za mało opadów względem parowania. Jeśli masz "
-    "możliwość nawadniania, jest ono teraz zasadne: od 58 do 174 mm wody."
+    "Podatność wieloletnia: wody brakowało w 10 z 10 lat. Stwierdzona Przyczyna niedoboru to "
+    "uprawa o dużych potrzebach wodnych. Jeśli masz "
+    "możliwość nawadniania, jest ono teraz zasadne: od 57 do 159 mm wody."
 )
 
 
@@ -116,14 +116,14 @@ def test_a_faithful_answer_is_accepted():
         (GOOD + " Ryzyko jest duże.", "avoided_word"),
         (GOOD + " To nasza porada dla gospodarstwa.", "avoided_word"),
         (GOOD + " Wilgotność gleby jest mała.", "avoided_word"),
-        (GOOD.replace("wyraźny niedobór", "lekki niedobór"), "term_not_in_report"),
-        (GOOD.replace("wyraźny niedobór", "stan w normie"), "term_not_in_report"),
+        (GOOD.replace("silny niedobór", "lekki niedobór"), "term_not_in_report"),
+        (GOOD.replace("silny niedobór", "stan w normie"), "term_not_in_report"),
         (GOOD + " Sprawdzenie zgodności wypadło jako rozbieżne.", "term_not_in_report"),
         (GOOD + " Trzeba też głęboko spulchnić glebę.", "term_not_in_report"),
         (GOOD.replace("jest wysoka", "jest niska"), "confidence_changed"),
         (GOOD + " To ocena o średniej pewności.", "confidence_changed"),
-        (GOOD.replace("9 z 10", "7 z 10"), "year_count_not_in_report"),
-        (GOOD.replace("174 mm", "175 mm"), "number_not_in_report"),
+        (GOOD.replace("10 z 10", "7 z 10"), "year_count_not_in_report"),
+        (GOOD.replace("159 mm", "160 mm"), "number_not_in_report"),
     ],
 )
 def test_an_unfaithful_answer_is_rejected_with_a_reason(answer, code):

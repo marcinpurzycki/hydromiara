@@ -107,7 +107,7 @@ def test_broken_optional_source_does_not_stop_the_analysis(client, use_specs, pr
     report = Report.model_validate(client.get(f"/api/reports/{report_id}").json())
     soil = next(source for source in report.sources if source.topic == "soil")
     assert soil.missing and soil.chain_step == 1
-    assert any("Brak danych o glebie" in limitation.text for limitation in report.limitations)
+    assert any("Nie udało się pobrać danych o glebie" in limitation.text for limitation in report.limitations)
 
 
 def test_whole_analysis_is_cut_at_the_time_budget(reports_db, weather, parcel_source):

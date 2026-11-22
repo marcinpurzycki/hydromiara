@@ -133,7 +133,7 @@ def test_unusable_answer_falls_back_to_the_template(raw_body, reason):
     ("answer", "reason"),
     [
         (GOOD + " Tak dalej." * 150, "answer_too_long"),
-        (GOOD.replace("174 mm", "250 mm"), "number_not_in_report"),
+        (GOOD.replace("159 mm", "250 mm"), "number_not_in_report"),
         (GOOD + " Na Działce jest susza.", "drought_word"),
         (GOOD + " Ryzyko jest duże.", "avoided_word"),
         (GOOD + " Trzeba wykopać staw.", "term_not_in_report"),
@@ -145,9 +145,9 @@ def test_answer_that_fails_the_check_falls_back_to_the_template(answer, reason):
 
 def test_notation_differences_do_not_reject_an_answer():
     answer = (
-        "Stan na 2023-06-20: Bieżąca sytuacja wodna to wyraźny niedobór. Wody brakowało w 9 z 10 "
-        "lat. Kc wynosi 1.15, a opad pokrył 47 procent parowania. Jeśli masz możliwość "
-        "nawadniania, jest ono teraz zasadne: 58–174 mm wody, czyli od 580 do 1 740 m3 na hektar."
+        "Stan na 2023-06-20: Bieżąca sytuacja wodna to silny niedobór. Wody brakowało w 10 z 10 "
+        "lat. Kc wynosi 1.15 przy progu 1,00. Jeśli masz możliwość "
+        "nawadniania, jest ono teraz zasadne: 57–159 mm wody, czyli od 570 do 1 590 m3 na hektar."
     )
     outcome = summarize(RecordedModel(answer))
     assert outcome.fallback_reason is None and outcome.summary.text == answer

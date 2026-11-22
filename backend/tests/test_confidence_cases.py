@@ -7,9 +7,11 @@ import pytest
 
 from app.engine.confidence import WHY_COMPLETE, WHY_NOT_ASSESSED
 from app.engine.limitations import PERMANENT_LIMITATIONS, limitations_of
+from app.engine.soil_limitations import CATEGORY_MAP_TEXT
 from tests.analysis_helpers import ANALYSIS_DATE
 from tests.engine_helpers import BARE_FIELD, WHEAT, recorded_weather
 from tests.limitation_helpers import complete_source_data, judge, own_texts, with_step, without
+from tests.soil_helpers import recorded_layers, soil_with
 
 GAP_DAYS = 3
 
@@ -38,6 +40,10 @@ class Case:
 
 COMPLETE = complete_source_data()
 
+
+def with_soil(soil):
+    return COMPLETE.model_copy(update={"soil": soil})
+
 CASES = {
     "complete data": Case(
         COMPLETE, "wysoka", "wysoka", why_current=(WHY_COMPLETE,), why_multiyear=(WHY_COMPLETE,)
@@ -55,8 +61,32 @@ CASES = {
     ),
     "no soil, stand-in capacity": Case(
         without(COMPLETE, "soil"), "średnia", "średnia",
-        {"pojemność wodną gleby przyjęto zastępczo (150 mm": "all"},
-        ("przyjęto zastępczo",), ("przyjęto zastępczo",),
+        {"Nie udało się pobrać danych o glebie. Przyjęliśmy przeciętną zdolność": "all"},
+        ("przyjęto przeciętną zdolność gleby",), ("przyjęto przeciętną zdolność gleby",),
+    ),
+    "soil category estimated from texture": Case(
+        with_soil(soil_with({}, {11: 100.0}, recorded_layers())), "średnia", "średnia",
+        {"Dla tej działki nie ma kategorii gleby na mapie IUNG-PIB": "all"},
+        ("oszacowano z globalnej mapy gleb",), ("oszacowano z globalnej mapy gleb",),
+    ),
+    "category map not read, texture estimate": Case(
+        with_soil(soil_with(layers=recorded_layers(), map_read=False)), "średnia", "średnia",
+        {"Nie udało się odczytać kategorii gleby z mapy IUNG-PIB": "all"},
+    ),
+    "two soil sources far apart": Case(
+        with_soil(soil_with({4: 100.0}, layers=recorded_layers())), "średnia", "średnia",
+        {"mapa IUNG-PIB wskazuje kategorię IV, a globalna mapa gleb sugeruje II": "all"},
+        ("dwa źródła danych o glebie",), ("dwa źródła danych o glebie",),
+    ),
+    "parcel of two soil categories": Case(
+        with_soil(soil_with({3: 56.0, 1: 44.0})), "wysoka", "wysoka",
+        {"kategoria III na 56% powierzchni, kategoria I na 44%": "all"},
+        (WHY_COMPLETE,), (WHY_COMPLETE,),
+    ),
+    "organic soil": Case(
+        with_soil(soil_with({2: 20.0}, {5: 80.0}, recorded_layers())), "średnia", "średnia",
+        {"oznacza tę działkę jako glebę organiczną": "all"},
+        ("glebę organiczną",), ("glebę organiczną",),
     ),
     "weather ends before the analysis date": Case(
         complete_source_data(weather_until(ANALYSIS_DATE - timedelta(days=GAP_DAYS))),
@@ -93,7 +123,7 @@ CASES = {
     ),
     "no soil and no satellite": Case(
         without(without(COMPLETE, "soil"), "satellite"), "niska", "niska",
-        {"przyjęto zastępczo": "all", "Brak odczytów satelitarnych": "all"},
+        {"Przyjęliśmy przeciętną zdolność": "all", "Brak odczytów satelitarnych": "all"},
     ),
     "no independent drought indicator": Case(
         without(COMPLETE, "drought_background"), "średnia", "wysoka",
@@ -131,7 +161,9 @@ def test_every_case_ends_with_the_permanent_limitations_and_repeats_nothing(case
     limitations = limitations_of(findings)
     assert tuple(limitations[-len(PERMANENT_LIMITATIONS):]) == PERMANENT_LIMITATIONS
     own = limitations[: -len(PERMANENT_LIMITATIONS)]
-    assert not any(limitation.permanent for limitation in own)
+    # The only other permanent one names the category map, when the capacity came from it.
+    assert [item.text for item in own if item.permanent] in ([], [CATEGORY_MAP_TEXT])
+    assert all(item.permanent for item in limitations[len([i for i in own if not i.permanent]):])
     texts = [limitation.text for limitation in limitations]
     assert len(texts) == len(set(texts))
 

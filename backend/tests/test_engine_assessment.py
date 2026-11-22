@@ -78,12 +78,14 @@ def test_multiyear_susceptibility_matches_the_trial_calculation(weather, trial):
 
 def test_recorded_soil_and_warm_up_keep_the_verdicts(weather):
     result = assess_water(source_data(weather, recorded_soil()), WHEAT, ANALYSIS_DATE)
-    assert result.root_zone.capacity_source == "soil_profile"
-    assert result.root_zone.taw_mm == pytest.approx(213.4)
+    assert result.root_zone.capacity_source == "iung_category"
+    # Category III of the soil map: 186 mm per metre (27 mm less than the water
+    # contents used before), which adds the tenth deficit year.
+    assert result.root_zone.taw_mm == pytest.approx(186.0)
     assert result.balance.days[0].date == date(2012, 9, 3)
     assert result.balance.incomplete_days == 0 and result.balance.missing_dates == 0
     assert result.current_status.deficit_level == 3
-    assert result.multiyear_susceptibility.deficit_years == 9
+    assert result.multiyear_susceptibility.deficit_years == 10
     assert [year.year for year in result.multiyear_susceptibility.years] == list(range(2014, 2024))
 
 
@@ -164,7 +166,7 @@ def test_verdicts_are_two_separate_results(weather):
     result = assess_water(source_data(wet_today, soil), WHEAT, ANALYSIS_DATE)
     assert result.current_status.deficit_level == 0
     assert result.multiyear_susceptibility.deficit_level == 3
-    assert result.multiyear_susceptibility.deficit_years == 9
+    assert result.multiyear_susceptibility.deficit_years == 10
 
 
 def test_bare_field_runs_the_balance_without_verdict_levels(weather):

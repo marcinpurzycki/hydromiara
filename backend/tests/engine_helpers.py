@@ -10,7 +10,6 @@ from app.contracts.common import GeoJsonGeometry
 from app.contracts.source_data import ParcelData, SoilData, SourceData, WeatherData, WeatherDay
 from app.engine.balance import DayBalance, WaterBalance
 from app.engine.root_zone import RootZone
-from app.sources.soil import parse_response as parse_soil
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -80,8 +79,9 @@ def recorded_weather() -> list[WeatherDay]:
 
 
 def recorded_soil() -> SoilData:
-    path = FIXTURES / "soilgrids" / "profile_field.json"
-    return parse_soil(json.loads(path.read_text(encoding="utf-8")))
+    from tests.soil_helpers import recorded_soil as recorded
+
+    return recorded()
 
 
 def source_data(days: list[WeatherDay], soil: SoilData | None = None) -> SourceData:

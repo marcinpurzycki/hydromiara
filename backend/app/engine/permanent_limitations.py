@@ -53,6 +53,15 @@ PERMANENT_LIMITATIONS: tuple[Limitation, ...] = (
         affects="all",
         permanent=True,
     ),
+    # Soil: the depth the water balance covers.
+    Limitation(
+        text=(
+            "Bilans obejmuje glebę do głębokości 1 m. Rośliny o głębszych korzeniach mogą "
+            "w suchych latach sięgać po wodę z głębszych warstw, czego nie uwzględniamy."
+        ),
+        affects="all",
+        permanent=True,
+    ),
 )
 
 # Permanent limitations of the simulation; shown with its answers, not in the Report.

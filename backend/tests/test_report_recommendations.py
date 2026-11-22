@@ -7,6 +7,7 @@ from app.engine.source_limitations import TOPICS
 from app.orchestrator.report_causes import causes_part
 from tests.analysis_helpers import ANALYSIS_DATE, start, wait_finished
 from tests.rule_helpers import AGRONOMY, IRRIGATION, LANDSCAPE, SOIL
+from tests.soil_helpers import soil_with
 from tests.terrain_helpers import grid, plane
 from tests.test_report_causes import _assessed, build, by_id, data_with, texts, wet_days
 
@@ -70,7 +71,10 @@ def test_field_without_a_crop_has_no_recommendations():
 
 
 def test_missing_terrain_names_the_recommendation_that_was_not_checked():
-    report = build(data_with(None))
+    # On a soil of category IV one year of the window has no deficit, and in the other
+    # nine precipitation covers less than half of the evaporation: a found cause, which
+    # the landscape recommendation answers.
+    report = build(data_with(None).model_copy(update={"soil": soil_with({4: 100.0})}))
     assert LANDSCAPE not in {item.id for item in recommendations(report)}
     named = [text for text in texts(report) if text.startswith("Nie sprawdzono Rekomendacji")]
     assert len(named) == 1 and "spadku i kierunku spływu" in named[0]

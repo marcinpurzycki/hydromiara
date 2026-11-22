@@ -19,6 +19,7 @@ from tests.hydro_helpers import (
     write_class_files,
 )
 from tests.recorded_sources import Broken, Slow
+from tests.soil_helpers import category_answer, recorded_soil_source
 
 DITCH_RULE = "recommendation.ditch_water_retention"
 MISSING = TOPICS["hydro"].missing_text
@@ -26,7 +27,11 @@ INCOMPLETE = "Publiczne dane o rowach i ciekach są niekompletne."
 
 
 def run(client, optional_sources, hydro) -> tuple[dict, Report, str]:
-    optional_sources.current = replace(optional_sources.recorded(), hydro=hydro)
+    # A soil of category IV: one year of the window is then without a deficit and in the
+    # other nine precipitation covers less than half of the evaporation, which is the
+    # cause the ditch recommendation answers.
+    soil = recorded_soil_source(category=category_answer(4))
+    optional_sources.current = replace(optional_sources.recorded(), hydro=hydro, soil=soil)
     report_id = start(client)
     status = wait_finished(client, report_id)
     assert status["state"] == "done"

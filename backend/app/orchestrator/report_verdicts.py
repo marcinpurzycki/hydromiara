@@ -18,6 +18,7 @@ from app.engine import history_texts
 from app.engine.assessment import WaterAssessment
 from app.engine.history import CourseResult
 from app.engine.params import DEFICIT_LEVEL_LABELS, EngineParams
+from app.engine.soil_limitations import CAPACITY_SOURCE_LABELS, capacity_trace_values
 from app.engine.susceptibility import SusceptibilityVerdict
 from app.engine.verdicts import CurrentVerdict
 from app.orchestrator.report_pending import REASON_PENDING
@@ -156,13 +157,17 @@ def trace(assessment: WaterAssessment, params: EngineParams) -> list[TraceEntry]
     return [
         TraceEntry(
             rule_id="root_zone.capacity",
-            condition="pojemność wodna strefy korzeniowej: z profilu glebowego albo zastępcza",
+            condition=(
+                "pojemność wodna strefy korzeniowej: z kategorii gleby na mapie IUNG-PIB, "
+                "z kategorii oszacowanej z uziarnienia albo zastępcza"
+            ),
             values={
                 "capacity_source": zone.capacity_source,
                 "root_zone_depth_cm": round(zone.depth_cm),
                 "total_available_water_mm": round(zone.taw_mm),
+                **capacity_trace_values(zone),
             },
-            result="profil glebowy" if zone.capacity_source != "fallback" else "wartość zastępcza",
+            result=CAPACITY_SOURCE_LABELS[zone.capacity_source],
         ),
         TraceEntry(
             rule_id="current_status.level",

@@ -2,11 +2,13 @@
 
 One "start" is one run of all sources for one parcel and date: a whole
 analysis, or one round of calling every source on its own. Each start makes
-one call to the soil service, one to the parcel service and one large request
-to the weather archive, so the limits below are counted in starts.
+one call to the parcel service, one large request to the weather archive and
+a burst of small requests to the two soil services, so the limits below are
+counted in starts.
 
-- Soil (ISRIC SoilGrids): 5 calls per minute. The default spacing of 13 s
-  between starts keeps it under 4.7 per minute.
+- Soil (category map of IUNG-PIB, coverage service of ISRIC): no published
+  limit. One start sends up to 25 small requests to the first and 20 to the
+  second; the default spacing of 13 s between starts keeps the load low.
 - Parcels (ULDK): 200 calls per minute by day, 40 at night, 10 000 per day.
   Far above anything the spacing allows.
 - Weather archive (Open-Meteo, free access): 600 per minute, 5 000 per hour,

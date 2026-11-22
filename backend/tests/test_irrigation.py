@@ -176,7 +176,7 @@ def test_without_weather_the_need_is_not_decided():
 @pytest.mark.parametrize(
     ("source", "words"),
     [("fallback", "pojemność wodną gleby przyjęto zastępczo"),
-     ("partial_soil_profile", "obejmują tylko część głębokości")],
+     ("texture_estimate", "oszacowano z globalnej mapy gleb")],
 )
 def test_a_weaker_soil_basis_is_named_next_to_the_amounts(source, words):
     zone = RootZone(depth_cm=100.0, taw_mm=100.0, depletion_fraction=0.5, capacity_source=source)

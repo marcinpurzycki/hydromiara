@@ -8,6 +8,7 @@ from dataclasses import replace
 from app.catalog.crops import get_crop
 from app.contracts.report import Report
 from app.engine.params import FALLBACK_AVAILABLE_WATER_MM_PER_M
+from app.engine.soil_limitations import CATEGORY_MAP_TEXT
 from app.main import app
 from app.orchestrator import params
 from app.orchestrator.fetching import time_limit
@@ -15,11 +16,11 @@ from app.orchestrator.report_builder import ReportInputs, build_report
 from app.orchestrator.runtime import lifespan
 from app.orchestrator.service import Orchestrator
 from app.orchestrator.sources import AnalysisSources, OptionalSources, SourceSpec, default_specs
-from app.sources.soil import NO_ANSWER_TEXT
 from app.sources.weather import WeatherSource
 from app.storage.reports import ReportStore
 from tests.analysis_helpers import NOW, REQUEST, source_states, start, wait_finished
-from tests.recorded_sources import Slow, recorded_soil_source, soil_payload_without_water
+from tests.recorded_sources import Slow
+from tests.soil_helpers import recorded_soil_source
 
 OPTIONAL_TOPICS = ("soil", "terrain", "satellite", "drought_background")
 
@@ -36,14 +37,21 @@ def trace_values(report: Report, rule_id: str) -> dict:
     return next(entry.values for entry in report.trace if entry.rule_id == rule_id)
 
 
-def test_soil_profile_feeds_the_water_balance(client):
+def test_soil_category_feeds_the_water_balance(client):
     status, report, _ = finished(client)
     capacity = trace_values(report, "root_zone.capacity")
-    assert capacity["capacity_source"] == "soil_profile"
-    assert capacity["total_available_water_mm"] == 213
+    assert capacity["capacity_source"] == "iung_category"
+    # Category III at every classified point: 186 mm per metre, 100 cm root zone.
+    assert capacity["total_available_water_mm"] == 186
+    assert (capacity["soil_category"], capacity["estimated_category"]) == ("III", "II")
+    assert capacity["category_shares"] == "kategoria III na 92% powierzchni"
     assert capacity["total_available_water_mm"] != FALLBACK_AVAILABLE_WATER_MM_PER_M
-    assert report.current_status.details["total_available_water_mm"] == 213
-    assert not any("zastępczo" in limitation.text for limitation in report.limitations)
+    assert report.current_status.details["total_available_water_mm"] == 186
+    texts = [limitation.text for limitation in report.limitations]
+    assert not any("przeciętną zdolność" in text or "globalnej mapy" in text for text in texts)
+    permanent = [limitation.text for limitation in report.limitations if limitation.permanent]
+    assert CATEGORY_MAP_TEXT in permanent
+    assert any(text.startswith("Bilans obejmuje glebę do głębokości 1 m") for text in permanent)
     assert source_states(status) == {
         "weather": "done", "soil": "done", "terrain": "done",
         "satellite": "done", "hydro": "missing",
@@ -57,8 +65,8 @@ def test_every_connected_source_is_described_in_the_report(client):
     for source in by_topic.values():
         assert not source.missing and source.chain_step == 1 and source.fetched_at
         assert source.name != "źródło nieokreślone" and source.license != "nie podano"
-    assert by_topic["soil"].name == "ISRIC SoilGrids 2.0"
-    assert by_topic["soil"].license.startswith("CC BY 4.0")
+    assert by_topic["soil"].name == "IUNG-PIB, mapa kategorii podatności gleb na suszę"
+    assert by_topic["soil"].license.startswith("usługa publiczna i bezpłatna")
     assert by_topic["terrain"].data_date == "2011/2015"
     assert "Sentinel-2" in by_topic["satellite"].name
     assert by_topic["satellite"].data_date == "2023-06-19/2023-06-19"
@@ -85,24 +93,22 @@ def test_stored_source_data_give_the_same_report_again(client, reports_db):
     assert again.model_dump_json() == client.get(f"/api/reports/{report_id}").text
 
 
-def test_soil_layer_without_water_is_named_once(client, optional_sources):
-    soil = recorded_soil_source(soil_payload_without_water("60-100cm"))
+def test_category_without_texture_is_still_the_primary_source(client, optional_sources):
+    soil = recorded_soil_source(texture_status=503)
     optional_sources.current = replace(optional_sources.recorded(), soil=soil)
     status, report, _ = finished(client)
+    capacity = trace_values(report, "root_zone.capacity")
+    assert capacity["capacity_source"] == "iung_category"
+    assert "estimated_category" not in capacity
     about_soil = [
         limitation.text
         for limitation in report.limitations
         if not limitation.permanent and "gleb" in limitation.text
     ]
-    assert len(about_soil) == 1
-    assert about_soil[0].startswith("Dane o glebie obejmują 60 cm z 100 cm")
-    assert trace_values(report, "root_zone.capacity")["capacity_source"] == "partial_soil_profile"
-    current = report.current_status.confidence
-    assert current.level == "średnia"
-    assert current.why.count("gleb") == 1
-    # The progress note still names the layers the source lacks.
+    assert about_soil == []
+    # The progress note says the two sources were not compared.
     soil_status = next(source for source in status["sources"] if source["id"] == "soil")
-    assert soil_status["state"] == "done" and "60–100 cm" in soil_status["note"]
+    assert soil_status["state"] == "done" and "nie porównano" in soil_status["note"]
 
 
 def test_all_optional_sources_down_gives_the_report_of_weather_alone(
@@ -111,7 +117,8 @@ def test_all_optional_sources_down_gives_the_report_of_weather_alone(
     optional_sources.current = OptionalSources()
     _, alone, _ = finished(client)
     optional_sources.current = OptionalSources(
-        soil=recorded_soil_source(status=503), terrain=Slow(), satellite=Slow(),
+        soil=recorded_soil_source(category_status=503, texture_status=503),
+        terrain=Slow(), satellite=Slow(),
         drought_background=Slow(),
     )  # fmt: skip
     for name in ("TERRAIN_TIMEOUT_S", "SATELLITE_TIMEOUT_S", "DROUGHT_BACKGROUND_TIMEOUT_S"):
@@ -122,7 +129,7 @@ def test_all_optional_sources_down_gives_the_report_of_weather_alone(
         "satellite": "missing", "hydro": "missing",
     }
     notes = {source["id"]: source["note"] for source in status["sources"]}
-    assert notes["soil"] == NO_ANSWER_TEXT
+    assert notes["soil"].startswith("Nie udało się pobrać danych o glebie.")
     assert "nie odpowiedziało w wyznaczonym czasie" in notes["terrain"]
     assert down.current_status == alone.current_status
     assert down.multiyear_susceptibility == alone.multiyear_susceptibility

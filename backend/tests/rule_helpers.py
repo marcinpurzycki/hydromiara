@@ -27,7 +27,7 @@ def run(
     multiyear: int | None = 2,
     *,
     soil_mm: float = 180.0,
-    soil_source: str = "soil_profile",
+    soil_source: str = "iung_category",
     dry: bool = True,
     slope: float | None = 3.0,
     slope_error: float = 0.2,

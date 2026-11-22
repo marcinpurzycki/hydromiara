@@ -49,6 +49,7 @@ REPORTS_DB_PATH=./data/reports.sqlite3 .venv/bin/fastapi dev app/main.py   # htt
 .venv/bin/python -m pytest               # testy bez dostępu do sieci
 .venv/bin/python -m tests.smoke.parcels_smoke   # sprawdzenie na żywej usłudze działek (wymaga sieci)
 .venv/bin/python -m tests.smoke.hydro_smoke     # wody w otoczeniu dwóch działek z żywych plików BDOT10k: czas, liczba zapytań, obiekty, pamięć (wymaga sieci)
+.venv/bin/python -m tests.smoke.soil_smoke      # gleba trzech działek na żywych usługach: które ogniwo odpowiedziało, czas, kategoria, pojemność (wymaga sieci)
 .venv/bin/python -m tests.smoke.satellite_smoke # sprawdzenie na żywych usługach scen satelitarnych, w tym przełączenia (wymaga sieci)
 .venv/bin/python -m tests.smoke.analysis_smoke  # cała analiza jednej działki na żywych źródłach, z czasem każdego źródła (wymaga sieci)
 .venv/bin/python -m tests.smoke.season_smoke    # raport poza sezonem lub w spoczynku i przejście na Okres krytyczny, na żywych źródłach (wymaga sieci)
@@ -335,13 +336,14 @@ między domenami (CORS nie jest otwarty). Kod usługi `api` (`backend/app/`):
 Przebieg analizy. `POST /api/analyses` zwraca identyfikator od razu, a praca biegnie w tle: najpierw działka
 (usługa ULDK), potem równolegle pogoda, gleba, ukształtowanie terenu, wody w otoczeniu działki i obserwacje
 satelitarne oraz odczyt tła suszowego z plików lokalnych; silnik liczy bilans wodny i resztę Raportu; Raport jest zapisywany razem
-z wszystkimi pobranymi danymi źródłowymi. Pojemność wodna gleby w bilansie pochodzi z pobranego profilu glebowego;
-gdy gleby nie ma, przyjmowana jest wartość zastępcza, a Raport podaje to jako Ograniczenie i obniża Pewność oceny.
+z wszystkimi pobranymi danymi źródłowymi. Pojemność wodna gleby w bilansie pochodzi z Łańcucha zamienników:
+kategoria podatności gleby na suszę z mapy IUNG-PIB, potem kategoria oszacowana z uziarnienia (SoilGrids), na końcu
+wartość zastępcza; każde zejście w dół Raport podaje jako Ograniczenie i obniża Pewność oceny.
 Bez działki i pogody Raport nie powstaje; każde inne źródło, które nie odpowie, zgłosi błąd albo przekroczy swój
 limit czasu, jest w Raporcie i w postępie oznaczone jako brak, a analiza biegnie dalej.
 
 Limity czasu (`backend/app/orchestrator/params.py`): całość 30 s, z czego 3 s rezerwy na obliczenia i zapis;
-pogoda 12 s, gleba 24 s, teren 17 s (po 8 s na każde z dwóch ogniw i sekunda zapasu), satelita 17 s, tło suszowe 5 s; żadne źródło poza pogodą nie czeka dłużej niż
+pogoda 12 s, gleba 13 s (mapa kategorii 5 s, mapy uziarnienia 8 s), teren 17 s (po 8 s na każde z dwóch ogniw i sekunda zapasu), satelita 17 s, tło suszowe 5 s; żadne źródło poza pogodą nie czeka dłużej niż
 do sekundy przed końcem czasu na pobieranie. Wody mają limit 17 s (12 s odczyt na żywo, 4 s kopia lokalna i sekunda zapasu).
 Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego
 pozycji jest stała); jest na liście źródeł Raportu.
@@ -391,15 +393,11 @@ wykorzystania” to punkt 7. Na zewnątrz wysyłane są tylko współrzędne, Id
 | Terminy siewu, faz wzrostu i zbioru Upraw w Polsce (Sezon uprawy i daty faz krzywej Kc) | Centralny Ośrodek Badania Odmian Roślin Uprawnych (COBORU), „Wyniki porejestrowych doświadczeń odmianowych”, tabele dat siewu, zbioru i faz rozwojowych, `https://coboru.gov.pl/Publikacje_COBORU/Wyniki_PDO/`; rośliny rolnicze: średnia z lat zbioru 2018–2022, 2024 i 2025; warzywa: lata 2021–2025 (cebula, kapusta, burak ćwikłowy: tylko 2025) | średnie policzone z opublikowanych dat i wpisane w kodzie (`backend/app/catalog/crop_data*.py`) | wydania z lat 2019–2025, odczyt 21.11.2026 | publikacje jednostki państwowej udostępnione bezpłatnie; w plikach nie ma noty licencyjnej; użyte średnie własne z opublikowanych dat, z podaniem źródła |
 | Okres krytyczny każdej Uprawy (okres największego zapotrzebowania na wodę) | Centrum Doradztwa Rolniczego (2025), e-poradnik „Melioracje, retencja i gospodarka wodna w rolnictwie”, część IV, rozdz. 3 i 4 (materiał organizatora) | wartości wpisane w kodzie (`backend/app/catalog/crop_data*.py`) ze wskazaniem strony lub tabeli | publikacja z 2025 r. | materiał sfinansowany ze środków publicznych; przytoczone terminy z podaniem źródła |
 | Grupa Uprawy w monitoringu suszy rolniczej (do opisu przyczyn; progów jeszcze nie używamy) | IUNG-PIB, System Monitoringu Suszy Rolniczej, `https://susza.iung.pulawy.pl/progi/` | nazwa grupy wpisana w kodzie przy Uprawie | odczyt 21.11.2026 | treść rozporządzenia ministra (akt urzędowy) opublikowana przez IUNG-PIB; podane źródło |
-| Gleba w punkcie działki, warstwy do 100 cm: piasek, pył, ił, węgiel organiczny, zawartość wody przy 33 i 1500 kPa; z nich pojemność wodna (różnica zawartości wody, niezweryfikowana pomiarem na działce) | ISRIC – World Soil Information, SoilGrids 2.0 (model globalny, siatka 250 m), `https://rest.isric.org/soilgrids/v2.0/properties/query` | na żywo | mapy statyczne (wersja 2.0), bez daty obserwacji; czas odczytu zapisany w raporcie | CC BY 4.0, wymagane podanie źródła; usługa w fazie beta, bez gwarancji dostępności; limit 5 zapytań na minutę; zmierzony czas odpowiedzi 11–35 s |
+| Gleba, źródło podstawowe: kategoria podatności gleby na suszę (I–IV) w siatce do 25 punktów wewnątrz obrysu działki; z udziałów kategorii pojemność wodna (110, 149, 186, 220 mm na metr gleby, wartości robocze wewnątrz przedziałów IUNG-PIB) | Instytut Uprawy Nawożenia i Gleboznawstwa – Państwowy Instytut Badawczy (IUNG-PIB), mapa kategorii podatności gleb na suszę Systemu Monitoringu Suszy Rolniczej (siatka 5 m, na podstawie mapy glebowo-rolniczej), usługa mapowa `https://sgeo.iung.pl/geoserver/ows`, warstwa `Susza:katgl_landuse2024` | na żywo | mapa statyczna, bez daty obserwacji; czas odczytu zapisany w raporcie | usługa publiczna i bezpłatna; warunków ponownego wykorzystania IUNG-PIB nie opublikował (przed wdrożeniem pełnoskalowym trzeba je uzyskać od IUNG-PIB); podajemy źródło; limitów zapytań nie opublikowano |
+| Gleba, zamiennik i kontrola: piasek, pył, ił i węgiel organiczny w warstwach do 100 cm w środku działki; z nich kategoria szacowana wzorem Saxtona i Rawlsa (2006) | ISRIC – World Soil Information, SoilGrids 2.0 (model globalny, siatka 250 m), usługa WCS `https://maps.isric.org/mapserv` | na żywo | mapy statyczne (wersja 2.0), bez daty obserwacji; czas odczytu zapisany w raporcie | CC BY 4.0, wymagane podanie źródła; limitów zapytań dla usługi WCS nie opublikowano |
 | Obserwacje satelitarne do Daty analizy: klasyfikacja sceny (SCL) oraz pasma czerwone, bliskiej podczerwieni i krótkofalowej podczerwieni nad działką; z nich udział czystych pikseli, NDVI i NDMI | Copernicus Sentinel-2, poziom L2A (ESA / Komisja Europejska), z dwóch wymiennych usług (kolejność w konfiguracji): podstawowa Microsoft Planetary Computer, `https://planetarycomputer.microsoft.com/api/stac/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w Azure West Europe, odczyt z bezpłatnym tokenem pobieranym bez konta; zapasowa Earth Search (Element 84), `https://earth-search.aws.element84.com/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w rejestrze otwartych danych AWS | na żywo | sceny z 30 dni przed Datą analizy i z tego samego okresu w 3 poprzednich latach (archiwum od 2015 r. w usłudze podstawowej, od 2016 r. w zapasowej); data każdej sceny i czas odczytu zapisane w raporcie | bezpłatny, pełny i otwarty dostęp do danych na warunkach noty prawnej danych Sentinel (`https://sentinel.esa.int/documents/247904/690755/Sentinel_Data_Legal_Notice`); wymagane podanie źródła i zaznaczenie przetworzenia danych; obie usługi obecnie w dostępie bezpłatnym, bez klucza i bez gwarancji dostępności (patrz „Konfiguracja”) |
 | Metoda oceny: dzienny bilans wody w strefie korzeniowej, woda łatwo dostępna i współczynnik stresu wodnego Ks, z których powstają Bieżąca sytuacja wodna i Podatność wieloletnia | Allen R.G., Pereira L.S., Raes D., Smith M. (1998), „Crop evapotranspiration: guidelines for computing crop water requirements”, FAO Irrigation and Drainage Paper 56, rozdział 8 (równania 80, 82–86 i 88), tabela 19 | metoda zapisana w kodzie (`backend/app/engine/`); progi i wartości robocze w jednym pliku `backend/app/engine/params.py`, każda bez źródła oznaczona tam jako robocza | publikacja z 1998 r.; metoda zapisana w kodzie, nie jest pobierana | publikacja FAO; równania przytoczone z podaniem źródła |
 | Wody w otoczeniu działki (do 500 m od granicy): rowy melioracyjne, kanały, rzeki i strumienie, wody powierzchniowe; rodzaj, nazwa, geometria | Baza Danych Obiektów Topograficznych BDOT10k, Główny Urząd Geodezji i Kartografii (GUGiK); pliki GeoParquet klas `OT_SWRM_L`, `OT_SWRS_L`, `OT_SWKN_L`, `OT_PTWP_A` z `https://opendata.geoportal.gov.pl/bdot10k/schemat2021/GeoParquet/` | na żywo (części plików dla powiatu działki); zamiennik: kopia plików w `WATER_DATA_PATH`, gdy jest na serwerze (wtedy tryb „plik lokalny”) | data ostatniej zmiany plików (`sources[].data_date`); obiekty mogą być starsze niż rok; czas odczytu zapisany w raporcie | bezpłatnie: zbiory obiektów topograficznych są udostępniane bez opłat (Prawo geodezyjne i kartograficzne, art. 40a ust. 2 pkt 1 lit. h); podajemy źródło „BDOT10k, Główny Urząd Geodezji i Kartografii”; osobnego dokumentu licencji dla katalogu plików nie znaleźliśmy: do sprawdzenia przez człowieka przed wdrożeniem pełnoskalowym |
-
-Źródła, z których aplikacja jeszcze nie korzysta, a które są potrzebne do pełnego zakresu:
-
-- mapa kategorii podatności gleb na suszę jako podstawowe źródło pojemności wodnej: do uzupełnienia, jeśli zostanie
-  podłączona.
 
 ## 5. Wskazanie, które dane są pobierane na bieżąco, a które zostały pobrane lub przetworzone wcześniej, wraz z datami ich pobrania
 
@@ -461,7 +459,8 @@ Biblioteki strony dla rolnika (usługa `web`, katalog `frontend/`):
 
 ### Usługi zewnętrzne
 
-Usługi danych: ULDK (GUGiK), usługa wysokości punktów GUGiK, archiwum pogodowe Open-Meteo, SoilGrids (ISRIC), Copernicus DEM (pliki w rejestrze
+Usługi danych: ULDK (GUGiK), usługa wysokości punktów GUGiK, archiwum pogodowe Open-Meteo, mapa kategorii podatności gleb na suszę (IUNG-PIB),
+SoilGrids (ISRIC, usługa WCS), Copernicus DEM (pliki w rejestrze
 otwartych danych AWS, katalog Earth Search), Sentinel-2 przez Microsoft Planetary Computer i Earth Search
 (Element 84). Adresy, zakres i warunki: tabela w punkcie 4. Opcjonalnie usługa modelu językowego (niżej).
 Żadna z usług danych nie wymaga konta ani klucza.
@@ -578,7 +577,9 @@ Wysokości terenu: Główny Urząd Geodezji i Kartografii (GUGiK), numeryczny mo
 
 Wysokości terenu, źródło zastępcze: produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved. Copernicus Digital Elevation Model (DEM) was accessed on 21.11.2026 from https://registry.opendata.aws/copernicus-dem.
 
-Dane o glebie: ISRIC – World Soil Information, SoilGrids 2.0 (CC BY 4.0); Poggio, L. i in. (2021), SOIL 7, 217–240, doi:10.5194/soil-7-217-2021.
+Kategorie podatności gleb na suszę: IUNG-PIB, System Monitoringu Suszy Rolniczej, opracowanie na zlecenie Ministerstwa Rolnictwa i Rozwoju Wsi.
+
+Uziarnienie i węgiel organiczny gleby: ISRIC – World Soil Information, SoilGrids 2.0 (CC BY 4.0); Poggio, L. i in. (2021), SOIL 7, 217–240, doi:10.5194/soil-7-217-2021.
 
 Obserwacje satelitarne: zawiera zmodyfikowane dane Copernicus Sentinel (2015–2026).
 
@@ -659,11 +660,19 @@ potrzebach wodnych” będzie stwierdzana dla większości Upraw polowych.
 
 Źródła danych:
 
-- **Gleba.** SoilGrids odpowiada wolno (zmierzone 11–35 s przy limicie 24 s): w pomiarze 21.11.2026 odpowiedź
-  przyszła w limicie w 9 z 14 analiz punktów, które mają dane, w innym przebiegu w żadnej z 6. Analiza bez gleby
-  liczy na pojemności zastępczej 150 mm/m, z Ograniczeniem i niższą Pewnością oceny. Pojemność wodna wyprowadzona
-  z danych SoilGrids nie jest zweryfikowana pomiarem (stałe Ograniczenie przy każdym profilu); to model globalny
-  o siatce 250 m, a usługa jest w fazie beta, z limitem 5 zapytań na minutę.
+- **Gleba.** Pojemność wodna pochodzi z kategorii podatności gleby na suszę (mapa IUNG-PIB): to typowa gleba
+  w danym miejscu według map glebowo-rolniczych, a nie pomiar na działce (stałe Ograniczenie przy każdej
+  kategorii). Wartości 110, 149, 186 i 220 mm na metr są robocze: leżą wewnątrz przedziałów IUNG-PIB, ale nie mają
+  własnego źródła; nie ustalono też, czy przedziały IUNG-PIB dotyczą metra gleby, czy profilu 1,5 m (dla Upraw
+  z korzeniami płytszymi niż 1 m pojemność strefy może być zawyżona). Działka bez kategorii na mapie (las,
+  zabudowa, teren niesklasyfikowany) dostaje kategorię oszacowaną z uziarnienia SoilGrids (model globalny, siatka
+  250 m); na 8 działkach testowych szacunek mylił się o jedną kategorię w 2 przypadkach, a progi szacunku
+  wyprowadzono z tych samych działek. Gleby organiczne i działki bez danych w obu źródłach (np. w zabudowie) liczą
+  na pojemności zastępczej 150 mm/m, z Ograniczeniem i niższą Pewnością oceny. Wzory Saxtona i Rawlsa (2006)
+  przepisano z kodu USDA ARS, który je implementuje, nie z samej publikacji. Warunków ponownego wykorzystania
+  usługi IUNG-PIB nie opublikowano; żadna z dwóch usług nie podaje limitów zapytań ani gwarancji dostępności.
+  Zmierzony czas odczytu gleby (22.11.2026, maszyna deweloperska, 3 działki): 1,2–2,3 s; mapa kategorii odpowiadała
+  w każdym odczycie.
 - **Pogoda.** Bezpłatny dostęp do archiwum Open-Meteo jest tylko do zastosowań niekomercyjnych, a jego limit
   liczony kosztem zapytania pozwala na około 85 analiz na godzinę i 170 na dobę z adresu serwera. Opad i ET0
   pochodzą z modelu o siatce około 9 km (dla lat do 2016 r. około 25 km), a nie z deszczomierza na Działce;
@@ -759,9 +768,9 @@ Limity i dostępność zewnętrznych źródeł danych:
   razem z danymi źródłowymi, więc ponowne otwarcie Raportu, Symulacja i raport pochodny niczego nie pobierają.
   Usługa ogranicza liczbę zapytań na adres i liczbę analiz trwających jednocześnie (część „Bezpieczeństwo i dane
   osobowe”), a narzędzia pomiarowe trzymają własne tempo poniżej limitów usług.
-- Wąskie gardła: limit bezpłatnego archiwum pogodowego (około 85 analiz na godzinę z adresu serwera), limit
-  i czas odpowiedzi usługi gleby (5 zapytań na minutę, 11–35 s), brak gwarancji dostępności bezpłatnych usług
-  satelitarnych.
+- Wąskie gardła: limit bezpłatnego archiwum pogodowego (około 85 analiz na godzinę z adresu serwera),
+  brak opublikowanych limitów i gwarancji dostępności usług gleby (mapa IUNG-PIB, WCS ISRIC) oraz bezpłatnych
+  usług satelitarnych.
 - Potrzebne przy większym ruchu: buforowanie danych, które się nie zmieniają (gleba, teren i geometria działki
   dla raz analizowanego miejsca, seria pogodowa do dnia poprzedniego), lokalna kopia danych o wodach odświeżana
   okresowo, płatne plany usług pogodowej i satelitarnych (albo własna kopia danych źródłowych), kolejka analiz
@@ -771,8 +780,9 @@ Aktualizacja danych i czas odpowiedzi:
 
 - Dane pobierane na żywo są aktualne z natury. Pliki wskaźnika suszy trzeba dogrywać (nowa dekada co 10 dni);
   dziś robi się to ręcznie skryptem `scripts/unpack_drought_files.py`, docelowo zadaniem okresowym.
-- Zmierzony czas całej analizy (18 analiz na żywych źródłach, 21.11.2026, maszyna deweloperska): 8,7–24,7 s,
-  mediana 15,5 s, przy budżecie 30 s; o czasie decyduje usługa gleby. Raport raz policzony otwiera się bez
+- Zmierzony czas całej analizy (21.11.2026, maszyna deweloperska, 18 analiz na żywych źródłach, gleba jeszcze
+  z wolnej usługi REST SoilGrids): 8,7–24,7 s, mediana 15,5 s, przy budżecie 30 s. Po zmianie źródła gleby
+  (22.11.2026, 3 analizy, pogoda z zapisanej odpowiedzi, pozostałe źródła na żywo): 2,2–3,2 s. Raport raz policzony otwiera się bez
   ponownego liczenia; Symulacja dla listy 22 pozycji (w tym 20 próbnych) policzyła się w około 0,4 s.
 - Przy większym ruchu jeden proces z plikiem SQLite nie wystarczy: potrzebna jest wspólna baza (np. PostgreSQL),
   wspólne liczniki limitów i kolejka zadań, żeby uruchomić kilka procesów usługi. Kod jest na to przygotowany

@@ -21,7 +21,12 @@ _SOURCE_TERMS: dict[SourceTopic, tuple[str, str, Mode]] = {
         "(https://open-meteo.com/); bezpłatny dostęp tylko do zastosowań niekomercyjnych",
         LIVE,
     ),
-    "soil": ("ISRIC SoilGrids 2.0", "CC BY 4.0, wymagane podanie źródła", LIVE),
+    "soil": (
+        "IUNG-PIB, mapa kategorii podatności gleb na suszę",
+        "usługa publiczna i bezpłatna; warunków ponownego wykorzystania nie opublikowano; "
+        "podajemy źródło",
+        LIVE,
+    ),
     "terrain": (
         "Copernicus DEM GLO-30",
         "bezpłatnie na warunkach licencji Copernicus DEM (GLO-30 Public); wymagane podanie "
@@ -57,6 +62,8 @@ _LICENCE_BY_SOURCE_NAME: dict[str, str] = {
         "dane numerycznego modelu terenu GUGiK: bezpłatnie, do dowolnego wykorzystania; "
         "podajemy źródło"
     ),
+    # Soil substitute: texture maps.
+    "ISRIC SoilGrids 2.0": "CC BY 4.0, wymagane podanie źródła",
 }
 
 

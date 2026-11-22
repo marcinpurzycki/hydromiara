@@ -18,10 +18,10 @@ from app.orchestrator.sources import OptionalSources
 from app.sources.drought_background import DroughtBackgroundSource
 from app.sources.satellite import SatelliteSource
 from app.sources.satellite_providers import EARTH_SEARCH
-from app.sources.soil import SoilSource
 from app.sources.terrain import TerrainSource
 from app.sources.terrain_copernicus import CopernicusDem30
 from tests.satellite_helpers import SceneFiles, catalogue, scene_id
+from tests.soil_helpers import recorded_soil_source
 
 FIXTURES = Path(__file__).parent / "fixtures"
 EDO_DIR = FIXTURES / "edo"
@@ -55,22 +55,6 @@ def json_fixture(*parts: str) -> dict:
 
 def answering(payload: dict, status: int = 200) -> httpx.MockTransport:
     return httpx.MockTransport(lambda request: httpx.Response(status, json=payload))
-
-
-def recorded_soil_source(payload: dict | None = None, status: int = 200) -> SoilSource:
-    answer = json_fixture("soilgrids", "profile_field.json") if payload is None else payload
-    return SoilSource(transport=answering(answer, status))
-
-
-def soil_payload_without_water(depth_label: str = "60-100cm") -> dict:
-    """The recorded profile with both water contents of one layer set to null."""
-    payload = json_fixture("soilgrids", "profile_field.json")
-    for entry in payload["properties"]["layers"]:
-        if entry["name"] in ("wv0033", "wv1500"):
-            for depth in entry["depths"]:
-                if depth["label"] == depth_label:
-                    depth["values"]["mean"] = None
-    return payload
 
 
 def recorded_terrain_source(directory: Path, status: int = 200) -> TerrainSource:

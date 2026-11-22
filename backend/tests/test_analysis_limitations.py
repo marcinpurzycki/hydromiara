@@ -78,7 +78,7 @@ def test_without_the_optional_sources_both_confidences_are_low(client, optional_
     for verdict in (report.current_status, report.multiyear_susceptibility):
         assert verdict.confidence.level == "niska"
         assert verdict.confidence.why.startswith("Pewność oceny obniżają: ")
-        assert "pojemność wodną gleby przyjęto zastępczo" in verdict.confidence.why
+        assert "przyjęto przeciętną zdolność gleby" in verdict.confidence.why
 
 
 def test_weather_ending_before_the_date_is_named_once(client, weather):
@@ -111,7 +111,7 @@ def test_source_limitations_count_only_when_the_source_gave_data(client, use_fet
     assert WINDOW in report.limitations and SERVICE_DOWN not in report.limitations
     assert not any(text.startswith("Brak odczytów satelitarnych") for text in texts(report))
     assert not any("zamiennika" in text for text in texts(report))
-    assert sum(text.startswith("Brak danych o glebie") for text in texts(report)) == 1
+    assert sum(text.startswith("Nie udało się pobrać danych o glebie") for text in texts(report)) == 1
     assert "żadna scena satelitarna" in report.current_status.confidence.why
     assert "żadna scena satelitarna" not in report.multiyear_susceptibility.confidence.why
     satellite_source = next(source for source in report.sources if source.topic == "satellite")
