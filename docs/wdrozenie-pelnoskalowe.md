@@ -275,8 +275,8 @@ Wymagane noty o pochodzeniu danych są w README, punkt 7, i nie zmieniają się 
 - Podanie źródła: nota „Generated using Copernicus Emergency Management Service information [rok]”, a przy danych
   zmienionych „Contains modified Copernicus Emergency Management Service information [rok]”.
 - Źródło: `https://drought.emergency.copernicus.eu/terms&conditions/`.
-- Do sprawdzenia przez człowieka przed wdrożeniem: oznaczenie licencji CC BY 4.0 używane w README i w Raporcie
-  wobec treści strony warunków, która tej licencji nie wymienia z nazwy.
+- Licencja: CC BY 4.0 (ustalenie zespołu z 22.11.2026). Strona warunków, odczytana 22.11.2026, nie wymienia tej
+  licencji z nazwy, tylko podaje prawa i noty opisane wyżej.
 
 **Copernicus DEM GLO-30, ukształtowanie terenu**
 
@@ -381,17 +381,16 @@ powinien rozstrzygnąć:
 4. **Gleba:** zgoda i warunki IUNG-PIB dla usługi mapy kategorii podatności gleb na suszę.
 5. **Teren i wody:** limity i warunki usługi wysokości punktów GUGiK; licencja i zapis źródła plików BDOT10k;
    zasady serwera Overpass i skutki licencji ODbL.
-6. **Tło suszowe:** właściwe oznaczenie licencji danych EDO.
-7. **Model językowy:** umowa, cennik i zasady przetwarzania danych u wybranego dostawcy.
-8. **Dane osobowe:** Identyfikator działki da się powiązać z właścicielem w rejestrach publicznych; trzeba ustalić
+6. **Model językowy:** umowa, cennik i zasady przetwarzania danych u wybranego dostawcy.
+7. **Dane osobowe:** Identyfikator działki da się powiązać z właścicielem w rejestrach publicznych; trzeba ustalić
    administratora danych, czas przechowywania Raportów i logów oraz obowiązki informacyjne. Aplikacja nie ma kont
    i nie zbiera innych danych osobowych.
-9. **Noty o pochodzeniu danych** w Raporcie, na stronie i na wydruku: komplet i brzmienie wymagane przez każdą
+8. **Noty o pochodzeniu danych** w Raporcie, na stronie i na wydruku: komplet i brzmienie wymagane przez każdą
    licencję (README, punkt 7).
-10. **Koszty:** łączny koszt miesięczny dla przyjętej liczby analiz (plan pogodowy, dostęp do danych
+9. **Koszty:** łączny koszt miesięczny dla przyjętej liczby analiz (plan pogodowy, dostęp do danych
     satelitarnych, model językowy, serwery, baza, miejsce na kopie). Nie został oszacowany, bo wymaga cenników
     z punktów 2, 3 i 7.
-11. **Licencja kodu rozwiązania** i prawa do korzystania z niego przez instytucję wdrażającą.
+10. **Licencja kodu rozwiązania** i prawa do korzystania z niego przez instytucję wdrażającą.
 
 Do sprawdzenia technicznego przed wdrożeniem (nie wykonano): pełny przebieg skryptu wdrożenia na czystym serwerze
 z domeną, praca usługi w wielu procesach po zmianach z rozdziału 4, zachowanie przy więcej niż trzech analizach
