@@ -77,6 +77,7 @@ equal "account address stored" ops@example.org "$(env_get ACME_EMAIL "$root/.env
 equal "key from the environment stored" k3y-from-env "$(env_get AI_API_KEY "$root/.env")"
 equal "subnet stored after the network exists" 172.30.0.0/16 "$(env_get FORWARDED_ALLOW_IPS "$root/.env")"
 check "the data directory is created" test -d "$root/data/edo"
+check "the drought archives kept in the repository are unpacked" test -n "$(find "$root/data/edo" -name 'cdinx_m_edo_*.tif' -print -quit)"
 check_not "no daemon configuration without a fresh Docker" test -e "$root-state/daemon.json"
 out=$(deploy "$root" 0 --yes --skip-dns-check --no-ai) || fail "switching the model off exits with an error: $out"
 equal "the key is cleared by --no-ai" "" "$(env_get AI_API_KEY "$root/.env")"

@@ -9,6 +9,9 @@ PUBLIC_TRIES=${DEPLOY_PUBLIC_TRIES:-12}
 
 DATA_DIR=""
 DATA_FILES=0
+BUNDLED_ARCHIVES=0
+# Yearly archives of the drought indicator kept in the repository.
+BUNDLED_DIR="$ROOT_DIR/deploy/edo-archives"
 
 # The host directory mounted read-only as /data/edo (EDO_DATA_PATH, default ./data/edo).
 data_detect() {
@@ -21,6 +24,12 @@ data_detect() {
   if [[ -d "$DATA_DIR" ]]; then
     DATA_FILES=$(find "$DATA_DIR" -maxdepth 1 -type f -name 'cdinx_m_edo_*.tif' 2>/dev/null | wc -l)
   fi
+  BUNDLED_ARCHIVES=$(find "$BUNDLED_DIR" -maxdepth 1 -type f -name 'cdinx_m_edo_*_t.zip' 2>/dev/null | wc -l)
+}
+
+# True when the data directory is empty and the archives kept in the repository can fill it.
+data_can_unpack() {
+  [[ "$DATA_FILES" -eq 0 && "$BUNDLED_ARCHIVES" -gt 0 ]] && have python3
 }
 
 data_describe() {
@@ -29,15 +38,29 @@ data_describe() {
   else
     info "  Drought indicator files: $DATA_FILES file(s) in the data directory"
   fi
+  if data_can_unpack; then
+    info "  Drought indicator files: $BUNDLED_ARCHIVES archive(s) from deploy/edo-archives will be unpacked"
+  fi
 }
 
 data_hint() {
   [[ "$DATA_FILES" -eq 0 ]] || return 0
   info "NOTE: no drought indicator files found. The application works without them (the Report"
-  info "  states the missing drought background). To add them: download the yearly archives of the"
-  info "  Combined Drought Indicator from the source named in README (section on data sources) and run"
-  info "    python3 scripts/unpack_drought_files.py ARCHIVE_DIR"
-  info "  in the repository directory; no restart is needed."
+  info "  states the missing drought background). To add them run in the repository directory"
+  info "    python3 scripts/unpack_drought_files.py deploy/edo-archives"
+  info "  (needs python3; newer archives: see deploy/edo-archives/README.md); no restart is needed."
+}
+
+# Fills an empty data directory from the archives kept in the repository.
+data_unpack() {
+  data_can_unpack || return 0
+  if python3 "$ROOT_DIR/scripts/unpack_drought_files.py" "$BUNDLED_DIR" "$DATA_DIR" >/dev/null; then
+    chmod -R o+rX "$DATA_DIR"
+    DATA_FILES=$(find "$DATA_DIR" -maxdepth 1 -type f -name 'cdinx_m_edo_*.tif' 2>/dev/null | wc -l)
+    info "unpacked the drought indicator archives: $DATA_FILES file(s) in the data directory"
+  else
+    warn "could not unpack the drought indicator archives; the application starts without them"
+  fi
 }
 
 # Creates the directory when missing and checks that the container user can read it.
@@ -47,8 +70,8 @@ data_apply() {
     mkdir -p "$DATA_DIR"
     chmod 755 "$DATA_DIR"
     info "created the data directory for the drought indicator files"
-    return 0
   fi
+  data_unpack
   unreadable=$(find "$DATA_DIR" -maxdepth 1 \( -type d ! -perm -o=rx -o -type f ! -perm -o=r \) -print -quit 2>/dev/null)
   if [[ -n "$unreadable" ]]; then
     warn "the data directory or a file in it is not readable for other users; the container" \

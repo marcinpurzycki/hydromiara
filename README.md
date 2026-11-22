@@ -153,8 +153,9 @@ Przykład bez pytań: `scripts/deploy.sh --yes --domain hydromiara.example.org -
 
 **Pliki wskaźnika suszy.** Usługa czyta je z katalogu `EDO_DATA_PATH` (domyślnie `./data/edo`, montowany tylko do
 odczytu); skrypt tworzy katalog, sprawdza, czy użytkownik kontenera (uid 10001) może go czytać, i podaje liczbę
-znalezionych plików. Plików nie pobiera: archiwa roczne trzeba pobrać ze źródła opisanego w tabeli źródeł danych
-i rozpakować poleceniem `python3 scripts/unpack_drought_files.py KATALOG_ARCHIWÓW` (restart nie jest potrzebny).
+znalezionych plików. Archiwa roczne są w repozytorium w `deploy/edo-archives/` (stan i sposób aktualizacji:
+`deploy/edo-archives/README.md`); gdy katalog danych jest pusty, skrypt rozpakowuje je sam (wymaga `python3`).
+Ręcznie robi to polecenie `python3 scripts/unpack_drought_files.py deploy/edo-archives` (restart nie jest potrzebny).
 Bez tych plików wdrożenie działa, a raport podaje brak tła suszowego jako Ograniczenie.
 
 **Jak działa po wdrożeniu.** Ruch dla domeny trafia do usługi `web`, a ze ścieżką `/api` do usługi `api`; raporty są
@@ -794,7 +795,8 @@ Limity i dostępność zewnętrznych źródeł danych:
 Aktualizacja danych i czas odpowiedzi:
 
 - Dane pobierane na żywo są aktualne z natury. Pliki wskaźnika suszy trzeba dogrywać (nowa dekada co 10 dni);
-  dziś robi się to ręcznie skryptem `scripts/unpack_drought_files.py`, docelowo zadaniem okresowym.
+  dziś robi się to ręcznie skryptem `scripts/unpack_drought_files.py` (opis: `deploy/edo-archives/README.md`),
+  docelowo zadaniem okresowym.
 - Zmierzony czas całej analizy (21.11.2026, maszyna deweloperska, 18 analiz na żywych źródłach, gleba jeszcze
   z wolnej usługi REST SoilGrids): 8,7–24,7 s, mediana 15,5 s, przy budżecie 30 s. Po zmianie źródła gleby
   (22.11.2026, 3 analizy, pogoda z zapisanej odpowiedzi, pozostałe źródła na żywo): 2,2–3,2 s. Raport raz policzony otwiera się bez
