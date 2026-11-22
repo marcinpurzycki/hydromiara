@@ -12,14 +12,348 @@ oraz przedstawia rekomendacje retencyjne, agrotechniczne i nawodnieniowe uzasadn
 | Tytuł rozwiązania | Hydromiara |
 | Zespół | Pair Pressure |
 | Stan | prototyp w budowie |
+| Działająca wersja | do uzupełnienia przed zgłoszeniem: adres wdrożenia |
+| Prezentacja (PDF), film, raporty wygenerowane przez prototyp | do uzupełnienia przed zgłoszeniem: gdzie się znajdują |
 
-## Autorstwo i wykorzystanie AI
+## Spis treści
+
+Dokumentacja jest ułożona według dziewięciu punktów wymaganych w zadaniu (rozdz. 4.2), w tej samej kolejności:
+
+1. [Instrukcja uruchomienia rozwiązania](#1-instrukcja-uruchomienia-rozwiązania)
+2. [Opis podstawowych funkcjonalności](#2-opis-podstawowych-funkcjonalności)
+3. [Skrócony opis architektury rozwiązania](#3-skrócony-opis-architektury-rozwiązania)
+4. [Opis wykorzystanych źródeł i zakresów danych](#4-opis-wykorzystanych-źródeł-i-zakresów-danych)
+5. [Wskazanie, które dane są pobierane na bieżąco, a które zostały pobrane lub przetworzone wcześniej, wraz z datami ich pobrania](#5-wskazanie-które-dane-są-pobierane-na-bieżąco-a-które-zostały-pobrane-lub-przetworzone-wcześniej-wraz-z-datami-ich-pobrania)
+6. [Wykaz wykorzystanych bibliotek, komponentów, modeli, usług zewnętrznych i narzędzi sztucznej inteligencji](#6-wykaz-wykorzystanych-bibliotek-komponentów-modeli-usług-zewnętrznych-i-narzędzi-sztucznej-inteligencji)
+7. [Wskazanie licencji lub innych warunków korzystania z danych i komponentów](#7-wskazanie-licencji-lub-innych-warunków-korzystania-z-danych-i-komponentów)
+8. [Opis znanych ograniczeń technicznych rozwiązania](#8-opis-znanych-ograniczeń-technicznych-rozwiązania)
+9. [Informacja o sposobie weryfikacji wygenerowanych wyników lub rekomendacji](#9-informacja-o-sposobie-weryfikacji-wygenerowanych-wyników-lub-rekomendacji)
+
+Poza dziewięcioma punktami: [Skalowanie](#skalowanie), [Bezpieczeństwo i dane osobowe](#bezpieczeństwo-i-dane-osobowe).
+Szczegółowy opis metody: [docs/metoda.md](docs/metoda.md).
+
+Miejsca oznaczone „do uzupełnienia przed zgłoszeniem” opisują to, czego w chwili pisania nie da się jeszcze podać
+(wyników, pomiarów albo części budowanych osobno); nic w nich nie jest założone z góry.
+
+## 1. Instrukcja uruchomienia rozwiązania
+
+Rozwiązanie składa się z dwóch usług w jednym pliku `docker-compose.yml`: `api` (kod w katalogu `backend/`) i `web`
+(strona dla rolnika; do czasu dołączenia jej obrazu usługa `web` to zastępczy serwer `nginx`).
+
+### Lokalnie, bez Dockera
+
+```bash
+cd backend
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+REPORTS_DB_PATH=./data/reports.sqlite3 .venv/bin/fastapi dev app/main.py   # http://127.0.0.1:8000/api/docs
+.venv/bin/python -m pytest               # testy bez dostępu do sieci
+.venv/bin/python -m tests.smoke.parcels_smoke   # sprawdzenie na żywej usłudze działek (wymaga sieci)
+.venv/bin/python -m tests.smoke.satellite_smoke # sprawdzenie na żywych usługach scen satelitarnych, w tym przełączenia (wymaga sieci)
+.venv/bin/python -m tests.smoke.analysis_smoke  # cała analiza jednej działki na żywych źródłach, z czasem każdego źródła (wymaga sieci)
+.venv/bin/python -m tests.smoke.season_smoke    # raport poza sezonem lub w spoczynku i przejście na Okres krytyczny, na żywych źródłach (wymaga sieci)
+.venv/bin/python -m tests.smoke.history_smoke   # analiza i raport pochodny z Historią upraw: czas, Przebieg historyczny, niezmieniona Podatność wieloletnia (wymaga sieci)
+.venv/bin/python -m tests.smoke.simulation_smoke # analiza jednej działki, potem Ranking upraw i porównanie z jedną Uprawą, z czasami odpowiedzi (wymaga sieci)
+EDO_DATA_PATH=./data/edo .venv/bin/python -m tests.smoke.full_analysis_smoke  # analizy trzech działek, dwie daty, kilka przebiegów: tabela czasów i wyników każdego źródła (wymaga sieci; kilka minut)
+```
+
+Opis interfejsu: `/api/docs` (Swagger UI) i `/api/openapi.json`.
+
+### Lokalnie w Dockerze
+
+API na `http://127.0.0.1:8000`:
+
+```bash
+cp .env.example .env                     # uzupełnij DOMAIN, TRAEFIK_ENTRYPOINT, TRAEFIK_CERTRESOLVER
+docker network create proxy              # jednorazowo
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build api
+```
+
+### Wdrożenie
+
+Na serwerze za Traefikiem (istniejąca sieć `proxy`): `docker compose up -d --build`. Ruch dla `DOMAIN` trafia do
+usługi `web`, a dla `DOMAIN` ze ścieżką `/api` do usługi `api`. Raporty są zapisywane w wolumenie `reports`,
+a pliki wskaźnika suszy są czytane z katalogu `EDO_DATA_PATH` (domyślnie `./data/edo`); przed pierwszym
+uruchomieniem trzeba je tam rozpakować poleceniem `python3 scripts/unpack_drought_files.py KATALOG_ARCHIWÓW`.
+
+Wdrożenie musi ustawić `FORWARDED_ALLOW_IPS` na adres albo podsieć, z której Traefik łączy się z usługą `api`
+(podsieć sieci `proxy`: `docker network inspect proxy`). Bez tego usługa widzi wszystkich odwiedzających pod
+adresem Traefika i liczy im wspólny limit zapytań (patrz „Bezpieczeństwo i dane osobowe”). Szyfrowanie (TLS),
+przekierowanie na HTTPS i nagłówek HSTS należą do Traefika.
+
+Do uzupełnienia przed zgłoszeniem: skrypt wdrożenia na czystym serwerze (Docker, Traefik, domena, konfiguracja
+modelu językowego) i jego opis; wynik uruchomienia pod domeną na serwerze docelowym.
+
+### Konfiguracja
+
+Ustawienia wdrożenia są w pliku `.env` (wzór: `.env.example`); usługa `api` dostaje je jako zmienne środowiskowe.
+
+| Zmienna | Wartość domyślna | Znaczenie |
+|---|---|---|
+| `DOMAIN`, `TRAEFIK_ENTRYPOINT`, `TRAEFIK_CERTRESOLVER` | brak (wymagane) | nazwa hosta oraz nazwy punktu wejścia HTTPS i resolvera certyfikatów Traefika |
+| `EDO_DATA_PATH` | `./data/edo` | katalog serwera z rozpakowanymi plikami wskaźnika suszy |
+| `WEB_IMAGE` | `nginx:alpine` | obraz usługi `web` (strona dla rolnika) |
+| `REPORTS_DB_PATH` | `/data/reports/reports.sqlite3` | plik bazy raportów (w kontenerze: wolumen `reports`); przy uruchomieniu bez Dockera trzeba ją podać |
+| `SATELLITE_PRIMARY` | `planetary-computer` | usługa danych satelitarnych pytana jako pierwsza: `planetary-computer` albo `earth-search` |
+| `SATELLITE_SECONDARY` | `earth-search` | usługa zapasowa; `none` wyłącza przełączanie |
+| `SATELLITE_FALLBACK_AFTER_S` | `4` | po tylu sekundach bez pierwszego odczytu z usługi podstawowej analiza przechodzi na zapasową |
+| `AI_API_KEY` | brak | klucz usługi modelu językowego (sekret); bez klucza albo modelu podsumowanie raportu pochodzi z szablonu |
+| `OPENAI_MODEL` | brak | nazwa modelu w usłudze; nie ma wartości domyślnej |
+| `AI_BASE_URL` | `https://api.openai.com/v1` | adres bazowy usługi zgodnej z OpenAI Chat Completions; tylko `https` (wyjątek: `http` dla tej samej maszyny) |
+| `AI_TIMEOUT_S` | `12` | najdłuższe oczekiwanie na model w sekundach; skracane do czasu, który został z budżetu analizy |
+| `AI_REASONING_EFFORT` | brak | opcjonalne pole `reasoning_effort` zapytania (`none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`) dla modeli, które je obsługują; puste = niewysyłane |
+| `FORWARDED_ALLOW_IPS` | `127.0.0.1` | adresy (albo podsieci), od których usługa przyjmuje nagłówek `X-Forwarded-For`; wdrożenie podaje tu adres Traefika |
+| `RATE_LIMIT_ENABLED` | `1` | `0` wyłącza wszystkie limity zapytań na adres |
+| `RATE_LIMIT_ANALYSIS_PER_MINUTE`, `RATE_LIMIT_ANALYSIS_PER_HOUR` | `6`, `50` | starty analiz z jednego adresu (także analiz na Okres krytyczny); `0` wyłącza dany limit |
+| `RATE_LIMIT_DERIVE_PER_MINUTE` | `10` | raporty pochodne z jednego adresu na minutę |
+| `RATE_LIMIT_LOOKUP_PER_MINUTE` | `40` | wyszukiwania działek z jednego adresu na minutę |
+| `RATE_LIMIT_SIMULATION_PER_MINUTE` | `30` | zapytania Symulacji z jednego adresu na minutę |
+| `RATE_LIMIT_STATUS_PER_MINUTE` | `600` | zapytania o postęp analizy z jednego adresu na minutę |
+| `RATE_LIMIT_OTHER_PER_MINUTE` | `300` | pozostałe zapytania z jednego adresu na minutę |
+| `MAX_CONCURRENT_ANALYSES` | `4` | analizy trwające jednocześnie w całej usłudze; `0` wyłącza limit |
+
+### Dane satelitarne: dwie wymienne usługi
+
+- **Decyzja projektu:** podstawowa jest Planetary Computer, zapasowa Earth Search. Obie udostępniają to samo archiwum
+  Sentinel-2 L2A i są wymienne: zamiana kolejności wymaga tylko zmiany dwóch zmiennych, bez zmian w kodzie.
+  Dla tych samych dat odczyty NDVI i NDMI z obu usług różnią się o ok. 0,01–0,02 (inna wersja przetworzenia
+  lub inny kafel tej samej sceny).
+- **Przełączenie:** gdy usługa podstawowa zgłosi błąd albo w ciągu `SATELLITE_FALLBACK_AFTER_S` sekund nie dostarczy
+  żadnego odczytu, jej praca jest porzucana, a zapytanie trafia do usługi zapasowej z pozostałym czasem
+  (cały etap ma limit 15 s). Usługa, która odpowiedziała, że nie ma czystych scen, nie jest zastępowana.
+  W danych źródłowych raportu zapisana jest usługa, z której pochodzi odczyt.
+- **Skąd kolejność:** pomiar z serwera docelowego (21.11.2026, `scripts/probes/satellite_probe.py`): odczyt 16 scen
+  po 5 pasm trwał 1,2 s z Planetary Computer i 5,5 s z Earth Search; archiwum Planetary Computer sięga lipca 2015 r.,
+  Earth Search listopada 2016 r.
+- **Obecnie używany jest dostęp bezpłatny** do obu usług: bez konta, bez klucza, bez gwarancji dostępności
+  i z limitami zapytań, których dostawcy nie podają liczbowo. To wystarcza dla prototypu.
+- **Przed wdrożeniem produkcyjnym trzeba przejść na płatny plan** z gwarancją dostępności i znanymi limitami
+  (u dostawcy usługi podstawowej, a najlepiej obu) i dodać w adapterze przekazywanie klucza dostępu;
+  obecna wersja klucza nie obsługuje. Do tego czasu ochroną przed niedostępnością jest wyłącznie usługa zapasowa.
+
+### Narzędzia do sprawdzania wyników i czasów
+
+Narzędzia do sprawdzania wyników i czasów (katalog `scripts/`, wymagają sieci): `scripts/backtest.py` uruchamia
+zwykłą analizę dla każdego wiersza pliku CSV (`parcel_id,crop_id,analysis_date`, opcjonalnie `label,region`; wzór
+formatu: `scripts/examples/input_format_example.csv`) i zapisuje tabelę: oba werdykty z Pewnością oceny, klasę
+wskaźnika CDI i wynik Sprawdzenia zgodności, stwierdzone Przyczyny, źródła z danymi i bez, czasy.
+`scripts/measure_sources.py` dla tej samej listy mierzy czas każdego źródła osobno i w całej analizie, w kilku
+powtórzeniach, i podaje odsetek odpowiedzi w limicie czasu oraz minimum, medianę, 90. percentyl i maksimum.
+Oba narzędzia używają kodu aplikacji i żywych źródeł, piszą plik CSV wiersz po wierszu (przerwane uruchomienie
+można wznowić tym samym poleceniem) i na koniec wypisują tabelę Markdown. Domyślne tempo (jedna analiza naraz,
+13 s odstępu, najwyżej 50 na godzinę i 100 na dobę) mieści się w limitach bezpłatnych usług. Uruchomienie z katalogu
+głównego: `EDO_DATA_PATH=./data/edo backend/.venv/bin/python scripts/backtest.py scripts/examples/input_format_example.csv`;
+opis opcji, uruchomienia w kontenerze usługi i przez adres działającej usługi (`--base-url`): `--help` obu narzędzi.
+Uruchomione w swoim procesie narzędzia nie podlegają limitom zapytań usługi; przez `--base-url` mieszczą się
+w limitach domyślnych przy domyślnym tempie (odpytywanie postępu co 0,25 s to 240 zapytań na minutę przy limicie 600).
+
+Programy pomiarowe źródeł danych (czas i dostępność z danej maszyny) opisuje `scripts/probes/README.md`.
+
+## 2. Opis podstawowych funkcjonalności
+
+Rolnik wskazuje Działkę, wybiera Uprawę z listy i Datę analizy (domyślnie dzień bieżący; może być historyczna).
+Aplikacja pobiera dane, liczy bilans wodny i zapisuje Raport pod własnym losowym adresem, bez konta użytkownika.
+
+- **Wskazanie Działki** na trzy sposoby: pełny Identyfikator działki, Numer działki z nazwą obrębu (gdy pasuje
+  wiele Działek, wybiera użytkownik) albo punkt na mapie. Adres nie jest sposobem wskazania.
+- **Analiza w tle z widocznym postępem**: stan każdego źródła danych osobno; Raport powstaje także wtedy, gdy nie
+  odpowie dowolne źródło poza działką i pogodą.
+- **Dwa osobne werdykty**, każdy z własnym Stopniem niedoboru (w normie, lekki niedobór, wyraźny niedobór, silny
+  niedobór) i własną Pewnością oceny: Bieżąca sytuacja wodna (stan na Datę analizy) i Podatność wieloletnia
+  (w ilu z 10 lat Okna wieloletniego tej Uprawie brakowałoby wody).
+- **Przyczyny niedoboru** (cztery, każda ze wskaźnikiem, progiem i wartością dla Działki) oraz **Rekomendacje**
+  z zamkniętego katalogu, każda z regułą, wartościami, które ją uruchomiły, i źródłem. Bez stwierdzonej Przyczyny
+  Raport nie zawiera Rekomendacji i mówi to wprost.
+- **Nawadnianie**: zasadność, przedział w mm i m³/ha oraz termin słownie, wyłącznie ze stanu na Datę analizy, bez
+  prognozy pogody, sformułowane warunkowo.
+- **Data poza Sezonem uprawy**: Raport opisuje miniony sezon i Zapas wody w glebie; przejście „Pokaż okres
+  największego zapotrzebowania na wodę” uruchamia zwykłą analizę na środek ostatniego Okresu krytycznego.
+- **Historia upraw** (opcjonalna, w trakcie analizy albo później jako raport pochodny z tych samych danych)
+  dokłada Przebieg historyczny rok po roku; werdyktów nie zmienia.
+- **Symulacja**: Ranking upraw najmniej narażonych na niedobór wody na tej Działce i porównanie bieżącej Uprawy
+  z jedną wybraną, rok po roku, tą samą miarą co w Raporcie.
+- **Sprawdzenie zgodności** w każdym Raporcie: własny werdykt obok niezależnego wskaźnika suszy i odczytu satelitarnego.
+- **Ograniczenia raportu** podane wprost: stałe (Raport nie jest urzędowym stwierdzeniem suszy rolniczej, nie ocenia
+  nadmiaru wody, nie korzysta z prognozy pogody, publiczne dane o rowach są niekompletne) i wynikające z danych tej analizy.
+- **Źródła i ślad decyzyjny**: Raport wymienia każde źródło z licencją, trybem pobrania, datą danych i czasem
+  odczytu oraz każdą regułę z wartościami, które o niej zdecydowały.
+- **Krótkie podsumowanie** Raportu: z szablonu albo, gdy skonfigurowano model językowy, zredagowane przez model
+  i sprawdzone (punkt 6).
+
+Trasy interfejsu (wszystkie pod `/api`, odpowiedzi JSON, błędy w postaci `{code, message}` z tekstem po polsku):
+
+| Metoda i ścieżka | Cel |
+|---|---|
+| `GET /health` | stan usługi |
+| `GET /crops`, `GET /examples` | lista Upraw i Przykłady (obecnie dane przykładowe, patrz punkt 8) |
+| `GET /parcels/search?q=`, `GET /parcels/at?lon=&lat=`, `GET /parcels/{parcel_id}` | wyszukanie Działki, Działka w punkcie mapy, geometria Działki |
+| `POST /analyses` | start analizy: `{parcel_id, crop_id, analysis_date}`, odpowiedź `202 {report_id}` od razu |
+| `GET /analyses/{report_id}/status` | postęp analizy i stan każdego źródła |
+| `PUT /analyses/{report_id}/crop-history` | Historia upraw podana w trakcie analizy |
+| `GET /reports/{report_id}` | gotowy Raport (`425`, gdy jeszcze powstaje) |
+| `POST /reports/{report_id}/derive` | nowy Raport z tych samych danych źródłowych i podanej Historii upraw |
+| `POST /reports/{report_id}/critical-period` | analiza na środek ostatniego Okresu krytycznego |
+| `GET /reports/{report_id}/simulation/ranking`, `.../simulation/compare?crop_id=` | Symulacja |
+
+Raport przykładowy `/api/reports/demo` i trasy wywołane dla niego odpowiadają danymi przykładowymi (atrapą).
+
+Do uzupełnienia przed zgłoszeniem: opis strony dla rolnika (ekrany, mapa, wydruk Raportu i zapis do PDF) oraz
+sześć Przykładów podpowiadanych w aplikacji.
+
+## 3. Skrócony opis architektury rozwiązania
+
+```
+przeglądarka ── HTTPS ──> Traefik ──┬─> web  (strona dla rolnika)
+                                    └─> api  (FastAPI, jeden proces)  ──> usługi danych (na żywo)
+                                              │                       ──> pliki wskaźnika suszy (lokalnie)
+                                              └─> SQLite w wolumenie: raporty z danymi źródłowymi
+```
+
+Jedna domena: ścieżka `/api` trafia do usługi `api`, reszta do `web`, więc przeglądarka nie potrzebuje dostępu
+między domenami (CORS nie jest otwarty). Kod usługi `api` (`backend/app/`):
+
+| Katalog | Odpowiedzialność |
+|---|---|
+| `api/` | trasy, sprawdzanie danych wejściowych, limity zapytań, nagłówki odpowiedzi |
+| `contracts/` | modele żądań i odpowiedzi, struktura danych źródłowych i Raportu |
+| `sources/` | adaptery źródeł: tylko pobierają i normalizują dane; Łańcuch zamienników (źródło podstawowe, zamiennik, brak danych) |
+| `engine/` | czyste funkcje: bilans wodny, werdykty, Przyczyny, reguły Rekomendacji, nawadnianie, Pewność oceny, Ograniczenia, Sprawdzenie zgodności, Symulacja; bez sieci, zegara i bazy |
+| `catalog/` | zamknięta lista Upraw z parametrami i katalog Rekomendacji z szablonami tekstów (dane, nie kod) |
+| `orchestrator/` | analiza w tle: równoległe pobieranie z limitami czasu, postęp, złożenie Raportu |
+| `storage/` | SQLite: Raport, pełne dane źródłowe, Historia upraw; usuwanie po czasie |
+| `summary/` | podsumowanie Raportu z szablonu albo z modelu językowego, z kontrolą odpowiedzi |
+
+Przebieg analizy. `POST /api/analyses` zwraca identyfikator od razu, a praca biegnie w tle: najpierw działka
+(usługa ULDK), potem równolegle pogoda, gleba, ukształtowanie terenu i obserwacje satelitarne oraz odczyt tła
+suszowego z plików lokalnych; silnik liczy bilans wodny i resztę Raportu; Raport jest zapisywany razem
+z wszystkimi pobranymi danymi źródłowymi. Pojemność wodna gleby w bilansie pochodzi z pobranego profilu glebowego;
+gdy gleby nie ma, przyjmowana jest wartość zastępcza, a Raport podaje to jako Ograniczenie i obniża Pewność oceny.
+Bez działki i pogody Raport nie powstaje; każde inne źródło, które nie odpowie, zgłosi błąd albo przekroczy swój
+limit czasu, jest w Raporcie i w postępie oznaczone jako brak, a analiza biegnie dalej.
+
+Limity czasu (`backend/app/orchestrator/params.py`): całość 30 s, z czego 3 s rezerwy na obliczenia i zapis;
+pogoda 12 s, gleba 24 s, teren i satelita po 17 s, tło suszowe 5 s; żadne źródło poza pogodą nie czeka dłużej niż
+do sekundy przed końcem czasu na pobieranie. Dane o wodach (cieki, rowy, zbiorniki) nie są jeszcze pobierane:
+w postępie analizy to źródło ma stan `missing`. Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego
+pozycji jest stała); jest na liście źródeł Raportu.
+
+Wynik liczy deterministyczny kod: oba werdykty, Przyczyny niedoboru, wybór Rekomendacji, wszystkie liczby
+i Ograniczenia. Teksty Raportu pochodzą z szablonów przypisanych do reguł, więc Raport jest kompletny bez modelu
+językowego; model może tylko zredagować krótkie podsumowanie z gotowego Raportu.
+
+Przechowywanie. Raporty są w jednym pliku SQLite; jego ścieżkę podaje zmienna środowiskowa `REPORTS_DB_PATH`
+(domyślnie `/data/reports/reports.sqlite3`, czyli wolumen `reports` kontenera). Raport ma losowy adres, nie zmienia
+się po zapisaniu i jest usuwany po 30 dniach (wartość robocza). Ponowne otwarcie adresu niczego nie liczy od nowa;
+Symulacja i raport pochodny korzystają z danych zapisanych z Raportem i niczego nie pobierają. Usługa działa
+w jednym procesie: analiza przerwana ponownym uruchomieniem usługi kończy się stanem `failed` i trzeba ją
+uruchomić ponownie.
+
+Opis metody (bilans, werdykty, Pewność oceny, Sprawdzenie zgodności, Przyczyny, teren, sezon, Rekomendacje,
+nawadnianie, Historia upraw, Symulacja): [docs/metoda.md](docs/metoda.md).
+
+## 4. Opis wykorzystanych źródeł i zakresów danych
+
+Jedna tabela służy punktom 4, 5 i 7: kolumna „Tryb” i „Data danych / odczytu” to punkt 5, kolumna „Warunki
+wykorzystania” to punkt 7. Na zewnątrz wysyłane są tylko współrzędne, Identyfikator działki i zakres dat.
+
+| Dane | Źródło | Tryb | Data danych / odczytu | Warunki wykorzystania |
+|---|---|---|---|---|
+| Działki ewidencyjne: identyfikator, położenie administracyjne, geometria | Główny Urząd Geodezji i Kartografii (GUGiK), Usługa Lokalizacji Działek Katastralnych (ULDK), `https://uldk.gugik.gov.pl/` | na żywo | stan rejestru w chwili analizy; czas odczytu zapisany w raporcie (`sources[].fetched_at`) | bezpłatnie, bez rejestracji; wymagane podanie źródła; limit zapytań na adres IP |
+| Pogoda dzienna do Daty analizy: suma opadu, ewapotranspiracja wskaźnikowa ET0 (FAO-56), średnia temperatura | Open-Meteo, archiwum pogodowe (reanaliza ERA5 / ECMWF IFS), `https://archive-api.open-meteo.com/v1/archive` | na żywo | wartości dzienne od 1 stycznia roku o 10 lat wcześniejszego niż Data analizy (z zapasem 120 dni na rozruch bilansu) do Daty analizy; czas odczytu zapisany w raporcie | dane na licencji CC BY 4.0, wymagane podanie źródła; bezpłatny dostęp bez klucza tylko do zastosowań niekomercyjnych; limit 600 zapytań na minutę, 5000 na godzinę i 10 000 na dobę |
+| Tło suszowe: klasa wskaźnika Combined Drought Indicator (CDI) w komórce siatki działki, co dekadę, od 2016 r. | European Drought Observatory (EDO), Komisja Europejska, Wspólne Centrum Badawcze (JRC); © Unia Europejska, 1995–2026; `https://drought.emergency.copernicus.eu/data/Drought_Observatories_datasets/` (katalog `EDO_Combined_Drought_Indicator`) | plik lokalny: archiwa roczne rozpakowane do `EDO_DATA_PATH` poleceniem `python3 scripts/unpack_drought_files.py KATALOG_ARCHIWÓW`; stan plików na 21.11.2026, dekady od 01.01.2016 do 01.11.2026 | pliki pobrane wcześniej: stan na 21.11.2026, dekady od 01.01.2016 do 01.11.2026; raport podaje dekadę użytą w Sprawdzeniu zgodności | CC BY 4.0; wymagane podanie źródła i zaznaczenie zmian (pliki testowe w `backend/tests/fixtures/edo/` to wycinki 3 × 3 komórki bez metadanych) |
+| Ukształtowanie terenu: siatka wysokości ok. 30 m wokół działki | Copernicus DEM GLO-30 (model pokrycia terenu z misji TanDEM-X, pomiary z lat 2011–2015; wysokości obejmują budynki i roślinność), pliki z `https://registry.opendata.aws/copernicus-dem/`, arkusz wyszukiwany w katalogu Earth Search (`https://earth-search.aws.element84.com/v1`, kolekcja `cop-dem-glo-30`) | na żywo | pomiary z lat 2011–2015; czas odczytu zapisany w raporcie | bezpłatnie dla każdego na warunkach licencji Copernicus DEM (GLO-30 Public), bez rejestracji; wymagane podanie źródła i informacji o prawach autorskich |
+| Parametry wodne Upraw: współczynniki Kc, głębokość korzeni, dopuszczalne wyczerpanie wody w glebie (p) | Allen R.G., Pereira L.S., Raes D., Smith M. (1998), „Crop evapotranspiration: guidelines for computing crop water requirements”, FAO Irrigation and Drainage Paper 56, tabele 12 i 22 | wartości wpisane w kodzie (`backend/app/catalog/crop_data.py`), każda ze wskazaniem tabeli; wartości bez źródła są tam oznaczone jako robocze | publikacja z 1998 r.; wartości wpisane w kodzie, nie są pobierane | publikacja FAO; wartości liczbowe przytoczone z podaniem źródła |
+| Gleba w punkcie działki, warstwy do 100 cm: piasek, pył, ił, węgiel organiczny, zawartość wody przy 33 i 1500 kPa; z nich pojemność wodna (różnica zawartości wody, niezweryfikowana pomiarem na działce) | ISRIC – World Soil Information, SoilGrids 2.0 (model globalny, siatka 250 m), `https://rest.isric.org/soilgrids/v2.0/properties/query` | na żywo | mapy statyczne (wersja 2.0), bez daty obserwacji; czas odczytu zapisany w raporcie | CC BY 4.0, wymagane podanie źródła; usługa w fazie beta, bez gwarancji dostępności; limit 5 zapytań na minutę; zmierzony czas odpowiedzi 11–35 s |
+| Obserwacje satelitarne do Daty analizy: klasyfikacja sceny (SCL) oraz pasma czerwone, bliskiej podczerwieni i krótkofalowej podczerwieni nad działką; z nich udział czystych pikseli, NDVI i NDMI | Copernicus Sentinel-2, poziom L2A (ESA / Komisja Europejska), z dwóch wymiennych usług (kolejność w konfiguracji): podstawowa Microsoft Planetary Computer, `https://planetarycomputer.microsoft.com/api/stac/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w Azure West Europe, odczyt z bezpłatnym tokenem pobieranym bez konta; zapasowa Earth Search (Element 84), `https://earth-search.aws.element84.com/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w rejestrze otwartych danych AWS | na żywo | sceny z 30 dni przed Datą analizy i z tego samego okresu w 3 poprzednich latach (archiwum od 2015 r. w usłudze podstawowej, od 2016 r. w zapasowej); data każdej sceny i czas odczytu zapisane w raporcie | bezpłatny, pełny i otwarty dostęp do danych na warunkach noty prawnej danych Sentinel (`https://sentinel.esa.int/documents/247904/690755/Sentinel_Data_Legal_Notice`); wymagane podanie źródła i zaznaczenie przetworzenia danych; obie usługi obecnie w dostępie bezpłatnym, bez klucza i bez gwarancji dostępności (patrz „Konfiguracja”) |
+| Metoda oceny: dzienny bilans wody w strefie korzeniowej, woda łatwo dostępna i współczynnik stresu wodnego Ks, z których powstają Bieżąca sytuacja wodna i Podatność wieloletnia | Allen R.G., Pereira L.S., Raes D., Smith M. (1998), „Crop evapotranspiration: guidelines for computing crop water requirements”, FAO Irrigation and Drainage Paper 56, rozdział 8 (równania 80, 82–86 i 88), tabela 19 | metoda zapisana w kodzie (`backend/app/engine/`); progi i wartości robocze w jednym pliku `backend/app/engine/params.py`, każda bez źródła oznaczona tam jako robocza | publikacja z 1998 r.; metoda zapisana w kodzie, nie jest pobierana | publikacja FAO; równania przytoczone z podaniem źródła |
+
+Źródła, z których aplikacja jeszcze nie korzysta, a które są potrzebne do pełnego zakresu:
+
+- dane o wodach (cieki, rowy, zbiorniki): do uzupełnienia przed zgłoszeniem, jeśli źródło zostanie podłączone
+  (źródło, licencja, tryb i data danych);
+- numeryczny model terenu 1 m jako ogniwo podstawowe przed modelem 30 m: do uzupełnienia, jeśli zostanie podłączony;
+- mapa kategorii podatności gleb na suszę jako podstawowe źródło pojemności wodnej: do uzupełnienia, jeśli zostanie
+  podłączona.
+
+## 5. Wskazanie, które dane są pobierane na bieżąco, a które zostały pobrane lub przetworzone wcześniej, wraz z datami ich pobrania
+
+| Dane | Jak trafiają do analizy | Data |
+|---|---|---|
+| Działka, pogoda, gleba, ukształtowanie terenu, obserwacje satelitarne | **na bieżąco**, w trakcie każdej analizy, z usług wymienionych w punkcie 4 | czas odczytu każdego źródła jest zapisany w Raporcie (`sources[].fetched_at`) razem z datą danych (`data_date`) |
+| Tło suszowe (wskaźnik CDI) | **pobrane wcześniej**: archiwa roczne rozpakowane do plików lokalnych, bez przetwarzania wartości | stan plików na 21.11.2026; dekady od 01.01.2016 do 01.11.2026 |
+| Parametry Upraw, katalog Rekomendacji, progi i reguły metody | **wpisane w kodzie** ze wskazaniem źródła albo z oznaczeniem wartości roboczej | publikacje wymienione w punkcie 4; stan kodu na dzień zgłoszenia |
+| Raport i jego dane źródłowe | **zapisane przez aplikację** przy analizie; Symulacja i raport pochodny liczą z tego zapisu | czas utworzenia Raportu (`meta.created_at`) |
+
+Wynik i Rekomendacje oblicza aplikacja z tych danych przy każdej analizie: nie ma gotowych wyników wpisanych
+z góry, a Przykład podpowiadany w aplikacji tylko wypełnia formularz i uruchamia zwykłą analizę na żywo. Wyjątkiem
+jest raport przykładowy `/api/reports/demo` (dane przykładowe do budowy strony, patrz punkt 8). Żadne dane nie są
+dziś buforowane między analizami; decyzja, co buforować i jak często odświeżać, jest opisana w części „Skalowanie”.
+
+## 6. Wykaz wykorzystanych bibliotek, komponentów, modeli, usług zewnętrznych i narzędzi sztucznej inteligencji
+
+### Biblioteki
+
+Wersje są przypięte w `backend/requirements.txt` i `backend/requirements-dev.txt`.
+
+| Biblioteka | Zastosowanie | Licencja |
+|---|---|---|
+| FastAPI | interfejs HTTP, opis OpenAPI | MIT |
+| Pydantic | modele kontraktu i walidacja | MIT |
+| Uvicorn | serwer aplikacji | BSD-3-Clause |
+| pytest | testy | MIT |
+| HTTPX | zapytania do źródeł danych, klient testowy | BSD-3-Clause |
+| Shapely | geometria działki (WKT, GeoJSON, powierzchnia) | BSD-3-Clause |
+| pyproj | przeliczenie układów współrzędnych (EPSG:4326 → EPSG:2180) | MIT |
+| Rasterio (z biblioteką GDAL) | odczyt fragmentu rastra nad działką, maska obrysu, odczyt plików GeoTIFF wskaźnika CDI | BSD-3-Clause (GDAL: MIT) |
+| NumPy | tablice wartości rastra (wymagane przez Rasterio) | BSD-3-Clause |
+
+Do uzupełnienia przed zgłoszeniem: biblioteki strony dla rolnika (usługa `web`).
+
+### Komponenty
+
+| Komponent | Zastosowanie | Licencja |
+|---|---|---|
+| Python 3.13 (obraz `python:3.13-slim`) | środowisko usługi `api` | PSF License (obraz: pakiety Debiana na własnych licencjach) |
+| SQLite (z biblioteki standardowej Pythona) | baza raportów | domena publiczna |
+| Docker Engine z Docker Compose | uruchomienie usług | Apache-2.0 |
+| Traefik | serwer pośredniczący na serwerze docelowym: TLS, kierowanie ruchu | MIT |
+| nginx (obraz `nginx:alpine`) | zastępcza usługa `web` do czasu dołączenia strony | BSD-2-Clause |
+| Swagger UI | strona `/api/docs` z opisem interfejsu; skrypt i styl ładowane przez przeglądarkę z publicznej sieci CDN | Apache-2.0 |
+
+### Usługi zewnętrzne
+
+Usługi danych: ULDK (GUGiK), archiwum pogodowe Open-Meteo, SoilGrids (ISRIC), Copernicus DEM (pliki w rejestrze
+otwartych danych AWS, katalog Earth Search), Sentinel-2 przez Microsoft Planetary Computer i Earth Search
+(Element 84). Adresy, zakres i warunki: tabela w punkcie 4. Opcjonalnie usługa modelu językowego (niżej).
+Żadna z usług danych nie wymaga konta ani klucza.
+
+### Modele
+
+Aplikacja nie zawiera modelu uczenia maszynowego i żadnego nie trenuje. Ocena to bilans wodny i reguły. Jedyny
+model to opcjonalny model językowy redagujący podsumowanie Raportu (niżej).
+
+### Autorstwo i wykorzystanie AI
 
 Autorem rozwiązania jest zespół. Ludzie ustalają wymagania, podejmują decyzje projektowe, dobierają metody
 i źródła danych, przeglądają każdą zmianę i odpowiadają za wynik. Narzędzia AI służą do pisania implementacji
 według planu zespołu, pod nadzorem programisty.
 
-Szczegółowy wykaz narzędzi i modeli AI oraz zakres ich użycia zostanie uzupełniony przed zgłoszeniem.
+Udział AI w każdej zmianie jest zapisany w historii repozytorium, w stopkach commitów: `Authorship` (`mixed`:
+praca zespołu i implementacja z udziałem AI; `human`: bez AI), `Implementation` (`agent`: kod napisało narzędzie AI,
+programista go przejrzał; `agent+operator`: programista poprawiał ręcznie; `operator`: kod napisał człowiek)
+i `Assisted-by` (narzędzie i model). Liczby wyprowadza się z historii:
+
+```bash
+git log --format='%(trailers:key=Implementation,valueonly)' | grep -v '^$' | sort | uniq -c
+git log --format='%(trailers:key=Assisted-by,valueonly)' | grep -v '^$' | sort | uniq -c
+```
+
+Stan gałęzi `main` na 22.11.2026 (przed dołączeniem ostatnich zmian): 55 commitów (29 zmian i 26 scaleń), wszystkie
+`Authorship: mixed` i `Implementation: agent`, wszystkie `Assisted-by: Claude Code:claude-fable-5-2` (narzędzie
+Claude Code firmy Anthropic).
+
+Do uzupełnienia przed zgłoszeniem: liczby na dzień zgłoszenia (te same polecenia), pełny wykaz narzędzi i modeli AI
+użytych przez zespół (także przy stronie dla rolnika, badaniu źródeł i materiałach prezentacyjnych) z zakresem
+użycia oraz ich warunki korzystania.
 
 ### AI w działaniu aplikacji: podsumowanie raportu
 
@@ -70,262 +404,19 @@ z gotowych tekstów raportu (`summary.source = "template"`). To stan domyślny, 
   aplikacja działa w pełni bez niej. Przekazane dane przetwarza dostawca na własnych warunkach: przed wdrożeniem
   pełnoskalowym człowiek powinien sprawdzić warunki przetwarzania i przechowywania danych u wybranego dostawcy.
 
-## Uruchomienie
+## 7. Wskazanie licencji lub innych warunków korzystania z danych i komponentów
 
-Usługa `api` (FastAPI) wystawia wszystkie trasy pod `/api`. Wyszukiwanie działek (`/api/parcels/...`) korzysta
-na żywo z usługi ULDK. Analiza (`POST /api/analyses`, postęp pod `/api/analyses/{report_id}/status`, wynik pod
-`/api/reports/{report_id}`) pobiera na żywo działkę, a potem równolegle pogodę, glebę, ukształtowanie terenu
-i obserwacje satelitarne oraz czyta z plików lokalnych tło suszowe; liczy bilans wodny i zapisuje raport razem
-z wszystkimi pobranymi danymi źródłowymi. Pojemność wodna gleby w bilansie pochodzi z pobranego profilu glebowego;
-gdy gleby nie ma, przyjmowana jest wartość zastępcza, a raport podaje to jako Ograniczenie i obniża Pewność oceny.
-Bez działki i pogody raport nie powstaje; każde inne źródło, które nie odpowie, zgłosi błąd albo przekroczy swój
-limit czasu, jest w raporcie i w postępie oznaczone jako brak, a analiza biegnie dalej. Limity czasu
-(`backend/app/orchestrator/params.py`): całość 30 s, z czego 3 s rezerwy na obliczenia i zapis; pogoda 12 s,
-gleba 24 s, teren i satelita po 17 s, tło suszowe 5 s; żadne źródło poza pogodą nie czeka dłużej niż do sekundy
-przed końcem czasu na pobieranie. Usługa gleby odpowiada wolno (zmierzone 11–35 s), więc część analiz kończy się
-bez gleby. Dane o wodach (cieki, rowy, zbiorniki) nie są jeszcze pobierane: w postępie analizy to źródło ma stan
-`missing`. Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego pozycji jest stała); jest na liście
-źródeł raportu. Raport zawiera krótkie podsumowanie (`summary`): z szablonu albo, gdy skonfigurowano model językowy,
-zredagowane przez model i sprawdzone (część „AI w działaniu aplikacji: podsumowanie raportu”).
-Lista upraw i przykłady odpowiadają na obecnym etapie danymi przykładowymi (atrapą). Analiza na Okres krytyczny
-(`POST /api/reports/{report_id}/critical-period`), raport pochodny z Historią upraw
-(`POST /api/reports/{report_id}/derive`) i Symulacja są prawdziwe; dla raportu przykładowego `/api/reports/demo`
-odpowiadają atrapą.
-Opis interfejsu: `/api/docs` (Swagger UI) i `/api/openapi.json`.
+- **Dane i usługi danych**: kolumna „Warunki wykorzystania” tabeli w punkcie 4. Każdy Raport podaje przy swoich
+  źródłach nazwę i licencję (`sources[]`).
+- **Biblioteki i komponenty**: kolumna „Licencja” tabel w punkcie 6. Wszystkie są na licencjach otwartych.
+- **Model językowy**: usługa płatna według cennika dostawcy, wymaga konta i klucza; aplikacja działa w pełni bez
+  niej (punkt 6, „Warunki korzystania”).
+- **Dane satelitarne**: dziś dostęp bezpłatny bez gwarancji dostępności; przed wdrożeniem produkcyjnym płatny plan
+  (punkt 1, „Dane satelitarne: dwie wymienne usługi”).
+- **Pogoda**: bezpłatny dostęp do Open-Meteo bez klucza jest przeznaczony wyłącznie do zastosowań niekomercyjnych;
+  użycie komercyjne albo większy ruch wymaga płatnego planu.
 
-Lokalnie, bez Dockera:
-
-```bash
-cd backend
-python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
-REPORTS_DB_PATH=./data/reports.sqlite3 .venv/bin/fastapi dev app/main.py   # http://127.0.0.1:8000/api/docs
-.venv/bin/python -m pytest               # testy bez dostępu do sieci
-.venv/bin/python -m tests.smoke.parcels_smoke   # sprawdzenie na żywej usłudze działek (wymaga sieci)
-.venv/bin/python -m tests.smoke.satellite_smoke # sprawdzenie na żywych usługach scen satelitarnych, w tym przełączenia (wymaga sieci)
-.venv/bin/python -m tests.smoke.analysis_smoke  # cała analiza jednej działki na żywych źródłach, z czasem każdego źródła (wymaga sieci)
-.venv/bin/python -m tests.smoke.season_smoke    # raport poza sezonem lub w spoczynku i przejście na Okres krytyczny, na żywych źródłach (wymaga sieci)
-.venv/bin/python -m tests.smoke.history_smoke   # analiza i raport pochodny z Historią upraw: czas, Przebieg historyczny, niezmieniona Podatność wieloletnia (wymaga sieci)
-.venv/bin/python -m tests.smoke.simulation_smoke # analiza jednej działki, potem Ranking upraw i porównanie z jedną Uprawą, z czasami odpowiedzi (wymaga sieci)
-EDO_DATA_PATH=./data/edo .venv/bin/python -m tests.smoke.full_analysis_smoke  # analizy trzech działek, dwie daty, kilka przebiegów: tabela czasów i wyników każdego źródła (wymaga sieci; kilka minut)
-```
-
-Lokalnie w Dockerze (API na `http://127.0.0.1:8000`):
-
-```bash
-cp .env.example .env                     # uzupełnij DOMAIN, TRAEFIK_ENTRYPOINT, TRAEFIK_CERTRESOLVER
-docker network create proxy              # jednorazowo
-docker compose -f docker-compose.yml -f docker-compose.local.yml up --build api
-```
-
-Na serwerze za Traefikiem (istniejąca sieć `proxy`): `docker compose up -d --build`. Ruch dla `DOMAIN` trafia do
-usługi `web`, a dla `DOMAIN` ze ścieżką `/api` do usługi `api`. Raporty są zapisywane w wolumenie `reports`,
-a pliki wskaźnika suszy są czytane z katalogu `EDO_DATA_PATH` (domyślnie `./data/edo`).
-
-Narzędzia do sprawdzania wyników i czasów (katalog `scripts/`, wymagają sieci): `scripts/backtest.py` uruchamia
-zwykłą analizę dla każdego wiersza pliku CSV (`parcel_id,crop_id,analysis_date`, opcjonalnie `label,region`; wzór
-formatu: `scripts/examples/input_format_example.csv`) i zapisuje tabelę: oba werdykty z Pewnością oceny, klasę
-wskaźnika CDI i wynik Sprawdzenia zgodności, stwierdzone Przyczyny, źródła z danymi i bez, czasy.
-`scripts/measure_sources.py` dla tej samej listy mierzy czas każdego źródła osobno i w całej analizie, w kilku
-powtórzeniach, i podaje odsetek odpowiedzi w limicie czasu oraz minimum, medianę, 90. percentyl i maksimum.
-Oba narzędzia używają kodu aplikacji i żywych źródeł, piszą plik CSV wiersz po wierszu (przerwane uruchomienie
-można wznowić tym samym poleceniem) i na koniec wypisują tabelę Markdown. Domyślne tempo (jedna analiza naraz,
-13 s odstępu, najwyżej 50 na godzinę i 100 na dobę) mieści się w limitach bezpłatnych usług. Uruchomienie z katalogu
-głównego: `EDO_DATA_PATH=./data/edo backend/.venv/bin/python scripts/backtest.py scripts/examples/input_format_example.csv`;
-opis opcji, uruchomienia w kontenerze usługi i przez adres działającej usługi (`--base-url`): `--help` obu narzędzi.
-
-Raporty są przechowywane w jednym pliku SQLite; jego ścieżkę podaje zmienna środowiskowa `REPORTS_DB_PATH`
-(domyślnie `/data/reports/reports.sqlite3`, czyli wolumen `reports` kontenera). Raport ma losowy adres, nie zmienia
-się po zapisaniu i jest usuwany po 30 dniach (wartość robocza). Usługa działa w jednym procesie: analiza przerwana
-ponownym uruchomieniem usługi kończy się stanem `failed` i trzeba ją uruchomić ponownie. W bazie i w logach nie ma
-danych osobowych; zapisywany jest identyfikator działki, który da się powiązać z właścicielem w rejestrach publicznych.
-
-Każdy raport podaje Pewność oceny osobno dla Bieżącej sytuacji wodnej i dla Podatności wieloletniej (wysoka, średnia,
-niska) razem z powodami oraz pełną listę Ograniczeń raportu. Ograniczenia stałe (raport nie jest urzędowym stwierdzeniem
-suszy rolniczej, nie ocenia nadmiaru wody, nie korzysta z prognozy pogody, publiczne dane o rowach są niekompletne) są
-w każdym raporcie i Pewności nie obniżają. Pozostałe wynikają z danych tej analizy: brak kategorii danych, dane
-z mniej dokładnego zamiennika (Łańcuch zamienników: źródło podstawowe, zamiennik, brak danych), pojemność wodna gleby
-przyjęta zastępczo, dane pogodowe kończące się przed Datą analizy, dni bez pogody, niepełne Okno wieloletnie.
-Pewność werdyktu obniżają tylko Ograniczenia, które go dotyczą. Reguła jest robocza i nie ma źródła naukowego:
-Ograniczenie liczy się za 1 punkt, pojemność wodna przyjęta zastępczo i wynik „rozbieżne” Sprawdzenia zgodności
-za 2; od 1 punktu Pewność jest średnia, od 3 niska; werdykt bez oceny ma Pewność niską. Wagi i progi są nazwanymi
-parametrami w `backend/app/engine/findings.py`.
-
-Każdy raport zawiera Sprawdzenie zgodności: Bieżąca sytuacja wodna jest zestawiana z niezależnym wskaźnikiem suszy
-CDI (European Drought Observatory) i pokazywana obok odczytu satelitarnego z tego samego okresu. Wynik to „zgodne”,
-„rozbieżne” albo „brak danych”, ze zdaniem opisującym, co z czym porównano, i z listą pozycji (źródło, okres, wartość,
-znaczenie). Używana jest ostatnia dekada wskaźnika zakończona nie później niż Data analizy: dekada, która w tym dniu
-jeszcze trwa, powstaje z późniejszych obserwacji, więc nie jest czytana. Reguły są robocze i nie mają źródła naukowego
-(nazwane parametry w `backend/app/engine/consistency_params.py`): niedobór to Stopień niedoboru od „lekki niedobór”
-wzwyż; klasy wskaźnika 1–3 (obserwacja, ostrzeżenie, alarm) wskazują suszę, klasa 0 jej nie wskazuje, a klasy 4–6
-(powrót do normy, chwilowa poprawa) nie są zestawiane; wynik jest „zgodne”, gdy oba wskazują to samo. Odczyt
-satelitarny (NDVI, NDMI z najnowszej sceny z 30 dni przed Datą analizy) jest podawany opisowo i nie zmienia wyniku;
-poza Sezonem uprawy i dla Pola bez uprawy opisuje tylko pokrywę pola. Wynik „rozbieżne” obniża Pewność oceny Bieżącej
-sytuacji wodnej i jest Ograniczeniem raportu; Ograniczeniem jest też brak wartości wskaźnika dla potrzebnej dekady
-(wskaźnik jest dostępny od 2016 r. i ukazuje się z opóźnieniem). Podatność wieloletnia nie jest zestawiana. Werdykt
-bez Stopnia niedoboru (Pole bez uprawy) daje „brak danych” z podaniem powodu.
-
-Przyczyny niedoboru są wyznaczane tylko wtedy, gdy co najmniej jeden werdykt wskazuje niedobór. Każda z czterech
-ma wskaźnik, próg i wartość dla Działki oraz jeden z trzech stanów: stwierdzona, niestwierdzona albo brak danych
-do oceny (w raporcie: `found = false` i `indicator.value = null`). Wskaźniki: opad jako część parowania
-wskaźnikowego ET0 (w latach z niedoborem, a gdy niedobór wskazuje tylko Bieżąca sytuacja wodna, w ostatnich 30
-dniach), woda dostępna dla roślin na metr gleby, średni spadek terenu, współczynnik uprawy Kc w środkowej fazie
-wzrostu. Wszystkie cztery progi (50%, 140 mm/m, 2%, Kc 1,0) są wartościami roboczymi bez źródła naukowego,
-zapisanymi jako nazwane parametry w `backend/app/engine/cause_params.py`. Pojemność wodna przyjęta zastępczo nie
-jest podstawą do stwierdzenia przyczyny glebowej. Gdy żaden werdykt nie wskazuje niedoboru albo werdykty nie mają
-Stopnia niedoboru (Pole bez uprawy), lista przyczyn jest pusta, a raport mówi to wprost.
-
-Spadek, kierunek spływu i najniższa część Działki pochodzą z płaszczyzny dopasowanej metodą najmniejszych kwadratów
-do punktów siatki wysokości leżących wewnątrz obrysu Działki; odległości są liczone z położenia punktów i szerokości
-geograficznej, bo oczka siatki nie są kwadratowe (ok. 28 × 31 m). Rozrzut wysokości wokół płaszczyzny daje niepewność
-spadku: kierunek i najniższa część są podawane tylko wtedy, gdy spadek jest co najmniej 2 razy większy od swojej
-niepewności. Poniżej 6 punktów wewnątrz obrysu albo gdy punkty leżą w jednej linii, spadek nie jest wyznaczany
-i raport to podaje. Dane Copernicus DEM opisują powierzchnię razem z budynkami i roślinnością, co raport podaje jako
-Ograniczenie; na siatce 30 m najniższa część jest wskazywana tylko jako strona Działki, nie punkt.
-
-Raport rozpoznaje, gdzie Data analizy wypada względem Sezonu uprawy (`backend/app/engine/season.py`): w sezonie,
-w sezonie w spoczynku (uprawa ozima od końca jesiennych wschodów do dnia przed wiosennym wzrostem; granice pochodzą
-z dat faz w katalogu upraw) albo poza sezonem. Poza sezonem i w spoczynku Stopień niedoboru Bieżącej sytuacji wodnej
-dotyczy Zapasu wody w glebie, nie potrzeb rośliny, i jest tak podpisany; liczony jest tą samą miarą i tymi samymi
-progami co w sezonie (osobnej skali dla zapasu nie ma), a uzasadnienie opisuje ostatni zakończony sezon (dni,
-w których wody brakowało, także w Okresie krytycznym) i zmianę zapasu od jego końca. Poza sezonem raport podaje
-„Rekomendacje nawadniania: brak — wybrana data jest poza sezonem” z datami ostatniego sezonu.
-`POST /api/reports/{report_id}/critical-period` uruchamia zwykłą analizę tej samej Działki i Uprawy (z nowym
-pobraniem danych) na środkowy dzień ostatniego Okresu krytycznego, którego środek nie jest późniejszy niż Data
-analizy raportu, więc nowa data nigdy nie jest późniejsza od pierwotnej. Odpowiedź to `202 {report_id, analysis_date}`;
-nowy raport podaje pierwotną datę w `meta.changed_from_date`, a pierwotny raport się nie zmienia. Raport, którego
-data już jest takim środkowym dniem, oraz Pole bez uprawy (nie ma Okresu krytycznego) dostają `409` z wyjaśnieniem
-(`already_critical_period`, `no_critical_period`). Datę, którą da to przejście, raport podaje w śladzie decyzyjnym
-(`trace`, reguła `season.state`).
-
-Rekomendacje pochodzą z zamkniętego katalogu (`backend/app/catalog/recommendation_data.py`). Pozycja katalogu to
-dane, nie kod: grupa, Przyczyny niedoboru, na które odpowiada, wymagane dane, warunki z zamkniętego zestawu rodzajów
-(porównanie wartości z progiem, znana wartość, stwierdzona Przyczyna, uruchomiona inna pozycja oraz ich połączenia),
-szablon tekstu, szablon „Co uzyskasz” i źródło. Silnik reguł (`backend/app/engine/rules.py`) sprawdza pozycję tylko
-wtedy, gdy stwierdzono co najmniej jedną z jej Przyczyn; bez wymaganych danych reguła się nie uruchamia, a raport
-podaje to jako Ograniczenie. Każda Rekomendacja stoi w raporcie raz, przy najsilniejszej ze stwierdzonych Przyczyn,
-na które odpowiada, i podaje regułę, wartości, które ją uruchomiły, oraz źródło; każda sprawdzona pozycja zostawia
-wpis w śladzie decyzyjnym. Bez stwierdzonej Przyczyny raport nie zawiera Rekomendacji i mówi to wprost. Rekomendacje
-nigdy nie podają wymiarów, kosztów ani parametrów budowli. Katalog zawiera na razie po jednej pozycji wzorcowej na
-grupę; ich treść opiera się na treści zadania konkursowego i materiale „Podstawy naukowe” organizatora, a nie na
-publikacjach źródłowych, więc wszystkie są oznaczone jako robocze, podobnie jak progi ich reguł (Stopień niedoboru
-od „lekki niedobór”). Pozycja z grupy nawadnianie nie trafia do sekcji Przyczyn: o nawadnianiu raport mówi w jednym
-miejscu, na końcu (część o nawadnianiu, opisana niżej), a tekst tej pozycji katalogu nie jest w nim pokazywany. Pozycje wymagające danych o wodach nie uruchamiają się,
-dopóki dane o ciekach, rowach i zbiornikach nie są pobierane.
-
-Symulacja (`backend/app/engine/simulation.py`; trasy `GET /api/reports/{report_id}/simulation/ranking` i
-`.../simulation/compare?crop_id=`) porównuje Podatność wieloletnią bieżącej Uprawy z podatnością innych Upraw z listy
-na tej samej Działce. Liczy wyłącznie z bilansu wodnego, z pogody i gleby zapisanych razem z raportem: niczego nie
-pobiera, niczego nie zapisuje i nie zmienia raportu. Każda Uprawa jest oceniana tym samym kodem i z tymi samymi
-parametrami co raport, więc wynik bieżącej Uprawy jest równy Podatności wieloletniej z raportu; gdy raport powstał
-przed zmianą sposobu liczenia, Symulacja nie odpowiada (`409 report_outdated`), zamiast pokazać inne liczby niż raport.
-Ranking upraw pokazuje do trzech innych Upraw najmniej narażonych na niedobór wody, zawsze obok bieżącej; kolejność
-wynika z udziału lat z niedoborem wody w ocenionych latach (przy tej samej liczbie lat: z liczby lat z niedoborem),
-przy równym udziale z liczby dni z brakiem wody w Okresach krytycznych, potem z kolejności listy Upraw. Pole bez
-uprawy nie jest porównywane, bo nie wyznacza się dla niego Stopnia niedoboru. Lista ma teraz jedną Uprawę i Pole bez
-uprawy, więc Ranking upraw pokazuje samą bieżącą Uprawę i mówi to wprost; po uzupełnieniu listy Symulacja obejmie
-nowe Uprawy bez zmian w kodzie. Porównanie rok po roku zawiera lata, w których obie Uprawy mają ocenę. Symulacja nie
-korzysta z danych satelitarnych i nie ocenia plonu, opłacalności, przydatności gleby ani zmianowania; te dwa stałe
-Ograniczenia są w każdej odpowiedzi Rankingu upraw. Dla raportu przykładowego `/api/reports/demo` obie trasy
-odpowiadają danymi przykładowymi (atrapą).
-
-Część raportu o nawadnianiu (`backend/app/engine/irrigation.py`, parametry w `irrigation_params.py`) wynika wyłącznie
-ze stanu bilansu wodnego na Datę analizy, bez prognozy pogody. W sezonie nawadnianie jest zasadne, gdy Bieżąca
-sytuacja wodna wskazuje niedobór (od stopnia „lekki niedobór”; wartość robocza). Zakres podawany jest jako przedział
-w mm i m³ na hektar (1 mm = 10 m³/ha): od ilości, która kończy brak wody (wyczerpanie strefy korzeniowej ponad wodę
-łatwo dostępną), do ilości, która uzupełnia strefę korzeniową do pełna (całe wyczerpanie); granice są zaokrąglane do
-1 mm do wewnątrz przedziału. Podstawa: FAO-56, rozdz. 8, „Forecasting or allocating irrigations” (nawadniać, zanim
-wyczerpie się woda łatwo dostępna; dawka netto nie większa niż wyczerpanie strefy korzeniowej). Są to ilości netto:
-strat przy nawadnianiu, sprawności urządzeń ani dawek jednorazowych raport nie uwzględnia. Tekst jest warunkowy
-(„Jeśli masz możliwość nawadniania…”) i zawiera zdanie, że nawadnianie nie zastępuje zatrzymywania wody. Bez niedoboru
-raport podaje „nie jest teraz zasadne” z wartością bilansu; w spoczynku uprawy ozimej także, bo Stopień niedoboru
-dotyczy wtedy Zapasu wody w glebie; dla Pola bez uprawy część o nawadnianiu ma postać „nie dotyczy”. Gdy pojemność
-wodna gleby jest przyjęta zastępczo, tekst mówi, że podane ilości są mniej pewne.
-
-Historia upraw (`backend/app/engine/history.py`, teksty w `history_texts.py`) jest opcjonalna. Bez niej raport
-przyjmuje tę samą Uprawę w każdym roku i mówi to zdaniem przy Podatności wieloletniej (`history_assumption`); to samo
-zdanie odróżnia potwierdzenie „ta sama Uprawa co roku” od Historii z innymi Uprawami. Podana Historia dokłada
-Przebieg historyczny (`historical_course`): dla każdego roku Okna wieloletniego Uprawę, która wtedy rosła, wynik roku
-i notę o odczycie satelitarnym, oraz zdanie porównujące z Podatnością wieloletnią. Przebieg stoi obok Podatności
-i jej nie zastępuje: Podatność wieloletnia, Bieżąca sytuacja wodna, Pewność oceny, Przyczyny niedoboru, Rekomendacje
-i część o nawadnianiu są takie same z Historią i bez niej. Zasady: lata Historii to lata Okna wieloletniego tej
-analizy (rok to rok, w którym zaczyna się Okres krytyczny Uprawy, czyli dla uprawy ozimej rok zbioru); lata niepodane
-przyjmują Uprawę z sezonu Daty analizy; rok jest oceniany tą samą miarą i tymi samymi parametrami co rok w Podatności
-wieloletniej, na bilansie wodnym policzonym dla Uprawy z tego roku na tej samej pogodzie i glebie. Bilans każdej
-Uprawy jest liczony osobno na całej serii, więc zapas wody na początku roku jest taki, jakby ta Uprawa rosła także
-wcześniej; wpływu poprzedniej, innej Uprawy na ten zapas raport nie uwzględnia. Roku z Polem bez uprawy raport nie
-ocenia (nie ma dla niego reguły Stopnia niedoboru), podobnie roku bez danych pogodowych i roku, w którym Okres
-krytyczny Uprawy zaczyna się po Dacie analizy; taki rok ma w raporcie `deficit = false`, a jego nota zaczyna się od
-„Roku nie oceniono” z powodem. Nota satelitarna podaje datę i wartości najnowszej sceny z danego roku oraz to, czy
-dzień odczytu wypada w Sezonie uprawy Uprawy z tego roku; niczego nie ocenia, a dla lat bez sceny mówi „brak odczytu”.
-Historię można podać w trakcie analizy (`PUT /api/analyses/{report_id}/crop-history`, po jej zakończeniu `409`) albo
-później: `POST /api/reports/{report_id}/derive` z `{crop_history}` tworzy nowy raport z danych źródłowych zapisanych
-z raportem źródłowym, bez pobierania czegokolwiek, i odpowiada `201 {report_id}`. Nowy raport ma własny adres i kopię
-danych źródłowych, wskazuje raport źródłowy w `meta.derived_from` i sam może być źródłem kolejnego; raport źródłowy się
-nie zmienia. Odpowiedzi z błędem: `404` (nie ma raportu, analiza się nie powiodła albo raport został już usunięty),
-`425` (analiza trwa), `422 unknown_crop` (Uprawa spoza listy), `422 crop_history_year_outside_window` (rok spoza Okna
-wieloletniego; komunikat podaje dozwolone lata), `409 crop_history_not_applicable` (Pole bez uprawy). Przejście na
-Okres krytyczny przenosi Historię upraw raportu do nowej analizy, z pominięciem lat, które wypadły z jej Okna.
-
-## Konfiguracja
-
-Ustawienia wdrożenia są w pliku `.env` (wzór: `.env.example`); usługa `api` dostaje je jako zmienne środowiskowe.
-
-| Zmienna | Wartość domyślna | Znaczenie |
-|---|---|---|
-| `SATELLITE_PRIMARY` | `planetary-computer` | usługa danych satelitarnych pytana jako pierwsza: `planetary-computer` albo `earth-search` |
-| `SATELLITE_SECONDARY` | `earth-search` | usługa zapasowa; `none` wyłącza przełączanie |
-| `SATELLITE_FALLBACK_AFTER_S` | `4` | po tylu sekundach bez pierwszego odczytu z usługi podstawowej analiza przechodzi na zapasową |
-| `AI_API_KEY` | brak | klucz usługi modelu językowego (sekret); bez klucza albo modelu podsumowanie raportu pochodzi z szablonu |
-| `OPENAI_MODEL` | brak | nazwa modelu w usłudze; nie ma wartości domyślnej |
-| `AI_BASE_URL` | `https://api.openai.com/v1` | adres bazowy usługi zgodnej z OpenAI Chat Completions; tylko `https` (wyjątek: `http` dla tej samej maszyny) |
-| `AI_TIMEOUT_S` | `12` | najdłuższe oczekiwanie na model w sekundach; skracane do czasu, który został z budżetu analizy |
-| `AI_REASONING_EFFORT` | brak | opcjonalne pole `reasoning_effort` zapytania (`none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`) dla modeli, które je obsługują; puste = niewysyłane |
-
-### Dane satelitarne: dwie wymienne usługi
-
-- **Decyzja projektu:** podstawowa jest Planetary Computer, zapasowa Earth Search. Obie udostępniają to samo archiwum
-  Sentinel-2 L2A i są wymienne: zamiana kolejności wymaga tylko zmiany dwóch zmiennych, bez zmian w kodzie.
-  Dla tych samych dat odczyty NDVI i NDMI z obu usług różnią się o ok. 0,01–0,02 (inna wersja przetworzenia
-  lub inny kafel tej samej sceny).
-- **Przełączenie:** gdy usługa podstawowa zgłosi błąd albo w ciągu `SATELLITE_FALLBACK_AFTER_S` sekund nie dostarczy
-  żadnego odczytu, jej praca jest porzucana, a zapytanie trafia do usługi zapasowej z pozostałym czasem
-  (cały etap ma limit 15 s). Usługa, która odpowiedziała, że nie ma czystych scen, nie jest zastępowana.
-  W danych źródłowych raportu zapisana jest usługa, z której pochodzi odczyt.
-- **Skąd kolejność:** pomiar z serwera docelowego (21.11.2026, `scripts/probes/satellite_probe.py`): odczyt 16 scen
-  po 5 pasm trwał 1,2 s z Planetary Computer i 5,5 s z Earth Search; archiwum Planetary Computer sięga lipca 2015 r.,
-  Earth Search listopada 2016 r.
-- **Obecnie używany jest dostęp bezpłatny** do obu usług: bez konta, bez klucza, bez gwarancji dostępności
-  i z limitami zapytań, których dostawcy nie podają liczbowo. To wystarcza dla prototypu.
-- **Przed wdrożeniem produkcyjnym trzeba przejść na płatny plan** z gwarancją dostępności i znanymi limitami
-  (u dostawcy usługi podstawowej, a najlepiej obu) i dodać w adapterze przekazywanie klucza dostępu;
-  obecna wersja klucza nie obsługuje. Do tego czasu ochroną przed niedostępnością jest wyłącznie usługa zapasowa.
-
-## Biblioteki
-
-| Biblioteka | Zastosowanie | Licencja |
-|---|---|---|
-| FastAPI | interfejs HTTP, opis OpenAPI | MIT |
-| Pydantic | modele kontraktu i walidacja | MIT |
-| Uvicorn | serwer aplikacji | BSD-3-Clause |
-| pytest | testy | MIT |
-| HTTPX | zapytania do źródeł danych, klient testowy | BSD-3-Clause |
-| Shapely | geometria działki (WKT, GeoJSON, powierzchnia) | BSD-3-Clause |
-| pyproj | przeliczenie układów współrzędnych (EPSG:4326 → EPSG:2180) | MIT |
-| Rasterio (z biblioteką GDAL) | odczyt fragmentu rastra nad działką, maska obrysu, odczyt plików GeoTIFF wskaźnika CDI | BSD-3-Clause (GDAL: MIT) |
-| NumPy | tablice wartości rastra (wymagane przez Rasterio) | BSD-3-Clause |
-
-## Źródła danych
-
-| Dane | Źródło | Tryb | Warunki wykorzystania |
-|---|---|---|---|
-| Działki ewidencyjne: identyfikator, położenie administracyjne, geometria | Główny Urząd Geodezji i Kartografii (GUGiK), Usługa Lokalizacji Działek Katastralnych (ULDK), `https://uldk.gugik.gov.pl/` | na żywo | bezpłatnie, bez rejestracji; wymagane podanie źródła; limit zapytań na adres IP |
-| Pogoda dzienna do Daty analizy: suma opadu, ewapotranspiracja wskaźnikowa ET0 (FAO-56), średnia temperatura | Open-Meteo, archiwum pogodowe (reanaliza ERA5 / ECMWF IFS), `https://archive-api.open-meteo.com/v1/archive` | na żywo | dane na licencji CC BY 4.0, wymagane podanie źródła; bezpłatny dostęp bez klucza tylko do zastosowań niekomercyjnych; limit 600 zapytań na minutę, 5000 na godzinę i 10 000 na dobę |
-| Tło suszowe: klasa wskaźnika Combined Drought Indicator (CDI) w komórce siatki działki, co dekadę, od 2016 r. | European Drought Observatory (EDO), Komisja Europejska, Wspólne Centrum Badawcze (JRC); © Unia Europejska, 1995–2026; `https://drought.emergency.copernicus.eu/data/Drought_Observatories_datasets/` (katalog `EDO_Combined_Drought_Indicator`) | plik lokalny: archiwa roczne rozpakowane do `EDO_DATA_PATH` poleceniem `python3 scripts/unpack_drought_files.py KATALOG_ARCHIWÓW`; stan plików na 21.11.2026, dekady od 01.01.2016 do 01.11.2026 | CC BY 4.0; wymagane podanie źródła i zaznaczenie zmian (pliki testowe w `backend/tests/fixtures/edo/` to wycinki 3 × 3 komórki bez metadanych) |
-| Ukształtowanie terenu: siatka wysokości ok. 30 m wokół działki | Copernicus DEM GLO-30 (model pokrycia terenu z misji TanDEM-X, pomiary z lat 2011–2015; wysokości obejmują budynki i roślinność), pliki z `https://registry.opendata.aws/copernicus-dem/`, arkusz wyszukiwany w katalogu Earth Search (`https://earth-search.aws.element84.com/v1`, kolekcja `cop-dem-glo-30`) | na żywo | bezpłatnie dla każdego na warunkach licencji Copernicus DEM (GLO-30 Public), bez rejestracji; wymagane podanie źródła i informacji o prawach autorskich |
-| Parametry wodne Upraw: współczynniki Kc, głębokość korzeni, dopuszczalne wyczerpanie wody w glebie (p) | Allen R.G., Pereira L.S., Raes D., Smith M. (1998), „Crop evapotranspiration: guidelines for computing crop water requirements”, FAO Irrigation and Drainage Paper 56, tabele 12 i 22 | wartości wpisane w kodzie (`backend/app/catalog/crop_data.py`), każda ze wskazaniem tabeli; wartości bez źródła są tam oznaczone jako robocze | publikacja FAO; wartości liczbowe przytoczone z podaniem źródła |
-| Gleba w punkcie działki, warstwy do 100 cm: piasek, pył, ił, węgiel organiczny, zawartość wody przy 33 i 1500 kPa; z nich pojemność wodna (różnica zawartości wody, niezweryfikowana pomiarem na działce) | ISRIC – World Soil Information, SoilGrids 2.0 (model globalny, siatka 250 m), `https://rest.isric.org/soilgrids/v2.0/properties/query` | na żywo | CC BY 4.0, wymagane podanie źródła; usługa w fazie beta, bez gwarancji dostępności; limit 5 zapytań na minutę; zmierzony czas odpowiedzi 11–35 s |
-| Obserwacje satelitarne do Daty analizy: klasyfikacja sceny (SCL) oraz pasma czerwone, bliskiej podczerwieni i krótkofalowej podczerwieni nad działką; z nich udział czystych pikseli, NDVI i NDMI | Copernicus Sentinel-2, poziom L2A (ESA / Komisja Europejska), z dwóch wymiennych usług (kolejność w konfiguracji): podstawowa Microsoft Planetary Computer, `https://planetarycomputer.microsoft.com/api/stac/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w Azure West Europe, odczyt z bezpłatnym tokenem pobieranym bez konta; zapasowa Earth Search (Element 84), `https://earth-search.aws.element84.com/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w rejestrze otwartych danych AWS | na żywo | bezpłatny, pełny i otwarty dostęp do danych na warunkach noty prawnej danych Sentinel (`https://sentinel.esa.int/documents/247904/690755/Sentinel_Data_Legal_Notice`); wymagane podanie źródła i zaznaczenie przetworzenia danych; obie usługi obecnie w dostępie bezpłatnym, bez klucza i bez gwarancji dostępności (patrz „Konfiguracja”) |
-| Metoda oceny: dzienny bilans wody w strefie korzeniowej, woda łatwo dostępna i współczynnik stresu wodnego Ks, z których powstają Bieżąca sytuacja wodna i Podatność wieloletnia | Allen R.G., Pereira L.S., Raes D., Smith M. (1998), „Crop evapotranspiration: guidelines for computing crop water requirements”, FAO Irrigation and Drainage Paper 56, rozdział 8 (równania 80, 82–86 i 88), tabela 19 | metoda zapisana w kodzie (`backend/app/engine/`); progi i wartości robocze w jednym pliku `backend/app/engine/params.py`, każda bez źródła oznaczona tam jako robocza | publikacja FAO; równania przytoczone z podaniem źródła |
+Wymagane informacje o pochodzeniu danych:
 
 Źródło: Główny Urząd Geodezji i Kartografii (GUGiK), Usługa Lokalizacji Działek Katastralnych (ULDK).
 
@@ -337,7 +428,216 @@ Dane o glebie: ISRIC – World Soil Information, SoilGrids 2.0 (CC BY 4.0); Pogg
 
 Obserwacje satelitarne: zawiera zmodyfikowane dane Copernicus Sentinel (2015–2026).
 
-## Dokumentacja
+Do uzupełnienia przed zgłoszeniem: zestawienie licencji i warunków każdej usługi zewnętrznej osobno dla wersji
+pokazowej i dla wdrożenia pełnoskalowego (co wolno, czy potrzebny klucz, konto lub płatny plan, limity zapytań)
+z odnośnikami do instrukcji obu wdrożeń; licencja kodu rozwiązania.
 
-W przygotowaniu: opis funkcjonalności i architektury, źródła danych z licencjami,
-znane ograniczenia oraz sposób weryfikacji wyników.
+## 8. Opis znanych ograniczeń technicznych rozwiązania
+
+Zakres danych i katalogów:
+
+- Lista Upraw, dla których działa analiza, ma dziś jedną Uprawę (pszenica ozima) i Pole bez uprawy. Trasa
+  `GET /api/crops` zwraca jeszcze przykładową, szerszą listę: analiza dla pozycji spoza katalogu kończy się
+  odpowiedzią `422 unknown_crop`. Ranking upraw pokazuje dlatego samą bieżącą Uprawę.
+- `GET /api/examples` zwraca dane przykładowe, a nie sześć sprawdzonych Przykładów; raport `/api/reports/demo`
+  jest atrapą.
+- Katalog Rekomendacji ma cztery pozycje wzorcowe, po jednej na grupę; ich treść opiera się na treści zadania
+  i materiale „Podstawy naukowe” organizatora, nie na publikacjach źródłowych.
+- Dane o wodach (cieki, rowy, zbiorniki) nie są pobierane: Rekomendacje zależne od wód się nie uruchamiają,
+  a Miejsce zatrzymania wody nie jest wskazywane na mapie (`map.retention_sites` jest puste).
+- Dla Pola bez uprawy żaden werdykt nie dostaje Stopnia niedoboru (nie ma reguły); Raport zapisuje wtedy stopień
+  techniczny 0 z etykietą „nie oceniono” i znacznikiem `details.assessed = false`. Nie ma dla niego Przyczyn,
+  Rekomendacji, Historii upraw ani Symulacji.
+
+Wartości robocze. Progi i reguły bez źródła naukowego są w kodzie oznaczone `PROVISIONAL` i zebrane w plikach
+parametrów (lista w [docs/metoda.md](docs/metoda.md)): definicja roku z niedoborem (co najmniej 10 dni stresu
+w Okresie krytycznym; wiadomo, że zbyt czuła), progi Stopni niedoboru, daty faz i Okres krytyczny pszenicy ozimej,
+progi czterech Przyczyn, reguły Pewności oceny i Sprawdzenia zgodności, okna i próg czystości scen satelitarnych,
+zasadność i dolna granica nawadniania, czas przechowywania Raportów. Przy progu Kc 1,0 przyczyna „uprawa o dużych
+potrzebach wodnych” będzie stwierdzana dla większości Upraw polowych.
+
+Źródła danych:
+
+- **Gleba.** SoilGrids odpowiada wolno (zmierzone 11–35 s przy limicie 24 s): w pomiarze 21.11.2026 odpowiedź
+  przyszła w limicie w 9 z 14 analiz punktów, które mają dane, w innym przebiegu w żadnej z 6. Analiza bez gleby
+  liczy na pojemności zastępczej 150 mm/m, z Ograniczeniem i niższą Pewnością oceny. Pojemność wodna wyprowadzona
+  z danych SoilGrids nie jest zweryfikowana pomiarem (stałe Ograniczenie przy każdym profilu); to model globalny
+  o siatce 250 m, a usługa jest w fazie beta, z limitem 5 zapytań na minutę.
+- **Pogoda.** Bezpłatny dostęp do archiwum Open-Meteo jest tylko do zastosowań niekomercyjnych, a jego limit
+  liczony kosztem zapytania pozwala na około 56 analiz na godzinę i 113 na dobę z adresu serwera. Opad i ET0
+  pochodzą z modelu o siatce około 9 km (dla lat do 2016 r. około 25 km), a nie z deszczomierza na Działce;
+  w porównaniu z opadami dobowymi ze stacji IMGW model podawał przeciętnie o kilkanaście procent więcej opadu,
+  więc rzeczywisty niedobór może być większy. Wartość dla dnia bieżącego jest niepełna (doba trwa), a przez
+  pierwszą godzinę lub dwie po północy czasu polskiego analiza na dzień bieżący może się nie udać, bo archiwum liczy dzień
+  według czasu UTC.
+- **Teren.** Model 30 m (Copernicus DEM) opisuje powierzchnię razem z budynkami i roślinnością; wystarcza do
+  średniego spadku i kierunku, a najniższą część wskazuje tylko jako stronę Działki. Działki wąskie albo mniejsze
+  niż około 0,5 ha mają za mało punktów siatki i spadek nie jest wyznaczany. Działka na granicy arkuszy 1° × 1°
+  dostaje siatkę tylko z arkusza swojego środka.
+- **Tło suszowe.** Wskaźnik CDI jest dostępny od 2016 r. i ukazuje się z opóźnieniem, więc dla Daty analizy równej
+  dniowi bieżącemu Sprawdzenie zgodności zwykle daje „brak danych”, a Pewność oceny Bieżącej sytuacji wodnej jest
+  wtedy najwyżej „średnia”. Pliki są dogrywane ręcznie.
+- **Satelita.** Odczyt NDVI i NDMI jest tylko opisowy i nie wpływa na żaden werdykt (nie ma reguły wyprowadzania
+  niedoboru z tych wskaźników). Archiwum zaczyna się w 2015 r. (usługa zapasowa: 2016 r.); Działka zbyt wąska nie ma
+  odczytu. Kilka okien bez czystej sceny obniża Pewność oceny mocniej niż całkowity brak danych satelitarnych.
+- Zachowanie usług po przekroczeniu ich limitów zapytań nie było sprawdzane; taka odpowiedź jest traktowana jak
+  brak danych ze źródła.
+
+Metoda:
+
+- Bilans jest uproszczony: bez spływu powierzchniowego, podsiąku i nawodnień, ze stałą głębokością korzeni
+  ograniczoną do 100 cm; nadmiar wody nie jest oceniany.
+- Ilości nawadniania są ilościami netto, bez strat, sprawności urządzeń i podziału na dawki, więc górna granica
+  przedziału bywa duża.
+- Poza Sezonem uprawy i w spoczynku uprawy ozimej Stopień niedoboru dotyczy Zapasu wody w glebie i jest liczony
+  tą samą skalą co w sezonie (osobnej skali nie ma).
+- Podsumowanie zredagowane przez model językowy nie jest powtarzalne między uruchomieniami, a kontrola odpowiedzi
+  ma granice opisane w punkcie 6.
+
+Technika:
+
+- Usługa działa w jednym procesie na jeden plik bazy: stan trwających analiz i liczniki limitów zapytań są
+  w pamięci procesu, więc ponowne uruchomienie przerywa trwające analizy i zeruje liczniki.
+- Jednocześnie biegną najwyżej 4 analizy; kolejna dostaje od razu odpowiedź `503` z nagłówkiem `Retry-After`
+  (nie ma kolejki).
+- Postęp analizy nie podaje powodu niepowodzenia (jest w odpowiedzi `GET /api/reports/{report_id}`).
+- Raport z danymi źródłowymi zajmuje około 350 kB (głównie seria pogodowa); każdy raport pochodny to kolejny zapis.
+- Nie sprawdzono: działania pod domeną na serwerze docelowym za Traefikiem, pracy pod obciążeniem wieloma
+  analizami naraz, czasów z serwera docelowego dla całej analizy.
+
+Do uzupełnienia przed zgłoszeniem: ograniczenia strony dla rolnika; aktualizacja tej listy po rozszerzeniu
+katalogu Upraw i Rekomendacji oraz po podłączeniu kolejnych źródeł.
+
+## 9. Informacja o sposobie weryfikacji wygenerowanych wyników lub rekomendacji
+
+- **Sprawdzenie zgodności w każdym Raporcie.** Bieżąca sytuacja wodna jest zestawiana z niezależnym wskaźnikiem
+  suszy CDI (European Drought Observatory) z ostatniej dekady zakończonej nie później niż Data analizy i pokazywana
+  obok odczytu satelitarnego z tego samego okresu. Wynik to „zgodne”, „rozbieżne” albo „brak danych”; „rozbieżne”
+  obniża Pewność oceny i jest Ograniczeniem raportu. Reguły: [docs/metoda.md](docs/metoda.md).
+- **Odtwarzalność.** Raport przechowuje dane źródłowe z czasem odczytu oraz ślad decyzyjny (`trace`): każdą
+  regułę, warunek, wartości i wynik. Każdy wniosek da się przeliczyć ponownie i sprawdzić ręcznie; każda
+  Rekomendacja podaje regułę, wartości, które ją uruchomiły, i źródło.
+- **Powtarzalność i brak danych z przyszłości.** Silnik jest czystą funkcją danych, Uprawy, Daty analizy i Historii
+  upraw. Testy sprawdzają, że ten sam wkład daje ten sam wynik i że wynik dla danej daty nie zmienia się po
+  dopisaniu dni późniejszych; dekada wskaźnika CDI, która w Dacie analizy jeszcze trwa, nie jest czytana.
+- **Pewność oceny i Ograniczenia.** Każdy werdykt mówi, na ile kompletne dane za nim stoją, a każde zejście
+  w Łańcuchu zamienników i każdy brak danych jest nazwany w Raporcie.
+- **Testy automatyczne** (`backend/tests/`, bez dostępu do sieci, na nagranych odpowiedziach usług): przypadki
+  bilansu liczone ręcznie, wartości na granicach progów, tabela przypadków Pewności oceny, zgodność Symulacji
+  z Raportem, niezmienność Podatności wieloletniej względem Historii upraw, a także sprawdzanie danych wejściowych,
+  limity zapytań i brak sekretów w repozytorium.
+- **Sprawdzenia na żywych źródłach** (`backend/tests/smoke/`): cała analiza prawdziwych działek z czasem i wynikiem
+  każdego źródła.
+- **Test wsteczny** (`scripts/backtest.py`): zwykłe analizy dla listy działek i dat z lat o znanym przebiegu, z tabelą
+  obu werdyktów, klasy CDI, wyniku Sprawdzenia zgodności, stwierdzonych Przyczyn i czasów (punkt 1, „Narzędzia”).
+- **Podsumowanie modelu językowego** jest przyjmowane tylko po kontroli liczb, dat i sformułowań względem Raportu
+  (punkt 6); inaczej Raport dostaje podsumowanie z szablonu.
+
+Do uzupełnienia przed zgłoszeniem: tabela wyników testu wstecznego (działki z różnych regionów, daty z lat suchych
+i mokrych: werdykt, klasa CDI, zgodność, czas), porównanie z niezależnymi danymi o suszy rolniczej, jeśli da się
+je pozyskać, oraz sześć Przykładów wybranych z tych wyników (trzy z niedoborem, trzy bez).
+
+## Skalowanie
+
+Prototyp działa dla dowolnej działki ewidencyjnej z terenu Polski: żadne dane nie są przygotowane z góry dla
+wybranych miejsc (wyszukiwanie działek obejmuje cały kraj; punkt poza Polską jest odrzucany). Poniżej to, co
+byłoby potrzebne, żeby rozwiązanie służyło wielu rolnikom.
+
+Limity i dostępność zewnętrznych źródeł danych:
+
+- Dziś: każde źródło ma własny limit czasu; brak odpowiedzi nie przerywa analizy, tylko tworzy Ograniczenie raportu
+  i obniża Pewność oceny (Łańcuch zamienników; dane satelitarne mają dwie wymienne usługi). Wynik jest zapisywany
+  razem z danymi źródłowymi, więc ponowne otwarcie Raportu, Symulacja i raport pochodny niczego nie pobierają.
+  Usługa ogranicza liczbę zapytań na adres i liczbę analiz trwających jednocześnie (część „Bezpieczeństwo i dane
+  osobowe”), a narzędzia pomiarowe trzymają własne tempo poniżej limitów usług.
+- Wąskie gardła: limit bezpłatnego archiwum pogodowego (około 56 analiz na godzinę z adresu serwera), limit
+  i czas odpowiedzi usługi gleby (5 zapytań na minutę, 11–35 s), brak gwarancji dostępności bezpłatnych usług
+  satelitarnych.
+- Potrzebne przy większym ruchu: buforowanie danych, które się nie zmieniają (gleba, teren i geometria działki
+  dla raz analizowanego miejsca, seria pogodowa do dnia poprzedniego), lokalna kopia danych o wodach odświeżana
+  okresowo, płatne plany usług pogodowej i satelitarnych (albo własna kopia danych źródłowych), kolejka analiz
+  zamiast odmowy przy zajętych miejscach.
+
+Aktualizacja danych i czas odpowiedzi:
+
+- Dane pobierane na żywo są aktualne z natury. Pliki wskaźnika suszy trzeba dogrywać (nowa dekada co 10 dni);
+  dziś robi się to ręcznie skryptem `scripts/unpack_drought_files.py`, docelowo zadaniem okresowym.
+- Zmierzony czas całej analizy (18 analiz na żywych źródłach, 21.11.2026, maszyna deweloperska): 8,7–24,7 s,
+  mediana 15,5 s, przy budżecie 30 s; o czasie decyduje usługa gleby. Raport raz policzony otwiera się bez
+  ponownego liczenia; Symulacja dla listy 22 pozycji (w tym 20 próbnych) policzyła się w około 0,4 s.
+- Przy większym ruchu jeden proces z plikiem SQLite nie wystarczy: potrzebna jest wspólna baza (np. PostgreSQL),
+  wspólne liczniki limitów i kolejka zadań, żeby uruchomić kilka procesów usługi. Kod jest na to przygotowany
+  podziałem: silnik jest czystą funkcją, a pobieranie, przechowywanie i liczenie są rozdzielone.
+- Do uzupełnienia przed zgłoszeniem: czasy analizy i poszczególnych źródeł zmierzone z serwera docelowego
+  (`scripts/measure_sources.py`) oraz decyzja, które dane buforować i jak często je odświeżać.
+
+Koszty infrastruktury:
+
+- Prototyp: jeden mały serwer z Dockerem; wszystkie używane dane są bezpłatne, a model językowy jest opcjonalny.
+  Miejsce na dysku: około 350 kB na Raport przy przechowywaniu przez 30 dni.
+- Przy rozwoju pojawią się: płatny plan usługi pogodowej (wymagany także przy użyciu komercyjnym), płatny plan
+  usług satelitarnych z gwarancją dostępności, opłaty za model językowy (jedno krótkie zapytanie na analizę),
+  większy serwer albo kilka serwerów, baza danych i miejsce na buforowane dane.
+- Do uzupełnienia przed zgłoszeniem: szacunek kosztów miesięcznych dla przyjętej liczby analiz i możliwe
+  alternatywy dla usług płatnych (kwoty z aktualnych cenników dostawców).
+
+Kierunek rozwoju: analiza gospodarstwa z wieloma działkami (dziś jedna analiza dotyczy jednej Działki).
+
+## Bezpieczeństwo i dane osobowe
+
+**Dane osobowe.** Aplikacja nie ma kont ani logowania i nie zbiera danych osobowych. Zapisywany jest Identyfikator
+działki, który da się powiązać z właścicielem w rejestrach publicznych; dlatego Raport jest dostępny tylko pod
+losowym adresem (128 bitów losowości), nie ma listy Raportów, a Raporty są usuwane po 30 dniach. Położenie
+urządzenia, jeśli strona go użyje, zostaje w przeglądarce. Adres IP odwiedzającego jest trzymany wyłącznie
+w pamięci procesu przez licznik limitu zapytań, najdłużej godzinę (adresy IPv6 skrócone do sieci /64), i nie jest
+zapisywany w bazie ani w logu. Log usługi zawiera Identyfikator działki, Uprawę, Datę analizy, czasy źródeł
+i pierwsze 6 znaków identyfikatora Raportu; nie zawiera adresów IP ani pełnych adresów Raportów. Log dostępu
+serwera aplikacji jest wyłączony, bo zawierałby jedno i drugie. Jeśli wdrożenie włączy log dostępu w Traefiku,
+będzie on zawierał adresy IP i pełne adresy Raportów: wtedy trzeba ustalić czas jego przechowywania.
+
+**Sprawdzanie danych wejściowych.** Każda trasa sprawdza długość, znaki i zakres tego, co dostaje, zanim cokolwiek
+trafi do bazy albo do usługi zewnętrznej: Identyfikator działki ma ustaloną postać i najwyżej 64 znaki, identyfikator
+Uprawy to małe litery, cyfry i podkreślenia, Data analizy mieści się między 01.01.2000 a dniem bieżącym, Historia
+upraw ma najwyżej 32 lata z zakresu 1900–2200, współrzędne muszą leżeć w Polsce, tekst wyszukiwania ma najwyżej
+120 znaków bez znaków sterujących, a tekst, który nie może być identyfikatorem Raportu, jest traktowany jak
+nieznany Raport. Pola spoza kontraktu są odrzucane. Treść żądania może mieć najwyżej 16 kB i musi podawać swoją
+długość. Odpowiedź z błędem ma zawsze postać `{code, message}` i nie powtarza tekstu wymyślonego przez klienta.
+
+**Limity zapytań na adres** (liczone w pamięci procesu; odpowiedź `429` z nagłówkiem `Retry-After`; wartości to
+stałe inżynierskie, zmieniane zmiennymi z punktu 1):
+
+| Grupa tras | Limit domyślny na adres | Uzasadnienie |
+|---|---|---|
+| start analizy (`POST /analyses`, `.../critical-period`) | 6 na minutę i 50 na godzinę | każda analiza odpytuje wszystkie usługi danych |
+| raport pochodny (`.../derive`) | 10 na minutę | obliczenia i kolejny zapis około 350 kB |
+| wyszukiwanie działek (`/parcels/...`) | 40 na minutę | każde zapytanie trafia do usługi ULDK |
+| Symulacja | 30 na minutę | obliczenia dla wszystkich Upraw |
+| postęp analizy (`.../status`) | 600 na minutę | strona pyta co sekundę, narzędzia pomiarowe cztery razy na sekundę |
+| pozostałe (odczyt Raportu, listy, opis interfejsu) | 300 na minutę | tanie odczyty |
+| `GET /health` | bez limitu | kontrola stanu usługi |
+
+Niezależnie od adresu w całej usłudze biegną jednocześnie najwyżej 4 analizy (`503` z `Retry-After`). Adresem
+klienta jest adres połączenia widziany przez serwer aplikacji. Za Traefikiem serwer przyjmuje nagłówek
+`X-Forwarded-For` wyłącznie od adresów podanych w `FORWARDED_ALLOW_IPS`; nagłówek wysłany przez dowolnego klienta
+jest ignorowany, więc nie da się nim zmienić adresu, pod którym liczony jest limit. Gdy wdrożenie nie poda adresu
+Traefika, wszyscy odwiedzający mają jeden wspólny licznik.
+
+**Nagłówki odpowiedzi API.** `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` (adres Raportu
+nie jest przekazywany dalej), `X-Frame-Options: DENY`, `Content-Security-Policy: default-src 'none';
+frame-ancestors 'none'`, `Cross-Origin-Resource-Policy: same-origin` i `Cache-Control: no-store` (kopia Raportu nie
+zostaje w pamięci podręcznej po drodze). Serwer aplikacji nie wysyła nagłówka `Server`. CORS nie jest otwarty,
+bo strona i API są pod jedną domeną. TLS, przekierowanie na HTTPS i HSTS zapewnia Traefik; nagłówki strony dla
+rolnika ustawia usługa `web`.
+
+**Opis interfejsu jest publiczny.** `/api/docs` i `/api/openapi.json` są dostępne bez ograniczeń: korzysta z nich
+zespół budujący stronę, a interfejs nie ma tras administracyjnych. Strona `/api/docs` ładuje skrypt z publicznej
+sieci CDN, więc ma łagodniejszą politykę treści (tylko zakaz osadzania w ramce).
+
+**Sekrety.** Jedyny sekret to opcjonalny klucz usługi modelu językowego: tylko w pliku `.env` na serwerze, poza
+repozytorium (`.gitignore`) i poza obrazem (`.dockerignore`; do obrazu kopiowane są wyłącznie `requirements.txt`
+i katalog `app/`). Usługa działa w kontenerze jako użytkownik bez uprawnień administratora, a pliki wskaźnika
+suszy są montowane tylko do odczytu. Test automatyczny pilnuje, że w śledzonych plikach nie ma wzorców kluczy,
+adresów e-mail ani ścieżek katalogów domowych.
+
+Poza zakresem prototypu: ochrona przed rozproszonym atakiem z wielu adresów (należy do infrastruktury przed
+usługą), limity czasu połączeń (ustawiane w Traefiku), kopie zapasowe bazy raportów.
