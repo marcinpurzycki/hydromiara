@@ -316,7 +316,7 @@ Bez działki i pogody Raport nie powstaje; każde inne źródło, które nie odp
 limit czasu, jest w Raporcie i w postępie oznaczone jako brak, a analiza biegnie dalej.
 
 Limity czasu (`backend/app/orchestrator/params.py`): całość 30 s, z czego 3 s rezerwy na obliczenia i zapis;
-pogoda 12 s, gleba 24 s, teren i satelita po 17 s, tło suszowe 5 s; żadne źródło poza pogodą nie czeka dłużej niż
+pogoda 12 s, gleba 24 s, teren 17 s (po 8 s na każde z dwóch ogniw i sekunda zapasu), satelita 17 s, tło suszowe 5 s; żadne źródło poza pogodą nie czeka dłużej niż
 do sekundy przed końcem czasu na pobieranie. Dane o wodach (cieki, rowy, zbiorniki) nie są jeszcze pobierane:
 w postępie analizy to źródło ma stan `missing`. Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego
 pozycji jest stała); jest na liście źródeł Raportu.
@@ -345,7 +345,8 @@ wykorzystania” to punkt 7. Na zewnątrz wysyłane są tylko współrzędne, Id
 | Działki ewidencyjne: identyfikator, położenie administracyjne, geometria | Główny Urząd Geodezji i Kartografii (GUGiK), Usługa Lokalizacji Działek Katastralnych (ULDK), `https://uldk.gugik.gov.pl/` | na żywo | stan rejestru w chwili analizy; czas odczytu zapisany w raporcie (`sources[].fetched_at`) | bezpłatnie, bez rejestracji; wymagane podanie źródła; limit zapytań na adres IP |
 | Pogoda dzienna do Daty analizy: suma opadu, ewapotranspiracja wskaźnikowa ET0 (FAO-56) | Open-Meteo, archiwum pogodowe (reanaliza ERA5 / ECMWF IFS), `https://archive-api.open-meteo.com/v1/archive` | na żywo | wartości dzienne od 1 stycznia roku o 10 lat wcześniejszego niż Data analizy (z zapasem 120 dni na rozruch bilansu) do Daty analizy, a gdy Data analizy jest dniem bieżącym, do dnia poprzedniego (dzień bieżący jeszcze trwa, a archiwum podaje go jako wynik modelu na resztę doby); czas odczytu zapisany w raporcie | dane na licencji CC BY 4.0, wymagane podanie źródła z odnośnikiem [Weather data by Open-Meteo.com](https://open-meteo.com/); bezpłatny dostęp bez klucza tylko do zastosowań niekomercyjnych; limit 600 zapytań na minutę, 5000 na godzinę i 10 000 na dobę na adres IP; limity liczone kosztem zapytania, nie liczbą połączeń: jedna analiza to ok. 59 jednostek, czyli ok. 10 analiz na minutę, 85 na godzinę i 170 na dobę z jednego adresu IP; po wyczerpaniu limitu archiwum odmawia (`429`) i analiza kończy się bez Raportu z osobnym komunikatem |
 | Tło suszowe: klasa wskaźnika Combined Drought Indicator (CDI) w komórce siatki działki, co dekadę, od 2016 r. | European Drought Observatory (EDO), Komisja Europejska, Wspólne Centrum Badawcze (JRC); © Unia Europejska, 1995–2026; `https://drought.emergency.copernicus.eu/data/Drought_Observatories_datasets/` (katalog `EDO_Combined_Drought_Indicator`) | plik lokalny: archiwa roczne rozpakowane do `EDO_DATA_PATH` poleceniem `python3 scripts/unpack_drought_files.py KATALOG_ARCHIWÓW`; stan plików na 21.11.2026, dekady od 01.01.2016 do 01.11.2026 | pliki pobrane wcześniej: stan na 21.11.2026, dekady od 01.01.2016 do 01.11.2026; raport podaje dekadę użytą w Sprawdzeniu zgodności | CC BY 4.0; wymagane podanie źródła i zaznaczenie zmian (pliki testowe w `backend/tests/fixtures/edo/` to wycinki 3 × 3 komórki bez metadanych) |
-| Ukształtowanie terenu: siatka wysokości ok. 30 m wokół działki | Copernicus DEM GLO-30 (model pokrycia terenu z misji TanDEM-X, pomiary z lat 2011–2015; wysokości obejmują budynki i roślinność), pliki z `https://registry.opendata.aws/copernicus-dem/`, arkusz wyszukiwany w katalogu Earth Search (`https://earth-search.aws.element84.com/v1`, kolekcja `cop-dem-glo-30`) | na żywo | pomiary z lat 2011–2015; czas odczytu zapisany w raporcie | bezpłatnie dla każdego na warunkach licencji Copernicus DEM (GLO-30 Public), bez rejestracji; wymagane podanie źródła i informacji o prawach autorskich |
+| Ukształtowanie terenu, źródło podstawowe: wysokości punktów w siatce co 5 m w prostokącie otaczającym działkę powiększonym o 30 m (najwyżej 4000 punktów; większa działka dostaje rzadszą siatkę) | Główny Urząd Geodezji i Kartografii (GUGiK), numeryczny model terenu w siatce 1 m z lotniczego skaningu laserowego, odczytywany usługą wysokości punktów `https://services.gugik.gov.pl/nmt/` (zapytanie `GetHByPointList`, układ PL-1992); na zewnątrz wysyłane są tylko współrzędne punktów siatki | na żywo | data nalotu nie jest podawana przez usługę; czas odczytu zapisany w raporcie | dane numerycznego modelu terenu są według opisu GUGiK (geoportal.gov.pl, „Numeryczny model terenu”) dostępne bezpłatnie i możliwe do dowolnego wykorzystania; bez rejestracji; strona usługi nie podaje limitu zapytań |
+| Ukształtowanie terenu, zamiennik (gdy źródło podstawowe nie odpowie w 8 s albo poda wysokość dla mniej niż 90% punktów działki): siatka wysokości ok. 30 m wokół działki | Copernicus DEM GLO-30 (model pokrycia terenu z misji TanDEM-X, pomiary z lat 2011–2015; wysokości obejmują budynki i roślinność), pliki z `https://registry.opendata.aws/copernicus-dem/`, arkusz wyszukiwany w katalogu Earth Search (`https://earth-search.aws.element84.com/v1`, kolekcja `cop-dem-glo-30`) | na żywo | pomiary z lat 2011–2015; czas odczytu zapisany w raporcie | bezpłatnie dla każdego na warunkach licencji Copernicus DEM (GLO-30 Public), bez rejestracji; wymagane podanie źródła i informacji o prawach autorskich |
 | Parametry wodne Upraw: współczynniki Kc, głębokość korzeni, dopuszczalne wyczerpanie wody w glebie (p), współczynnik reakcji plonu Ky | Allen R.G., Pereira L.S., Raes D., Smith M. (1998), „Crop evapotranspiration: guidelines for computing crop water requirements”, FAO Irrigation and Drainage Paper 56, tabele 12, 22 i 24; długości faz wzrostu kukurydzy, ziemniaka, buraków i warzyw z tabeli 11; `https://www.fao.org/4/x0490e/x0490e00.htm` | wartości wpisane w kodzie (`backend/app/catalog/crop_data*.py`), każda ze wskazaniem tabeli i wiersza; wartości przyjęte przez analogię albo roboczo mają tam podany powód | publikacja z 1998 r., odczyt 21.11.2026; wartości wpisane w kodzie, nie są pobierane | © FAO 1998; przytoczone pojedyncze wartości liczbowe z podaniem źródła, bez kopiowania tekstu i tabel |
 | Terminy siewu, faz wzrostu i zbioru Upraw w Polsce (Sezon uprawy i daty faz krzywej Kc) | Centralny Ośrodek Badania Odmian Roślin Uprawnych (COBORU), „Wyniki porejestrowych doświadczeń odmianowych”, tabele dat siewu, zbioru i faz rozwojowych, `https://coboru.gov.pl/Publikacje_COBORU/Wyniki_PDO/`; rośliny rolnicze: średnia z lat zbioru 2018–2022, 2024 i 2025; warzywa: lata 2021–2025 (cebula, kapusta, burak ćwikłowy: tylko 2025) | średnie policzone z opublikowanych dat i wpisane w kodzie (`backend/app/catalog/crop_data*.py`) | wydania z lat 2019–2025, odczyt 21.11.2026 | publikacje jednostki państwowej udostępnione bezpłatnie; w plikach nie ma noty licencyjnej; użyte średnie własne z opublikowanych dat, z podaniem źródła |
 | Okres krytyczny każdej Uprawy (okres największego zapotrzebowania na wodę) | Centrum Doradztwa Rolniczego (2025), e-poradnik „Melioracje, retencja i gospodarka wodna w rolnictwie”, część IV, rozdz. 3 i 4 (materiał organizatora) | wartości wpisane w kodzie (`backend/app/catalog/crop_data*.py`) ze wskazaniem strony lub tabeli | publikacja z 2025 r. | materiał sfinansowany ze środków publicznych; przytoczone terminy z podaniem źródła |
@@ -358,7 +359,6 @@ wykorzystania” to punkt 7. Na zewnątrz wysyłane są tylko współrzędne, Id
 
 - dane o wodach (cieki, rowy, zbiorniki): do uzupełnienia przed zgłoszeniem, jeśli źródło zostanie podłączone
   (źródło, licencja, tryb i data danych);
-- numeryczny model terenu 1 m jako ogniwo podstawowe przed modelem 30 m: do uzupełnienia, jeśli zostanie podłączony;
 - mapa kategorii podatności gleb na suszę jako podstawowe źródło pojemności wodnej: do uzupełnienia, jeśli zostanie
   podłączona.
 
@@ -409,7 +409,7 @@ Do uzupełnienia przed zgłoszeniem: biblioteki strony dla rolnika (usługa `web
 
 ### Usługi zewnętrzne
 
-Usługi danych: ULDK (GUGiK), archiwum pogodowe Open-Meteo, SoilGrids (ISRIC), Copernicus DEM (pliki w rejestrze
+Usługi danych: ULDK (GUGiK), usługa wysokości punktów GUGiK, archiwum pogodowe Open-Meteo, SoilGrids (ISRIC), Copernicus DEM (pliki w rejestrze
 otwartych danych AWS, katalog Earth Search), Sentinel-2 przez Microsoft Planetary Computer i Earth Search
 (Element 84). Adresy, zakres i warunki: tabela w punkcie 4. Opcjonalnie usługa modelu językowego (niżej).
 Żadna z usług danych nie wymaga konta ani klucza.
@@ -515,7 +515,9 @@ Wymagane informacje o pochodzeniu danych:
 
 Dane pogodowe: [Weather data by Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0). Zawierają informacje usługi Copernicus Climate Change Service.
 
-Wysokości terenu: produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved. Copernicus Digital Elevation Model (DEM) was accessed on 21.11.2026 from https://registry.opendata.aws/copernicus-dem.
+Wysokości terenu: Główny Urząd Geodezji i Kartografii (GUGiK), numeryczny model terenu (usługa wysokości punktów, https://services.gugik.gov.pl/nmt/).
+
+Wysokości terenu, źródło zastępcze: produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved. Copernicus Digital Elevation Model (DEM) was accessed on 21.11.2026 from https://registry.opendata.aws/copernicus-dem.
 
 Dane o glebie: ISRIC – World Soil Information, SoilGrids 2.0 (CC BY 4.0); Poggio, L. i in. (2021), SOIL 7, 217–240, doi:10.5194/soil-7-217-2021.
 
@@ -609,8 +611,14 @@ potrzebach wodnych” będzie stwierdzana dla większości Upraw polowych.
   poprawia później wartości z ostatnich dni: ta sama analiza powtórzona po kilku dniach może dać nieco inne liczby.
   Po wyczerpaniu limitu archiwum odmawia odpowiedzi i analiza nowej Działki kończy się bez Raportu, z komunikatem
   o limicie zapytań.
-- **Teren.** Model 30 m (Copernicus DEM) opisuje powierzchnię razem z budynkami i roślinnością; wystarcza do
-  średniego spadku i kierunku, a najniższą część wskazuje tylko jako stronę Działki. Działki wąskie albo mniejsze
+- **Teren.** Wysokości z modelu terenu GUGiK są odczytywane co 5 m i zaokrąglone do 10 cm, więc na polu prawie
+  płaskim (spadek poniżej 0,5%) kierunek spływu jest orientacyjny. Usługa nie podaje limitów ani daty nalotu;
+  zdarza się jej odpowiedź z samymi zerami zamiast wysokości, dlatego taka część siatki jest odczytywana
+  ponownie, a gdy wysokość ma mniej niż 90% punktów Działki albo usługa nie zdąży w 8 s, analiza przechodzi na
+  model 30 m i Raport to podaje. Kierunek spływu to kierunek średniego spadku całej Działki; miejscowo woda może
+  płynąć inaczej, a bruzd, kolein i drenów model nie pokazuje. Najniższa część jest wskazywana jako strona
+  Działki. Model 30 m (Copernicus DEM) opisuje powierzchnię razem z budynkami i roślinnością; wystarcza do
+  średniego spadku i kierunku. Na modelu 30 m Działki wąskie albo mniejsze
   niż około 0,5 ha mają za mało punktów siatki i spadek nie jest wyznaczany. Działka na granicy arkuszy 1° × 1°
   dostaje siatkę tylko z arkusza swojego środka.
 - **Tło suszowe.** Wskaźnik CDI jest dostępny od 2016 r. i ukazuje się z opóźnieniem, więc dla Daty analizy równej

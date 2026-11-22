@@ -22,9 +22,10 @@ WEATHER_TIMEOUT_S = 12.0
 # the budget allows after a parcel fetch of typical length; an analysis whose
 # soil answer comes later uses the stand-in water capacity and says so.
 SOIL_TIMEOUT_S = 24.0
-# The adapters below end on their own (15 s for the terrain link and for the
-# satellite time budget) and then report what they have; these limits only
-# stop one that does not.
+# The adapters below end on their own (15 s for the satellite time budget)
+# and then report what they have; these limits only stop one that does not.
+# Terrain: two chain links asked one after the other, 8 s each (measured from
+# the target server: at most 3.5 s and 2.6 s), plus the adapter grace.
 TERRAIN_TIMEOUT_S = 17.0
 SATELLITE_TIMEOUT_S = 17.0
 # Local files, read in well under a second.

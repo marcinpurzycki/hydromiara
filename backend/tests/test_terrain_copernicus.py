@@ -212,6 +212,7 @@ def test_unreadable_tile_gives_no_data():
     assert data is None and not outcome.ok and "odczytać pliku" in outcome.message
 
 
-def test_production_chain_has_the_30_m_link_only():
-    (link,) = TerrainSource()._links
+def test_production_chain_ends_with_the_30_m_link():
+    link = TerrainSource()._links[-1]
     assert isinstance(link, CopernicusDem30) and link.timeout_s == params.COPERNICUS_LINK_TIMEOUT_S
+    assert link.timeout_s == 8.0

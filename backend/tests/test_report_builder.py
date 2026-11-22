@@ -134,7 +134,8 @@ def test_confidence_follows_the_limitations_of_each_verdict():
     for verdict in (report.current_status, report.multiyear_susceptibility):
         assert verdict.confidence.level == "wysoka"
     own = [limitation for limitation in report.limitations if not limitation.permanent]
-    # The stand-in terrain grid of the helper is not geographic, which the Report says.
+    # The stand-in terrain grid of the helper is in a system that is not read, which the
+    # Report says.
     # The recommendation that needs the terrain is therefore named as not checked.
     assert len(own) == 2
     assert own[0].affects == "recommendations" and "ukształtowaniu terenu" in own[0].text

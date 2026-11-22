@@ -12,13 +12,26 @@ Pure: reads only the analysis result and the stored source outcomes.
 from app.contracts.report import DownhillDirection, Limitation, TraceEntry
 from app.contracts.source_data import SourceData
 from app.engine.cause_model import pl_number
-from app.engine.cause_params import DEFAULT_CAUSE_PARAMS, CauseParams
+from app.engine.cause_params import (
+    DEFAULT_CAUSE_PARAMS,
+    ROUNDED_HEIGHTS_FLAT_SLOPE_PCT,
+    CauseParams,
+)
 from app.engine.terrain_analysis import TerrainAnalysis
-from app.sources.terrain_params import COPERNICUS_SOURCE_NAME
+from app.sources.terrain_params import COPERNICUS_SOURCE_NAME, GUGIK_SOURCE_NAME
 
 # Terrain sources that describe the surface with buildings and vegetation
 # (a surface model), not the bare ground.
 SURFACE_MODEL_SOURCES: frozenset[str] = frozenset({COPERNICUS_SOURCE_NAME})
+# Terrain sources read from the national 1 m terrain model (bare ground).
+POINT_HEIGHT_SOURCES: frozenset[str] = frozenset({GUGIK_SOURCE_NAME})
+
+_MEAN_DIRECTION = (
+    "Kierunek spływu to kierunek średniego spadku całej Działki. Na części pola woda może "
+    "płynąć inaczej (na trzech zmierzonych działkach na 16–43% powierzchni kierunek miejscowy "
+    "odbiegał od średniego o ponad 45°). Model terenu nie pokazuje bruzd, redlin, kolein ani "
+    "drenów i pochodzi z pomiarów sprzed kilku lat."
+)
 
 _NOT_ASSESSED = (
     "nie wyznaczono spadku ani kierunku spływu, więc nie można ocenić, czy woda szybko "
@@ -124,11 +137,26 @@ def terrain_limitations(
             "z pola, dotyczy tej części."
         )
     name = _terrain_source_name(source_data)
-    if name in SURFACE_MODEL_SOURCES:
+    if name in SURFACE_MODEL_SOURCES and analysis.analysed:
         texts.append(
-            f"Dane o ukształtowaniu terenu ({name}) opisują powierzchnię razem z budynkami "
-            "i roślinnością, a nie sam grunt, w siatce o oczku około 30 m. Spadek i kierunek "
-            "spływu są przybliżone, zwłaszcza na małych Działkach i przy zadrzewieniach; "
-            "wpływa to na ocenę, czy woda szybko odpływa z pola."
+            f"Spadek i kierunek spływu policzono z modelu satelitarnego o oczku około 30 m "
+            f"({name}), który opisuje powierzchnię razem z budynkami i roślinnością, a nie sam "
+            "grunt. Średni spadek pola jest wiarygodny, ale miejsca, w którym woda się zbiera, "
+            "nie da się z niego wskazać dokładniej niż do strony pola."
         )
+        if analysis.cells_used < params.coarse_grid_min_cells:
+            texts.append(
+                "Działka jest za mała albo za wąska dla modelu terenu o oczku 30 m; spadek "
+                "jest przybliżony."
+            )
+    elif name in POINT_HEIGHT_SOURCES and analysis.analysed and analysis.cell_size_m:
+        texts.append(
+            "Ukształtowanie terenu odczytano z numerycznego modelu terenu GUGiK co "
+            f"{pl_number(min(analysis.cell_size_m), 0)} m. Wysokości są zaokrąglone do 10 cm, "
+            "więc na polu prawie płaskim (spadek poniżej "
+            f"{pl_number(ROUNDED_HEIGHTS_FLAT_SLOPE_PCT, 1)}%) kierunek spływu wody jest "
+            "orientacyjny."
+        )
+    if analysis.direction_resolved:
+        texts.append(_MEAN_DIRECTION)
     return [Limitation(text=text, affects="recommendations", permanent=False) for text in texts]

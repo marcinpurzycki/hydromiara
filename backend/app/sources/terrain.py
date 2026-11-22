@@ -51,7 +51,7 @@ class TerrainLink(Protocol):
     timeout_s: float
 
     async def read(self, outline: BaseGeometry) -> TerrainReading:
-        """Grid around the outline (EPSG:4326), or TerrainLinkError."""
+        """Grid around the outline given in EPSG:4326, or TerrainLinkError."""
         ...
 
 
@@ -65,8 +65,9 @@ class TerrainFetch(NamedTuple):
 def default_links() -> list[TerrainLink]:
     """The chain used in production, most accurate link first."""
     from app.sources.terrain_copernicus import CopernicusDem30
+    from app.sources.terrain_gugik import GugikPointHeights
 
-    return [CopernicusDem30()]
+    return [GugikPointHeights(), CopernicusDem30()]
 
 
 class TerrainSource:

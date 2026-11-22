@@ -2,7 +2,7 @@
 
 Method: a plane z = gx * x + gy * y + c is fitted by least squares to the
 centres of the grid cells that lie inside the parcel outline (x east, y north,
-in metres). The slope is the length of the gradient (gx, gy), the downhill
+in metres, for a geographic grid and for a metric one alike). The slope is the length of the gradient (gx, gy), the downhill
 direction is opposite to it. Cells outside the outline are never used, so the
 result does not depend on the margin of the grid.
 

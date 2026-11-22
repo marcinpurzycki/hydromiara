@@ -111,13 +111,30 @@ Stopnia niedoboru (Pole bez uprawy), lista przyczyn jest pusta, a raport mówi t
 
 ## Analiza terenu
 
+Wysokości terenu pochodzą z Łańcucha zamienników. Źródłem podstawowym jest numeryczny model terenu GUGiK w siatce
+1 m, odczytywany usługą wysokości punktów w siatce co 5 m (punkty o całkowitych współrzędnych układu PL-1992
+w prostokącie otaczającym Działkę powiększonym o 30 m; najwyżej 4000 punktów, więc duża Działka dostaje rzadszą
+siatkę). Punkty są wysyłane po 400 w zapytaniu, do 8 zapytań jednocześnie. Wiersz odpowiedzi bez wysokości oznacza
+brak danych dla punktu. Odpowiedź z wysokościami równymi dokładnie 0,0 bywa nieudanym zapytaniem, a nie terenem na
+poziomie morza, dlatego część siatki zawierająca zera jest odczytywana drugi raz: zero zostaje tylko wtedy, gdy
+powtórzy się w obu odczytach, a część, która dwa razy wróciła z samymi zerami, jest odrzucana. Źródło jest przyjęte,
+gdy wysokość ma co najmniej 90% punktów wewnątrz Działki i odpowiedź przyszła w 8 s; w przeciwnym razie używany jest
+zamiennik, Copernicus DEM GLO-30 (siatka ok. 30 m), a Raport podaje to jako Ograniczenie.
+
 Spadek, kierunek spływu i najniższa część Działki pochodzą z płaszczyzny dopasowanej metodą najmniejszych kwadratów
-do punktów siatki wysokości leżących wewnątrz obrysu Działki; odległości są liczone z położenia punktów i szerokości
-geograficznej, bo oczka siatki nie są kwadratowe (ok. 28 × 31 m). Rozrzut wysokości wokół płaszczyzny daje niepewność
-spadku: kierunek i najniższa część są podawane tylko wtedy, gdy spadek jest co najmniej 2 razy większy od swojej
-niepewności. Poniżej 6 punktów wewnątrz obrysu albo gdy punkty leżą w jednej linii, spadek nie jest wyznaczany
-i raport to podaje. Dane Copernicus DEM opisują powierzchnię razem z budynkami i roślinnością, co raport podaje jako
-Ograniczenie; na siatce 30 m najniższa część jest wskazywana tylko jako strona Działki, nie punkt.
+do punktów siatki wysokości leżących wewnątrz obrysu Działki. Dla siatki w układzie PL-1992 odległości wynikają
+wprost ze współrzędnych, a kierunki są obracane do północy geograficznej: północ siatki odbiega od niej o tzw.
+zbieżność południków, do około 4° na wschodnim i zachodnim krańcu Polski. Skala odwzorowania (0,9993–1,0008) jest
+pomijana, bo zmienia spadek o mniej niż jedną tysięczną jego wartości. Dla siatki 30 m odległości są liczone
+z położenia punktów i szerokości geograficznej, bo jej oczka nie są kwadratowe (ok. 28 × 31 m). Rozrzut wysokości
+wokół płaszczyzny daje niepewność spadku: kierunek i najniższa część są podawane tylko wtedy, gdy spadek jest co
+najmniej 2 razy większy od swojej niepewności. Poniżej 6 punktów wewnątrz obrysu albo gdy punkty leżą w jednej linii,
+spadek nie jest wyznaczany i raport to podaje. Najniższa część to położenie 10% najniżej leżących punktów względem
+środka Działki, podawane jako strona Działki, nie punkt. Na trzech działkach porównawczych siatka co 5 m dała spadek
+i kierunek zgodne z pełnym modelem 1 m (różnica do 0,03 punktu procentowego i 0,2°), a model 30 m różnił się
+o 0,06–0,41 punktu procentowego i 2–6°. Dane Copernicus DEM opisują powierzchnię razem z budynkami i roślinnością,
+co raport podaje jako Ograniczenie; poniżej 10 punktów tego modelu wewnątrz Działki spadek jest opisany jako
+przybliżony.
 
 ## Sezon uprawy, data poza sezonem i Okres krytyczny
 

@@ -155,8 +155,8 @@ def test_slope_below_the_scatter_of_the_data_is_not_given_a_direction():
     assert steep.direction_resolved and steep.downhill_label == "wschód"
 
 
-def test_grid_that_is_not_geographic_is_not_analysed():
-    terrain = grid(plane(3.0, 90)).model_copy(update={"crs": "EPSG:2180"})
+def test_grid_in_a_system_that_is_not_read_is_not_analysed():
+    terrain = grid(plane(3.0, 90)).model_copy(update={"crs": "EPSG:3857"})
     assert analyse_terrain(terrain, FIELD).status == "unsupported_grid"
 
 
