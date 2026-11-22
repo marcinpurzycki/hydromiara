@@ -59,6 +59,7 @@ def test_verdicts_come_from_the_engine():
     assert rule_ids[:3] == [
         "root_zone.capacity", "current_status.level", "multiyear.deficit_years",
     ]
+    assert rule_ids[3] == "season.state"
     assert rule_ids[-1] == "consistency_check.result"
     assert report.map.parcel_geometry == stored_source_data().parcel.geometry
     assert [source.topic for source in report.sources] == ["parcel", "weather"]

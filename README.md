@@ -38,8 +38,9 @@ bez gleby. Dane o wodach (cieki, rowy, zbiorniki) nie są jeszcze pobierane: w p
 `missing`. Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego pozycji jest stała); jest na liście
 źródeł raportu. Części raportu, których jeszcze nie liczy żaden moduł (rekomendacje, nawadnianie,
 podsumowanie), są w nim opisane wprost jako nieocenione.
-Lista upraw, przykłady, symulacja, raport pochodny i analiza na okres krytyczny odpowiadają na obecnym etapie danymi
-przykładowymi (atrapą) i działają tylko dla raportu przykładowego `/api/reports/demo`.
+Lista upraw, przykłady, symulacja i raport pochodny odpowiadają na obecnym etapie danymi przykładowymi (atrapą)
+i działają tylko dla raportu przykładowego `/api/reports/demo`. Analiza na Okres krytyczny
+(`POST /api/reports/{report_id}/critical-period`) jest prawdziwa; dla raportu przykładowego odpowiada atrapą.
 Opis interfejsu: `/api/docs` (Swagger UI) i `/api/openapi.json`.
 
 Lokalnie, bez Dockera:
@@ -52,6 +53,7 @@ REPORTS_DB_PATH=./data/reports.sqlite3 .venv/bin/fastapi dev app/main.py   # htt
 .venv/bin/python -m tests.smoke.parcels_smoke   # sprawdzenie na żywej usłudze działek (wymaga sieci)
 .venv/bin/python -m tests.smoke.satellite_smoke # sprawdzenie na żywych usługach scen satelitarnych, w tym przełączenia (wymaga sieci)
 .venv/bin/python -m tests.smoke.analysis_smoke  # cała analiza jednej działki na żywych źródłach, z czasem każdego źródła (wymaga sieci)
+.venv/bin/python -m tests.smoke.season_smoke    # raport poza sezonem lub w spoczynku i przejście na Okres krytyczny, na żywych źródłach (wymaga sieci)
 EDO_DATA_PATH=./data/edo .venv/bin/python -m tests.smoke.full_analysis_smoke  # analizy trzech działek, dwie daty, kilka przebiegów: tabela czasów i wyników każdego źródła (wymaga sieci; kilka minut)
 ```
 
@@ -115,6 +117,21 @@ spadku: kierunek i najniższa część są podawane tylko wtedy, gdy spadek jest
 niepewności. Poniżej 6 punktów wewnątrz obrysu albo gdy punkty leżą w jednej linii, spadek nie jest wyznaczany
 i raport to podaje. Dane Copernicus DEM opisują powierzchnię razem z budynkami i roślinnością, co raport podaje jako
 Ograniczenie; na siatce 30 m najniższa część jest wskazywana tylko jako strona Działki, nie punkt.
+
+Raport rozpoznaje, gdzie Data analizy wypada względem Sezonu uprawy (`backend/app/engine/season.py`): w sezonie,
+w sezonie w spoczynku (uprawa ozima od końca jesiennych wschodów do dnia przed wiosennym wzrostem; granice pochodzą
+z dat faz w katalogu upraw) albo poza sezonem. Poza sezonem i w spoczynku Stopień niedoboru Bieżącej sytuacji wodnej
+dotyczy Zapasu wody w glebie, nie potrzeb rośliny, i jest tak podpisany; liczony jest tą samą miarą i tymi samymi
+progami co w sezonie (osobnej skali dla zapasu nie ma), a uzasadnienie opisuje ostatni zakończony sezon (dni,
+w których wody brakowało, także w Okresie krytycznym) i zmianę zapasu od jego końca. Poza sezonem raport podaje
+„Rekomendacje nawadniania: brak — wybrana data jest poza sezonem” z datami ostatniego sezonu.
+`POST /api/reports/{report_id}/critical-period` uruchamia zwykłą analizę tej samej Działki i Uprawy (z nowym
+pobraniem danych) na środkowy dzień ostatniego Okresu krytycznego, którego środek nie jest późniejszy niż Data
+analizy raportu, więc nowa data nigdy nie jest późniejsza od pierwotnej. Odpowiedź to `202 {report_id, analysis_date}`;
+nowy raport podaje pierwotną datę w `meta.changed_from_date`, a pierwotny raport się nie zmienia. Raport, którego
+data już jest takim środkowym dniem, oraz Pole bez uprawy (nie ma Okresu krytycznego) dostają `409` z wyjaśnieniem
+(`already_critical_period`, `no_critical_period`). Datę, którą da to przejście, raport podaje w śladzie decyzyjnym
+(`trace`, reguła `season.state`).
 
 ## Konfiguracja
 

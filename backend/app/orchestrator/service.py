@@ -16,7 +16,7 @@ import logging
 import secrets
 import time
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from app.catalog.crops import get_crop
 from app.contracts.analyses import AnalysisRequest, AnalysisStatus, CropHistory
@@ -65,15 +65,27 @@ class Orchestrator:
         """Delete Reports older than the retention time; returns how many."""
         return await asyncio.to_thread(self.store.purge_expired, self._clock())
 
-    async def start(self, request: AnalysisRequest, sources: AnalysisSources) -> str:
-        """Register the analysis and run it in the background; returns its identifier."""
+    async def start(
+        self,
+        request: AnalysisRequest,
+        sources: AnalysisSources,
+        *,
+        changed_from_date: date | None = None,
+    ) -> str:
+        """Register the analysis and run it in the background; returns its identifier.
+
+        `changed_from_date` is the analysis date of the Report this analysis was
+        started from with another date; it is written into the new Report.
+        """
         report_id = new_report_id()
         progress = Progress(sources.specs)
         await asyncio.to_thread(
             self.store.create, report_id, request, progress.snapshot(), self._clock()
         )
         self._running[report_id] = progress
-        task = asyncio.create_task(self._run(report_id, request, sources, progress))
+        task = asyncio.create_task(
+            self._run(report_id, request, sources, progress, changed_from_date)
+        )
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
         return report_id
@@ -84,6 +96,7 @@ class Orchestrator:
         request: AnalysisRequest,
         sources: AnalysisSources,
         progress: Progress,
+        changed_from_date: date | None = None,
     ) -> None:
         tag = report_id[: params.LOG_ID_CHARS]
         started = time.monotonic()
@@ -93,7 +106,7 @@ class Orchestrator:
         )
         state = "done"
         try:
-            await self._analyse(report_id, request, sources, progress, tag)
+            await self._analyse(report_id, request, sources, progress, tag, changed_from_date)
         except AnalysisFailed as failure:
             state = failure.code
             await self._fail(report_id, failure, progress)
@@ -117,6 +130,7 @@ class Orchestrator:
         sources: AnalysisSources,
         progress: Progress,
         tag: str,
+        changed_from_date: date | None = None,
     ) -> None:
         deadline = time.monotonic() + self._fetch_budget_s
         async with asyncio.timeout(self._fetch_budget_s):
@@ -134,6 +148,7 @@ class Orchestrator:
             analysis_date=request.analysis_date,
             crop_history=history,
             source_limitations=tuple(limitations),
+            changed_from_date=changed_from_date,
         )
         computed = time.monotonic()
         report = await asyncio.to_thread(build_report, inputs)

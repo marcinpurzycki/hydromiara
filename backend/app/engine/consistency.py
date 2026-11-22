@@ -24,7 +24,6 @@ from dataclasses import dataclass
 from datetime import date
 
 from app.catalog.crop_model import CatalogCrop
-from app.catalog.crops import in_season
 from app.contracts.report import TraceEntry
 from app.contracts.source_data import SourceData, SourceTopic
 from app.contracts.verdicts import ConsistencyCheck
@@ -35,6 +34,7 @@ from app.engine.consistency_parts import Comparison, PartResult
 from app.engine.consistency_satellite import SeasonState, describe_satellite
 from app.engine.findings import Finding
 from app.engine.limitations import ConsistencyResult
+from app.engine.season import DateState, season_status
 from app.engine.source_limitations import Affects
 
 RULE_ID = "consistency_check.result"
@@ -79,10 +79,9 @@ def combine(results: Iterable[PartResult | None]) -> ConsistencyResult:
     return "brak danych"
 
 
-def season_state(crop: CatalogCrop, analysis_date: date) -> SeasonState:
-    if crop.season is None:
-        return "no_crop"
-    return "in_season" if in_season(crop, analysis_date) else "out_of_season"
+def satellite_season_state(state: DateState) -> SeasonState:
+    """A dormant crop is in its season: the satellite reading is described as in the season."""
+    return "in_season" if state == "dormant" else state
 
 
 def _classes(params: ConsistencyParams, signal: str) -> str:
@@ -126,16 +125,20 @@ def check_consistency(
 ) -> ConsistencyOutcome:
     """The consistency check for the current water status on the analysis date."""
     verdict = assessment.current_status
-    state = season_state(crop, analysis_date)
+    state = season_status(crop, analysis_date).state
     cdi = compare_cdi(
         source_data.drought_background,
         verdict,
         analysis_date,
         out_of_season=state == "out_of_season",
+        dormant=state == "dormant",
         params=params,
     )
     satellite = describe_satellite(
-        source_data.satellite, analysis_date, season_state=state, params=params
+        source_data.satellite,
+        analysis_date,
+        season_state=satellite_season_state(state),
+        params=params,
     )
     if verdict.assessed:
         result = combine((cdi.result, satellite.result))

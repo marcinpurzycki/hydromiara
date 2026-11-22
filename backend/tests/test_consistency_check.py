@@ -233,3 +233,15 @@ def test_rules_are_parameters():
                 SATELLITE_SOURCE).value == "brak danych"
     with pytest.raises(ValueError):
         ConsistencyParams(deficit_from_level=0)
+
+
+def test_dormant_winter_crop_is_compared_as_the_soil_water_store():
+    day = date(2023, 11, 20)  # winter wheat: in the season, dormant
+    outcome = run(1, cdi((date(2023, 11, 11), 1)), [scene(date(2023, 11, 15))], day=day)
+    assert outcome.result == "zgodne"
+    assert "Uprawa jest w spoczynku, więc Stopień niedoboru dotyczy Zapasu wody" in (
+        outcome.check.sentence
+    )
+    assert "poza Sezonem uprawy" not in outcome.check.sentence
+    # A dormant crop is in its season: the satellite reading is not "cover only".
+    assert "pokrywę pola, nie niedobór" not in outcome.check.sentence

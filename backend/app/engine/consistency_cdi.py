@@ -36,6 +36,10 @@ _OUT_OF_SEASON = (
     " Data analizy jest poza Sezonem uprawy, więc Stopień niedoboru dotyczy Zapasu wody "
     "w glebie, nie potrzeb rośliny."
 )
+_DORMANT = (
+    " Uprawa jest w spoczynku, więc Stopień niedoboru dotyczy Zapasu wody w glebie, nie "
+    "potrzeb rośliny."
+)
 
 
 class Dekad(NamedTuple):
@@ -84,12 +88,14 @@ def compare_cdi(
     analysis_date: date,
     *,
     out_of_season: bool,
+    dormant: bool = False,
     params: ConsistencyParams,
 ) -> Comparison:
     """The indicator class of the comparison dekad against the current water status.
 
     `out_of_season` is True when the crop has a season and the analysis date
-    lies outside it.
+    lies outside it; `dormant` when a winter crop is in its season but dormant.
+    In both cases the sentence says that the level describes the soil water store.
     """
     dekad = comparison_dekad(analysis_date)
     span = period(*dekad)
@@ -197,6 +203,6 @@ def compare_cdi(
     return Comparison(
         items=(item,),
         result=result,
-        clause=clause + (_OUT_OF_SEASON if out_of_season else ""),
+        clause=clause + (_OUT_OF_SEASON if out_of_season else _DORMANT if dormant else ""),
         facts={**facts, "cdi_result": result},
     )
