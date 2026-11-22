@@ -1,5 +1,14 @@
 // Reading of a Report for display: states the contract expresses indirectly.
-import type { Cause, CauseId, HistoricalYear, Irrigation, Report, Scalar } from "../api/types";
+import type {
+  Cause,
+  CauseId,
+  CropSusceptibility,
+  HistoricalYear,
+  Irrigation,
+  Report,
+  ReportMap,
+  Scalar,
+} from "../api/types";
 import { numberPl, rangePl } from "./format";
 
 export const SCALE_LABELS = ["W normie", "Lekki niedobór", "Wyraźny niedobór", "Silny niedobór"];
@@ -34,6 +43,44 @@ export const currentAssessed = (report: Report) => report.current_status.details
 export const multiyearAssessed = (report: Report) => report.multiyear_susceptibility.total_years > 0;
 
 export const isBareField = (report: Report) => report.meta.crop.id === "bare_field";
+
+/** Words shown in place of a multi-year verdict that has no assessment. */
+export const multiyearNotAssessedLabel = (report: Report) =>
+  isBareField(report) ? "Bez uprawy, nie oceniane" : "Nie oceniono";
+
+/**
+ * Day the current verdict describes, when it is not the analysis date: an
+ * analysis of the current day ends its weather series the day before.
+ */
+export function stateDay(report: Report): string | null {
+  const day = report.current_status.details.state_date;
+  return typeof day === "string" && day !== report.meta.analysis_date ? day : null;
+}
+
+const WATER_KIND_LABELS: Record<string, string> = {
+  ditch: "rów melioracyjny",
+  canal: "kanał",
+  watercourse: "rzeka lub strumień",
+  water_body: "zbiornik wodny",
+};
+
+/** Kinds of water drawn on the sketch, each once, with the names the data give. */
+export function waterLegend(map: ReportMap): string[] {
+  const names = new Map<string, Set<string>>();
+  for (const object of map.water_objects) {
+    const label = WATER_KIND_LABELS[object.kind] ?? "woda";
+    const known = names.get(label) ?? new Set<string>();
+    if (object.name) known.add(object.name);
+    names.set(label, known);
+  }
+  return [...names].map(([label, known]) => (known.size > 0 ? `${label} (${[...known].join(", ")})` : label));
+}
+
+/** Order of the ranking: the smaller share of years with a deficit first. */
+export function byDeficitShare(a: CropSusceptibility, b: CropSusceptibility): number {
+  const share = (crop: CropSusceptibility) => (crop.total_years > 0 ? crop.deficit_years / crop.total_years : 1);
+  return share(a) - share(b) || a.deficit_years - b.deficit_years;
+}
 
 export const foundCauses = (report: Report) => report.causes.filter((cause) => cause.found);
 

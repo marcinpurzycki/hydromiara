@@ -2,13 +2,15 @@ import { Link } from "react-router";
 import type { Report } from "../api/types";
 import { Chevron } from "../components/Icon";
 import { YearLegend, YearStrip, type StripYear } from "../components/YearStrip";
-import { cropAbbreviation, lowerPl, twoDigitYear } from "../lib/format";
+import { cropAbbreviation, datePl, lowerPl, twoDigitYear } from "../lib/format";
 import {
   SCALE_LABELS,
   currentAssessed,
   currentReason,
   isBareField,
   multiyearAssessed,
+  multiyearNotAssessedLabel,
+  stateDay,
   yearNotAssessed,
 } from "../lib/report-view";
 
@@ -23,10 +25,11 @@ export function Verdicts({ report, historyOpen, onToggleHistory }: Props) {
   const current = report.current_status;
   const assessed = currentAssessed(report);
   const label = current.label.charAt(0).toLocaleUpperCase("pl") + current.label.slice(1);
+  const day = stateDay(report);
   return (
     <section aria-label="Ocena" className="card verdicts print-section">
       <div className="verdict">
-        <p className="eyebrow">Bieżąca sytuacja wodna</p>
+        <p className="eyebrow">Bieżąca sytuacja wodna{day ? ` · stan na koniec dnia ${datePl(day)}` : ""}</p>
         <div className="verdict-grid">
           <div>
             <p className={assessed ? `status status-${current.deficit_level}` : "status status-none"}>{label}</p>
@@ -118,7 +121,7 @@ function Multiyear({ report }: { report: Report }) {
           </div>
         </div>
       ) : (
-        <p className="status status-none">Nie oceniono</p>
+        <p className="status status-none">{multiyearNotAssessedLabel(report)}</p>
       )}
       <div className="verdict-foot">
         <p className="hint">

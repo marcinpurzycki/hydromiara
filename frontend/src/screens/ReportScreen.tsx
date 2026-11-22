@@ -15,6 +15,20 @@ import type { StartPrefill } from "./StartScreen";
 export function ReportGate({ load, reportId }: { load: Exclude<ReportLoad, { state: "ready" }>; reportId: string }) {
   if (load.state === "loading") return <p className="screen screen-text lead">Wczytujemy raport…</p>;
   if (load.state === "running") return <Navigate to={`/analiza/${reportId}`} replace />;
+  if (load.state === "unavailable") {
+    return (
+      <div className="screen screen-text">
+        <h1>Nie udało się wczytać raportu</h1>
+        <div role="alert" className="notice notice-warning">
+          <b>{load.message}</b>
+          <span>Raport nie zginął: jest zapisany pod tym adresem.</span>
+        </div>
+        <button type="button" className="button button-primary button-large" onClick={load.retry}>
+          Spróbuj ponownie
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="screen screen-text">
       <h1>{load.state === "missing" ? "Nie ma takiego raportu" : "Raport nie powstał"}</h1>

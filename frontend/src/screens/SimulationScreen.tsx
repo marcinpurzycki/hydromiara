@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import { api, errorMessage } from "../api/client";
+import { ApiError, api, errorMessage } from "../api/client";
 import type { CompareResponse, CropSusceptibility, RankingResponse } from "../api/types";
 import { Chevron } from "../components/Icon";
 import { YearLegend, YearStrip, type StripYear } from "../components/YearStrip";
 import { useCrops } from "../lib/catalog";
 import { lowerPl, twoDigitYear } from "../lib/format";
+import { byDeficitShare } from "../lib/report-view";
 import { useReport } from "../lib/use-report";
-import { ReportGate, ReportHeading } from "./ReportScreen";
+import { ReportGate, ReportHeading, prefillOf } from "./ReportScreen";
 
 type Mode = "ranking" | "compare";
 const MODES: [Mode, string][] = [
@@ -60,6 +61,11 @@ export function SimulationScreen() {
   const [compared, setCompared] = useState<Record<string, CompareResponse>>({});
   const [otherId, setOtherId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [outdated, setOutdated] = useState(false);
+  const fail = (failure: unknown) => {
+    setError(errorMessage(failure));
+    setOutdated(failure instanceof ApiError && failure.code === "report_outdated");
+  };
   const ready = load.state === "ready";
 
   // The ranking carries only counts; the years of each row come from the comparison.
@@ -78,7 +84,7 @@ export function SimulationScreen() {
           );
         }
       },
-      (failure) => active && setError(errorMessage(failure)),
+      (failure) => active && fail(failure),
     );
     return () => {
       active = false;
@@ -90,7 +96,7 @@ export function SimulationScreen() {
     let active = true;
     api.compare(reportId, otherId).then(
       (compare) => active && setCompared((all) => ({ ...all, [otherId]: compare })),
-      (failure) => active && setError(errorMessage(failure)),
+      (failure) => active && fail(failure),
     );
     return () => {
       active = false;
@@ -119,6 +125,11 @@ export function SimulationScreen() {
       {error && (
         <div role="alert" className="notice notice-warning">
           <b>{error}</b>
+          {outdated && (
+            <Link to="/" state={{ prefill: prefillOf(report) }} className="link-button no-print">
+              Uruchom analizę jeszcze raz
+            </Link>
+          )}
         </div>
       )}
       {ranking && (
@@ -143,7 +154,7 @@ export function SimulationScreen() {
               {ranking.top.length === 0 && <p>Na liście nie ma teraz innej uprawy do porównania.</p>}
               <ol className="sim-list">
                 {[...ranking.top, ranking.current]
-                  .sort((a, b) => a.deficit_years - b.deficit_years)
+                  .sort(byDeficitShare)
                   .map((crop) => {
                     const current = crop.crop_id === ranking.current.crop_id;
                     const years = current
@@ -178,6 +189,9 @@ export function SimulationScreen() {
                     <Row crop={chosen.other} years={strip(chosen, "other_deficit")} current={false} />
                   </ol>
                   <p>{sentence(chosen)}</p>
+                  {chosen.years.length < chosen.current.total_years && (
+                    <p className="hint">Paski pokazują tylko lata, w których obie uprawy mają ocenę.</p>
+                  )}
                 </>
               )}
             </section>

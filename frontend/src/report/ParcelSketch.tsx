@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { ReportMap } from "../api/types";
+import { waterLegend } from "../lib/report-view";
 import { SKETCH_SIZE, buildSketch } from "../lib/sketch";
 
 /** Parcel outline with the downhill direction, water nearby and places to hold water. */
@@ -8,7 +9,7 @@ export function ParcelSketch({ map }: { map: ReportMap }) {
   if (!sketch) return null;
   const parts = [
     sketch.arrow && `Strzałka: kierunek spływu (${map.downhill_direction?.label}).`,
-    sketch.water.length > 0 && "Niebieskie linie: woda w okolicy.",
+    sketch.water.length > 0 && `Na niebiesko woda w okolicy: ${waterLegend(map).join("; ")}.`,
     sketch.sites.length > 0 && "Zielona linia: miejsce zatrzymania wody.",
   ].filter(Boolean);
   return (
