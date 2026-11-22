@@ -1,0 +1,47 @@
+# Traefik for a server that has no reverse proxy yet. Started by scripts/deploy.sh
+# only when no Traefik is running; on a server with its own Traefik this file is
+# not used. Needs the Docker network "proxy" and ACME_EMAIL in the .env file of
+# the repository root:
+#   docker compose -f deploy/traefik/docker-compose.yml --env-file .env up -d
+#
+# The entry point and resolver names below are the values of TRAEFIK_ENTRYPOINT
+# (websecure) and TRAEFIK_CERTRESOLVER (le) in .env. The dashboard and the API
+# of Traefik are not enabled. The Docker socket is mounted read-only.
+
+name: hydromiara-traefik
+
+services:
+  traefik:
+    image: traefik:v3
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=proxy
+      - --entryPoints.web.address=:80
+      - --entryPoints.web.http.redirections.entryPoint.to=websecure
+      - --entryPoints.web.http.redirections.entryPoint.scheme=https
+      - --entryPoints.websecure.address=:443
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL:?set ACME_EMAIL in .env}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+
+volumes:
+  letsencrypt:

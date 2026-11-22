@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Stand-in for ss: no port is in use.
+exit 0

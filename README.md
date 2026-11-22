@@ -70,18 +70,101 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up --build api
 
 ### Wdrożenie
 
-Na serwerze za Traefikiem (istniejąca sieć `proxy`): `docker compose up -d --build`. Ruch dla `DOMAIN` trafia do
-usługi `web`, a dla `DOMAIN` ze ścieżką `/api` do usługi `api`. Raporty są zapisywane w wolumenie `reports`,
-a pliki wskaźnika suszy są czytane z katalogu `EDO_DATA_PATH` (domyślnie `./data/edo`); przed pierwszym
-uruchomieniem trzeba je tam rozpakować poleceniem `python3 scripts/unpack_drought_files.py KATALOG_ARCHIWÓW`.
+Wdrożenie na serwerze Linux wykonuje jeden skrypt, uruchamiany w katalogu repozytorium:
 
-Wdrożenie musi ustawić `FORWARDED_ALLOW_IPS` na adres albo podsieć, z której Traefik łączy się z usługą `api`
-(podsieć sieci `proxy`: `docker network inspect proxy`). Bez tego usługa widzi wszystkich odwiedzających pod
-adresem Traefika i liczy im wspólny limit zapytań (patrz „Bezpieczeństwo i dane osobowe”). Szyfrowanie (TLS),
-przekierowanie na HTTPS i nagłówek HSTS należą do Traefika.
+```bash
+git clone ADRES_REPOZYTORIUM hydromiara && cd hydromiara
+scripts/deploy.sh --dry-run     # tylko wykrywa i pokazuje plan; niczego nie zmienia i o nic nie pyta
+scripts/deploy.sh               # pyta o brakujące wartości, pokazuje plan i czeka na zgodę
+```
 
-Do uzupełnienia przed zgłoszeniem: skrypt wdrożenia na czystym serwerze (Docker, Traefik, domena, konfiguracja
-modelu językowego) i jego opis; wynik uruchomienia pod domeną na serwerze docelowym.
+**Wymagania:** serwer Linux z publicznym adresem, rekord DNS domeny wskazujący na ten serwer, otwarte porty 80 i 443,
+`bash`, `curl` i `git`, uprawnienia roota (bezpośrednio albo przez `sudo`). Dockera skrypt instaluje sam na systemach
+Debian i Ubuntu (z oficjalnego repozytorium pakietów Dockera); na innych dystrybucjach trzeba najpierw zainstalować
+Docker Engine i wtyczkę Compose według instrukcji Dockera, a skrypt zrobi resztę.
+
+**Pięć kroków skryptu** (każdy można powtarzać; ponowne uruchomienie niczego nie psuje):
+
+1. **Docker.** Gdy jest zainstalowany, skrypt tylko sprawdza, czy działa i czy jest wtyczka Compose (wersja 2 lub
+   nowsza). Gdy go nie ma, po potwierdzeniu instaluje Docker Engine i Compose, włącza usługę przy starcie systemu
+   i ustawia rotację logów kontenerów.
+2. **Traefik.** Gdy na serwerze działa już Traefik, skrypt odczytuje z niego nazwy punktu wejścia HTTPS i resolvera
+   certyfikatów i proponuje je do `.env`. Gdy Traefika nie ma, a porty 80 i 443 są wolne, tworzy sieć `proxy`
+   i uruchamia własnego z pliku `deploy/traefik/docker-compose.yml` (przekierowanie na HTTPS, certyfikaty
+   Let's Encrypt, bez panelu administracyjnego, gniazdo Dockera tylko do odczytu); pyta wtedy o adres e-mail konta
+   Let's Encrypt. Gdy porty zajmuje coś innego niż Traefik, skrypt zatrzymuje się z komunikatem.
+3. **Domena.** Pytanie o domenę (albo `--domain`), sprawdzenie rekordu DNS przez resolver systemowy i porównanie
+   z adresami serwera, bez pytania usług zewnętrznych. Gdy zgodności nie da się potwierdzić (brak rekordu albo serwer
+   za translacją adresów), skrypt ostrzega i pyta, czy kontynuować.
+4. **Model językowy (opcjonalnie).** Adres bazowy usługi zgodnej z OpenAI Chat Completions, nazwa modelu i klucz
+   (wpisywany bez wyświetlania). Bez tej konfiguracji albo z opcją `--no-ai` podsumowanie raportu pochodzi z szablonu.
+5. **Uruchomienie.** `docker compose up -d --build`, oczekiwanie na zdrowie usługi `api`, sprawdzenie
+   `https://DOMENA/api/health` i strony głównej. Przy niepowodzeniu skrypt podaje prawdopodobną przyczynę: DNS albo
+   zapora, certyfikat, etykiety Traefika albo kontener.
+
+Skrypt ustawia też `FORWARDED_ALLOW_IPS` na podsieć sieci `proxy`, o ile wartości nie ma jeszcze w `.env`. Bez niej
+usługa widzi wszystkich odwiedzających pod adresem Traefika i liczy im wspólny limit zapytań (patrz „Bezpieczeństwo
+i dane osobowe”). Limity (domyślnie 6 startów analizy na minutę i 50 na godzinę z jednego adresu, 4 analizy naraz)
+zmienia się zmiennymi `RATE_LIMIT_*` i `MAX_CONCURRENT_ANALYSES` w `.env` (tabela w części „Konfiguracja”).
+
+**Na serwerze, na którym działają już inne usługi,** skrypt:
+
+- nie zmienia, nie restartuje i nie przebudowuje działającego Traefika, nie dotyka jego konfiguracji, certyfikatów,
+  portów 80 i 443 ani istniejącej sieci `proxy`; nie uruchamia drugiego Traefika;
+- nie zmienia instalacji Dockera ani jego konfiguracji. Rotacja logów na poziomie całego Dockera wymaga jego restartu,
+  czyli chwilowej przerwy we wszystkich kontenerach serwera, dlatego jest domyślnie pomijana z komunikatem; wykonuje
+  ją tylko osobna opcja `--enable-log-rotation` (nie obejmuje jej `--yes`) i tylko wtedy, gdy Docker nie ma jeszcze
+  pliku konfiguracji. Kontenery aplikacji mają własny limit logów w plikach compose (3 pliki po 10 MB);
+- sprawdza, czy nazwa projektu `hydromiara`, nazwy tras Traefika `hydromiara-api` i `hydromiara-web` oraz wybrana
+  domena nie są już używane przez inne kontenery; przy kolizji zatrzymuje się, niczego nie zmieniając;
+- nie usuwa żadnych kontenerów, obrazów ani wolumenów.
+
+**Plik `.env`** powstaje z `.env.example` z prawami `600`. Istniejące wartości zostają: skrypt dopisuje tylko brakujące,
+a zastępuje wyłącznie te podane wprost w opcjach. Przed każdą zmianą zapisuje kopię `.env.backup-DATA-GODZINA`
+(prawa `600`). Wartości z `.env` (domena, klucz, model, adres e-mail) nie są wypisywane na ekran; plan podaje same
+nazwy zmiennych. Skrypt zapisuje: `DOMAIN`, `TRAEFIK_ENTRYPOINT`, `TRAEFIK_CERTRESOLVER`, `FORWARDED_ALLOW_IPS`,
+opcjonalnie `AI_BASE_URL`, `OPENAI_MODEL`, `AI_API_KEY`, a przy własnym Traefiku także `ACME_EMAIL`. Pozostałe
+ustawienia (tabela w części „Konfiguracja”) zmienia się ręcznie w `.env` i uruchamia skrypt ponownie.
+
+**Tryby i opcje** (pełna lista: `scripts/deploy.sh --help`):
+
+| Opcja | Działanie |
+|---|---|
+| `--dry-run` | wykrywa stan serwera i wypisuje plan: co znalazł, co zrobi, czego nie ruszy; niczego nie zmienia |
+| `--yes` | bez pytań: wartości z opcji albo z istniejącego `.env`; brak wymaganej wartości kończy się błędem, nie pytaniem |
+| `--domain`, `--traefik-entrypoint`, `--traefik-certresolver`, `--acme-email` | wartości kroków 2 i 3 |
+| `--ai-base-url`, `--ai-model`, `--ai-key-file`, `--no-ai` | krok 4; klucz można też podać w zmiennej środowiskowej `AI_API_KEY` (nigdy jako opcję, bo opcje widać na liście procesów) |
+| `--skip-dns-check` | pomija porównanie rekordu DNS z adresami serwera (np. serwer za translacją adresów) |
+| `--enable-log-rotation` | zapisuje rotację logów w konfiguracji Dockera i restartuje go (przerwa we wszystkich kontenerach) |
+
+Przykład bez pytań: `scripts/deploy.sh --yes --domain hydromiara.example.org --no-ai`.
+
+**Pliki wskaźnika suszy.** Usługa czyta je z katalogu `EDO_DATA_PATH` (domyślnie `./data/edo`, montowany tylko do
+odczytu); skrypt tworzy katalog, sprawdza, czy użytkownik kontenera (uid 10001) może go czytać, i podaje liczbę
+znalezionych plików. Plików nie pobiera: archiwa roczne trzeba pobrać ze źródła opisanego w tabeli źródeł danych
+i rozpakować poleceniem `python3 scripts/unpack_drought_files.py KATALOG_ARCHIWÓW` (restart nie jest potrzebny).
+Bez tych plików wdrożenie działa, a raport podaje brak tła suszowego jako Ograniczenie.
+
+**Jak działa po wdrożeniu.** Ruch dla domeny trafia do usługi `web`, a ze ścieżką `/api` do usługi `api`; raporty są
+zapisywane w wolumenie `reports`. Szyfrowanie (TLS) i przekierowanie na HTTPS zapewnia Traefik.
+
+**Sprawdzenie:** `docker compose ps` (usługa `api` w stanie `healthy`), `curl -fsS https://DOMENA/api/health`
+(odpowiedź `{"status":"ok"}`), `docker compose logs --tail 50 api`.
+
+**Aktualizacja do nowej wersji:** `git pull`, potem `scripts/deploy.sh --yes` (wartości z `.env`; obraz jest budowany
+od nowa, raporty w wolumenie zostają).
+
+**Wycofanie:** `docker compose down` w katalogu repozytorium zatrzymuje i usuwa tylko kontenery aplikacji; inne usługi,
+Traefik, sieć `proxy`, wolumen z raportami i plik `.env` zostają. Wolumen z raportami usuwa dopiero
+`docker compose down --volumes`. Własnego Traefika (uruchomionego przez skrypt) zatrzymuje
+`docker compose -f deploy/traefik/docker-compose.yml --env-file .env down`.
+
+**Testy skryptu** (bez sieci, bez Dockera i bez uprawnień roota; polecenia systemowe zastąpione atrapami):
+`scripts/deploy/tests/run.sh`. Kontrola składni: `shellcheck -x scripts/deploy.sh scripts/deploy/tests/run.sh`.
+
+Nie sprawdzono (do sprawdzenia przez człowieka na czystej maszynie wirtualnej z systemem Debian albo Ubuntu
+i z domeną): instalacji Dockera przez skrypt, uruchomienia własnego Traefika z wystawieniem certyfikatu
+Let's Encrypt oraz pełnego przebiegu pod domeną. Nagłówka HSTS skrypt nie ustawia (należy do konfiguracji Traefika).
 
 ### Konfiguracja
 
@@ -90,6 +173,7 @@ Ustawienia wdrożenia są w pliku `.env` (wzór: `.env.example`); usługa `api` 
 | Zmienna | Wartość domyślna | Znaczenie |
 |---|---|---|
 | `DOMAIN`, `TRAEFIK_ENTRYPOINT`, `TRAEFIK_CERTRESOLVER` | brak (wymagane) | nazwa hosta oraz nazwy punktu wejścia HTTPS i resolvera certyfikatów Traefika |
+| `ACME_EMAIL` | brak | adres konta Let's Encrypt; potrzebny tylko wtedy, gdy Traefika uruchamia skrypt wdrożenia (`deploy/traefik/docker-compose.yml`); dana osobowa, tylko w `.env` |
 | `EDO_DATA_PATH` | `./data/edo` | katalog serwera z rozpakowanymi plikami wskaźnika suszy |
 | `WEB_IMAGE` | `nginx:alpine` | obraz usługi `web` (strona dla rolnika) |
 | `REPORTS_DB_PATH` | `/data/reports/reports.sqlite3` | plik bazy raportów (w kontenerze: wolumen `reports`); przy uruchomieniu bez Dockera trzeba ją podać |
@@ -315,7 +399,7 @@ Do uzupełnienia przed zgłoszeniem: biblioteki strony dla rolnika (usługa `web
 | Python 3.13 (obraz `python:3.13-slim`) | środowisko usługi `api` | PSF License (obraz: pakiety Debiana na własnych licencjach) |
 | SQLite (z biblioteki standardowej Pythona) | baza raportów | domena publiczna |
 | Docker Engine z Docker Compose | uruchomienie usług | Apache-2.0 |
-| Traefik | serwer pośredniczący na serwerze docelowym: TLS, kierowanie ruchu | MIT |
+| Traefik (obraz `traefik:v3`, gdy uruchamia go skrypt wdrożenia) | serwer pośredniczący na serwerze docelowym: TLS, kierowanie ruchu | MIT |
 | nginx (obraz `nginx:alpine`) | zastępcza usługa `web` do czasu dołączenia strony | BSD-2-Clause |
 | Swagger UI | strona `/api/docs` z opisem interfejsu; skrypt i styl ładowane przez przeglądarkę z publicznej sieci CDN | Apache-2.0 |
 
@@ -325,6 +409,11 @@ Usługi danych: ULDK (GUGiK), archiwum pogodowe Open-Meteo, SoilGrids (ISRIC), C
 otwartych danych AWS, katalog Earth Search), Sentinel-2 przez Microsoft Planetary Computer i Earth Search
 (Element 84). Adresy, zakres i warunki: tabela w punkcie 4. Opcjonalnie usługa modelu językowego (niżej).
 Żadna z usług danych nie wymaga konta ani klucza.
+
+Certyfikaty TLS wystawia Let's Encrypt (protokół ACME, obsługiwany przez Traefika): usługa bezpłatna, na warunkach
+umowy subskrybenta Let's Encrypt (`https://letsencrypt.org/repository/`); konto zakłada Traefik na adres e-mail
+podany przy wdrożeniu, a nazwa domeny trafia do publicznych rejestrów wystawionych certyfikatów. Skrypt wdrożenia
+pobiera pakiety Dockera z `https://download.docker.com` (tylko gdy Dockera nie ma na serwerze).
 
 ### Modele
 

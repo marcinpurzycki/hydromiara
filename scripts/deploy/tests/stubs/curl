@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Stand-in for curl: every address answers.
+exit 0
