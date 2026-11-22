@@ -38,10 +38,10 @@ bez gleby. Dane o wodach (cieki, rowy, zbiorniki) nie są jeszcze pobierane: w p
 `missing`. Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego pozycji jest stała); jest na liście
 źródeł raportu. Część raportu, której jeszcze nie liczy żaden moduł (podsumowanie), jest w nim opisana
 wprost jako nieoceniona.
-Lista upraw, przykłady i symulacja odpowiadają na obecnym etapie danymi przykładowymi (atrapą)
-i działają tylko dla raportu przykładowego `/api/reports/demo`. Analiza na Okres krytyczny
-(`POST /api/reports/{report_id}/critical-period`) i raport pochodny z Historią upraw
-(`POST /api/reports/{report_id}/derive`) są prawdziwe; dla raportu przykładowego odpowiadają atrapą.
+Lista upraw i przykłady odpowiadają na obecnym etapie danymi przykładowymi (atrapą). Analiza na Okres krytyczny
+(`POST /api/reports/{report_id}/critical-period`), raport pochodny z Historią upraw
+(`POST /api/reports/{report_id}/derive`) i Symulacja są prawdziwe; dla raportu przykładowego `/api/reports/demo`
+odpowiadają atrapą.
 Opis interfejsu: `/api/docs` (Swagger UI) i `/api/openapi.json`.
 
 Lokalnie, bez Dockera:
@@ -56,6 +56,7 @@ REPORTS_DB_PATH=./data/reports.sqlite3 .venv/bin/fastapi dev app/main.py   # htt
 .venv/bin/python -m tests.smoke.analysis_smoke  # cała analiza jednej działki na żywych źródłach, z czasem każdego źródła (wymaga sieci)
 .venv/bin/python -m tests.smoke.season_smoke    # raport poza sezonem lub w spoczynku i przejście na Okres krytyczny, na żywych źródłach (wymaga sieci)
 .venv/bin/python -m tests.smoke.history_smoke   # analiza i raport pochodny z Historią upraw: czas, Przebieg historyczny, niezmieniona Podatność wieloletnia (wymaga sieci)
+.venv/bin/python -m tests.smoke.simulation_smoke # analiza jednej działki, potem Ranking upraw i porównanie z jedną Uprawą, z czasami odpowiedzi (wymaga sieci)
 EDO_DATA_PATH=./data/edo .venv/bin/python -m tests.smoke.full_analysis_smoke  # analizy trzech działek, dwie daty, kilka przebiegów: tabela czasów i wyników każdego źródła (wymaga sieci; kilka minut)
 ```
 
@@ -149,6 +150,22 @@ publikacjach źródłowych, więc wszystkie są oznaczone jako robocze, podobnie
 od „lekki niedobór”). Pozycja z grupy nawadnianie nie trafia do sekcji Przyczyn: o nawadnianiu raport mówi w jednym
 miejscu, na końcu (część o nawadnianiu, opisana niżej), a tekst tej pozycji katalogu nie jest w nim pokazywany. Pozycje wymagające danych o wodach nie uruchamiają się,
 dopóki dane o ciekach, rowach i zbiornikach nie są pobierane.
+
+Symulacja (`backend/app/engine/simulation.py`; trasy `GET /api/reports/{report_id}/simulation/ranking` i
+`.../simulation/compare?crop_id=`) porównuje Podatność wieloletnią bieżącej Uprawy z podatnością innych Upraw z listy
+na tej samej Działce. Liczy wyłącznie z bilansu wodnego, z pogody i gleby zapisanych razem z raportem: niczego nie
+pobiera, niczego nie zapisuje i nie zmienia raportu. Każda Uprawa jest oceniana tym samym kodem i z tymi samymi
+parametrami co raport, więc wynik bieżącej Uprawy jest równy Podatności wieloletniej z raportu; gdy raport powstał
+przed zmianą sposobu liczenia, Symulacja nie odpowiada (`409 report_outdated`), zamiast pokazać inne liczby niż raport.
+Ranking upraw pokazuje do trzech innych Upraw najmniej narażonych na niedobór wody, zawsze obok bieżącej; kolejność
+wynika z udziału lat z niedoborem wody w ocenionych latach (przy tej samej liczbie lat: z liczby lat z niedoborem),
+przy równym udziale z liczby dni z brakiem wody w Okresach krytycznych, potem z kolejności listy Upraw. Pole bez
+uprawy nie jest porównywane, bo nie wyznacza się dla niego Stopnia niedoboru. Lista ma teraz jedną Uprawę i Pole bez
+uprawy, więc Ranking upraw pokazuje samą bieżącą Uprawę i mówi to wprost; po uzupełnieniu listy Symulacja obejmie
+nowe Uprawy bez zmian w kodzie. Porównanie rok po roku zawiera lata, w których obie Uprawy mają ocenę. Symulacja nie
+korzysta z danych satelitarnych i nie ocenia plonu, opłacalności, przydatności gleby ani zmianowania; te dwa stałe
+Ograniczenia są w każdej odpowiedzi Rankingu upraw. Dla raportu przykładowego `/api/reports/demo` obie trasy
+odpowiadają danymi przykładowymi (atrapą).
 
 Część raportu o nawadnianiu (`backend/app/engine/irrigation.py`, parametry w `irrigation_params.py`) wynika wyłącznie
 ze stanu bilansu wodnego na Datę analizy, bez prognozy pogody. W sezonie nawadnianie jest zasadne, gdy Bieżąca

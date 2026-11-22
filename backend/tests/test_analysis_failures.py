@@ -151,20 +151,18 @@ def test_today_is_the_local_day(monkeypatch):
     assert abs(runtime.local_today() - date.today()) <= timedelta(days=1)
 
 
-def test_placeholder_routes_do_not_answer_for_a_real_report(client, weather):
+def test_simulation_waits_for_the_report_and_then_answers(client, weather):
     weather.hold = True
     report_id = start(client)
-    urls = [
-        ("get", f"/api/reports/{report_id}/simulation/ranking", None),
-    ]
-    for method, url, body in urls:
-        assert_error(client.request(method, url, json=body), 425, "report_not_ready")
+    ranking = f"/api/reports/{report_id}/simulation/ranking"
+    assert_error(client.get(ranking), 425, "report_not_ready")
     weather.hold = False
     wait_finished(client, report_id)
-    for method, url, body in urls:
-        assert_error(client.request(method, url, json=body), 501, "not_available_yet")
+    # The simulation is real: it answers for a Report of an analysis and knows
+    # only the crops of the crop list, not those of the placeholder list.
+    assert client.get(ranking).status_code == 200
     compare = client.get(
         f"/api/reports/{report_id}/simulation/compare", params={"crop_id": "maize"}
     )
-    assert_error(compare, 501, "not_available_yet")
+    assert_error(compare, 422, "unknown_crop")
     assert_error(client.get("/api/reports/unknown/simulation/ranking"), 404, "report_not_found")
