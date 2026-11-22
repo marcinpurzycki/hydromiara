@@ -21,12 +21,14 @@ WEATHER_TIMEOUT_S = 12.0
 # own limits of its two links (measured: 1.0-1.4 s and 2.2-3.2 s). Given to
 # the adapter as the limit of the whole chain.
 SOIL_TIMEOUT_S = 13.0
-# The adapters below end on their own (15 s for the satellite time budget)
-# and then report what they have; these limits only stop one that does not.
+# The adapters below end on their own and then report what they have; these
+# limits only stop one that does not.
 # Terrain: two chain links asked one after the other, 8 s each (measured from
 # the target server: at most 3.5 s and 2.6 s), plus the adapter grace.
 TERRAIN_TIMEOUT_S = 17.0
-SATELLITE_TIMEOUT_S = 17.0
+# The satellite adapter ends on its own time budget of 12 s; one second more
+# lets its own report of what is missing arrive.
+SATELLITE_TIMEOUT_S = 13.0
 # Waters: the adapter's chain ends on its own (the live read of the class
 # files within 12 s, then a local copy when there is one); this limit only
 # stops a chain that does not.
@@ -45,8 +47,9 @@ SOURCE_DEADLINE_MARGIN_S = 1.0
 # Worker threads shared by the blocking work of all running analyses: reading
 # the drought files and the terrain tile, the engine and the database (two or
 # three at a time per analysis; a terrain read cut by its limit keeps a thread
-# for up to 10 s more). Satellite reads use the adapter's own threads (12 per
-# analysis). A fixed number, so that it does not follow the processor count.
+# for up to 10 s more). Satellite reads use the adapter's own threads (16 or 32
+# per analysis, by service). A fixed number, so that it does not follow the
+# processor count.
 WORKER_THREADS = 16
 
 # Bytes of randomness in a report identifier (128 bits, URL-safe text).

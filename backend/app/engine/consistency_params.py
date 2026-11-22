@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Literal
 
+from app.sources import satellite_params
+
 # What a class of the drought indicator says in the comparison.
 CdiSignal = Literal["drought", "no_drought", "transitional"]
 
@@ -36,10 +38,11 @@ CDI_CLASS_SIGNALS: Mapping[int, CdiSignal] = {
 # deficit level then describes the soil water store, not the crop demand).
 CDI_COMPARED_OUT_OF_SEASON: bool = True
 
-# PROVISIONAL: no source; a scene taken at most this many days before the
-# analysis date is described as the reading for the same period. Equal to the
-# search window of the satellite adapter.
-SATELLITE_MAX_SCENE_AGE_DAYS: int = 30
+# A scene taken at most this many days before the analysis date belongs to
+# the reading for the same period: the current window of the satellite
+# adapter, whose length comes from the project's measurement of how often a
+# parcel has a clear scene.
+SATELLITE_MAX_SCENE_AGE_DAYS: int = satellite_params.CURRENT_WINDOW_DAYS
 
 # First ten-day period of the indicator files the application is shipped with
 # (see the data source table of the project README); not a tuned value.

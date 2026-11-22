@@ -20,8 +20,20 @@ HISTORIES = [
 # Parts of the Report a crop history must never change.
 UNTOUCHED = (
     "headline", "season", "current_status", "causes", "irrigation",
-    "consistency_check", "sources", "limitations", "map",
+    "sources", "limitations", "map",
 )
+# Trace values of the satellite comparison with earlier years of the same crop:
+# the one reading of the consistency check a crop history exists for.
+YEARS_FACTS = {"satellite_same_crop_years", "satellite_ndmi_vs_years", "satellite_signal"}
+
+
+def without_years_facts(trace: list) -> list:
+    return [
+        entry.model_copy(
+            update={"values": {k: v for k, v in entry.values.items() if k not in YEARS_FACTS}}
+        )
+        for entry in trace
+    ]
 
 
 def build(history: CropHistory | None = None, crop_id: str = "winter_wheat", **changes) -> Report:
@@ -51,6 +63,11 @@ def test_history_changes_nothing_but_the_course_and_the_assumption(history, sour
     given = build(history, source_data=source())
     for part in UNTOUCHED:
         assert getattr(given, part) == getattr(plain, part), part
+    # The consistency check keeps its result; only its last item, the satellite
+    # comparison with earlier years of the same crop, reads the history.
+    assert given.consistency_check.result == plain.consistency_check.result
+    assert given.consistency_check.items[:-1] == plain.consistency_check.items[:-1]
+    assert plain.consistency_check.items[-1].value == "nie porównano"
     # The susceptibility: number of years, level, the list of years, confidence.
     before, after = plain.multiyear_susceptibility, given.multiyear_susceptibility
     unchanged = before.model_dump(exclude={"history_assumption"})
@@ -64,7 +81,7 @@ def test_history_changes_nothing_but_the_course_and_the_assumption(history, sour
     assert [cause.recommendations for cause in given.causes] == [
         cause.recommendations for cause in plain.causes
     ]
-    assert given.trace[:-1] == plain.trace
+    assert without_years_facts(given.trace[:-1]) == without_years_facts(plain.trace)
     assert given.trace[-1].rule_id == "crop_history.course"
     assert given.historical_course is not None and plain.historical_course is None
     # The summary only gains the sentence that compares the course with the susceptibility.

@@ -69,7 +69,7 @@ def test_every_connected_source_is_described_in_the_report(client):
     assert by_topic["soil"].license.startswith("usługa publiczna i bezpłatna")
     assert by_topic["terrain"].data_date == "2011/2015"
     assert "Sentinel-2" in by_topic["satellite"].name
-    assert by_topic["satellite"].data_date == "2023-06-19/2023-06-19"
+    assert by_topic["satellite"].data_date == "2023-06-14/2023-06-19"
     drought = by_topic["drought_background"]
     assert (drought.mode, drought.data_date) == ("plik lokalny", "2016-01-01/2023-06-11")
     assert {s.mode for s in report.sources if s.topic != "drought_background"} == {"na żywo"}

@@ -111,9 +111,12 @@ def test_satellite_reading_is_described_and_never_decides():
     without = run(3, cdi((DEKAD, 2)))
     assert with_scene.result == without.result == "zgodne"
     entries = [e for e in with_scene.check.items if e.source == SATELLITE_SOURCE]
-    assert [e.period for e in entries] == ["15.06.2023", "12.06.2022"]
+    # In the critical period: the cover, its change and the earlier years.
+    periods = ["15.06.2023", "21.05.2023–20.06.2023", "wcześniejsze lata"]
+    assert [e.period for e in entries] == periods
     assert entries[0].value == "NDVI 0,71; NDMI brak"
-    assert "Nie wpływa na wynik" in entries[0].meaning and "Wcześniejszy" in entries[1].meaning
+    assert all("Nie wpływa na wynik" in entry.meaning for entry in entries)
+    assert entries[1].value == "brak danych" and entries[2].value == "nie porównano"
     assert "z 15.06.2023 (NDVI 0,71; NDMI brak) jest podany opisowo" in with_scene.check.sentence
     missing = item(without, SATELLITE_SOURCE)
     assert missing.value == "brak danych" and "Odczytów satelitarnych" in without.check.sentence
@@ -126,7 +129,7 @@ def test_scene_older_than_the_period_is_not_the_current_reading():
     outcome = run(1, cdi((DEKAD, 1)), [scene(date(2023, 5, 20)), scene(date(2023, 6, 1), None, None)])
     entries = [e for e in outcome.check.items if e.source == SATELLITE_SOURCE]
     assert entries[0].value == "brak danych" and entries[0].period == "21.05.2023–20.06.2023"
-    assert entries[1].period == "20.05.2023" and len(entries) == 2
+    assert len(entries) == 1  # a scene from before the period is not shown as its reading
     assert "z okresu 21.05.2023–20.06.2023 nie ma" in outcome.check.sentence
     kept = run(1, cdi((DEKAD, 1)), [scene(date(2023, 5, 21))])
     assert item(kept, SATELLITE_SOURCE).period == "21.05.2023"

@@ -2,8 +2,8 @@
 
 The catalogue is asked once per search window. Its answer is reduced to what
 reading needs (acquisition day, file addresses, reflectance offset), scenes
-after the analysis date are dropped and scenes of the same day (overlapping
-tiles, reprocessed copies) are grouped so that only one of them is used.
+outside the window are dropped. Choosing one scene per day among overlapping
+tiles and reprocessed copies is done in satellite_selection.py.
 """
 
 from dataclasses import dataclass
@@ -27,6 +27,16 @@ class SearchWindow:
 
     start: Date
     end: Date
+    # The day the window is built around: the analysis date, or the same day
+    # of an earlier year.
+    anchor: Date
+    # True for the window ending on the analysis date.
+    current: bool = True
+
+    @property
+    def quota(self) -> int:
+        """Clear scenes whose bands are read."""
+        return params.CURRENT_SCENES if self.current else params.HISTORY_SCENES_PER_YEAR
 
 
 @dataclass(frozen=True)
@@ -37,6 +47,8 @@ class SceneItem:
     date: Date
     hrefs: dict[str, str]  # layer name -> file address, ready to open
     reflectance_offset: float = 0.0
+    tile: str = ""  # tile of the fixed tiling grid the scene is cut to
+    baseline: str = ""  # processing version of the scene
 
 
 def _years_back(day: Date, years: int) -> Date:
@@ -49,25 +61,36 @@ def _years_back(day: Date, years: int) -> Date:
 def search_windows(analysis_date: Date) -> list[SearchWindow]:
     """Windows to search, the one ending on the analysis date first.
 
-    No window reaches past the analysis date.
+    The current window ends on the analysis date. Each earlier year gets a
+    window around the same day of that year; the latest of them ends almost a
+    year before the analysis date, so no window reaches past it.
     """
-    windows = []
-    for years in range(params.PREVIOUS_YEARS + 1):
-        end = _years_back(analysis_date, years)
-        windows.append(SearchWindow(start=end - timedelta(days=params.WINDOW_DAYS), end=end))
+    windows = [
+        SearchWindow(
+            start=analysis_date - timedelta(days=params.CURRENT_WINDOW_DAYS),
+            end=analysis_date,
+            anchor=analysis_date,
+        )
+    ]
+    half = timedelta(days=params.HISTORY_HALF_WINDOW_DAYS)
+    for years in range(1, params.HISTORY_YEARS + 1):
+        anchor = _years_back(analysis_date, years)
+        windows.append(
+            SearchWindow(start=anchor - half, end=anchor + half, anchor=anchor, current=False)
+        )
     return windows
 
 
 def search_body(provider: Provider, geometry: dict[str, Any], window: SearchWindow) -> dict:
     """Request body: scenes of the collection intersecting the outline in the window."""
     wanted = ["id", "properties.datetime"]
-    wanted += [f"properties.{name}" for name in provider.properties]
+    wanted += [f"properties.{name}" for name in (*provider.properties, provider.tile_property)]
     wanted += [f"assets.{name}.href" for name in provider.assets.values()]
     return {
         "collections": [params.COLLECTION],
         "intersects": geometry,
         "datetime": f"{window.start.isoformat()}T00:00:00Z/{window.end.isoformat()}T23:59:59Z",
-        "limit": params.SEARCH_PAGE_LIMIT,
+        "limit": provider.page_limit,
         "fields": {
             "include": wanted,
             "exclude": ["links", "geometry", "bbox", "stac_extensions", *provider.exclude],
@@ -104,25 +127,19 @@ def parse_items(
                 continue
             if token:
                 hrefs = {layer: f"{href}?{token}" for layer, href in hrefs.items()}
-            items.append(SceneItem(str(feature["id"]), taken, hrefs, offset))
+            items.append(
+                SceneItem(
+                    scene_id=str(feature["id"]),
+                    date=taken,
+                    hrefs=hrefs,
+                    reflectance_offset=offset,
+                    tile=str(properties.get(provider.tile_property) or ""),
+                    baseline=str(properties.get("s2:processing_baseline") or ""),
+                )
+            )
     except (KeyError, TypeError, ValueError, AttributeError) as exc:
         raise SatelliteSearchError(f"unreadable answer: {type(exc).__name__}") from exc
     return items
-
-
-def group_by_day(items: list[SceneItem]) -> list[list[SceneItem]]:
-    """Scenes grouped by acquisition day, newest day first.
-
-    Each group lists the copies of one day in a fixed order (scene id,
-    descending); the reader uses the first copy that covers the parcel.
-    """
-    by_day: dict[Date, dict[str, SceneItem]] = {}
-    for item in items:
-        by_day.setdefault(item.date, {})[item.scene_id] = item
-    return [
-        [copies[scene_id] for scene_id in sorted(copies, reverse=True)]
-        for _, copies in sorted(by_day.items(), reverse=True)
-    ]
 
 
 def _next_request(payload: dict, body: dict) -> tuple[str, dict] | None:
@@ -157,8 +174,8 @@ async def find_scenes(
     geometry: dict[str, Any],
     window: SearchWindow,
     token: str | None = None,
-) -> list[list[SceneItem]]:
-    """Scenes over the outline in one window, grouped by day, newest first."""
+) -> list[SceneItem]:
+    """Every readable scene over the outline in one window, as the catalogue lists them."""
     url, body = provider.search_url, search_body(provider, geometry, window)
     items: list[SceneItem] = []
     for _ in range(params.SEARCH_MAX_PAGES):
@@ -177,7 +194,7 @@ async def find_scenes(
         following = _next_request(payload, body)
         # The catalogue links a next page even after the last one, so a page
         # that is not full ends the search.
-        if len(payload["features"]) < params.SEARCH_PAGE_LIMIT or following is None:
+        if len(payload["features"]) < provider.page_limit or following is None:
             break
         url, body = following
-    return group_by_day(items)
+    return items

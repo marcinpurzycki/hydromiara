@@ -10,6 +10,7 @@ the first gives no result in time.
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from app.sources import satellite_params as params
@@ -58,16 +59,21 @@ class Provider:
     token_url: str | None  # where a read token for the files is requested, if needed
     assets: Mapping[str, str]  # layer (satellite_params.ASSET_*) -> file name in the catalogue
     properties: tuple[str, ...]  # scene properties read by `offset`
+    tile_property: str  # scene property naming the tile of the fixed tiling grid
+    page_limit: int  # scenes per answer page (largest value checked against the service)
+    read_workers: int  # scene files read at the same time
+    archive_start: date  # first acquisition day the service holds
+    archive_note: str  # sentence for the Report about the reach of the archive
     exclude: tuple[str, ...]  # fields left out of the catalogue answer
     offset: Callable[[Mapping[str, Any]], float | None]  # reflectance offset; None = skip scene
 
 
-_LAYERS = (params.ASSET_SCL, params.ASSET_RED, params.ASSET_NIR, params.ASSET_SWIR)
+_LAYERS = params.REQUIRED_ASSETS
 
 # Earth Search returns every file of a scene unless the unwanted ones are
 # excluded by name; this keeps the answer about ten times smaller.
 _ES_OTHER = (
-    "aot", "blue", "coastal", "green", "nir08", "nir09", "rededge1", "rededge2", "rededge3",
+    "aot", "blue", "coastal", "green", "nir09", "rededge1", "rededge2", "rededge3",
     "swir22", "visual", "wvp", "granule_metadata", "tileinfo_metadata", "thumbnail",
 )  # fmt: skip
 _ES_DETAILS = (
@@ -79,8 +85,15 @@ PLANETARY_COMPUTER = Provider(
     source_name="Copernicus Sentinel-2 L2A, katalog Planetary Computer",
     search_url="https://planetarycomputer.microsoft.com/api/stac/v1/search",
     token_url="https://planetarycomputer.microsoft.com/api/sas/v1/token/sentinel-2-l2a",
-    assets=dict(zip(_LAYERS, ("SCL", "B04", "B08", "B11"), strict=True)),
+    assets=dict(zip(_LAYERS, ("SCL", "B04", "B08", "B8A", "B11"), strict=True)),
     properties=("s2:processing_baseline",),
+    tile_property="s2:mgrs_tile",
+    page_limit=1000,
+    read_workers=16,
+    archive_start=date(2015, 7, 11),
+    archive_note=(
+        "Zdjęcia satelitarne Działki są dostępne od lipca 2015 r., a regularnie od 2018 r."
+    ),
     exclude=(),
     offset=planetary_computer_offset,
 )
@@ -92,6 +105,16 @@ EARTH_SEARCH = Provider(
     token_url=None,
     assets=dict(zip(_LAYERS, _LAYERS, strict=True)),
     properties=("s2:processing_baseline", "earthsearch:boa_offset_applied"),
+    tile_property="grid:code",
+    # Works only with the reduced answer below; the full one fails from 250 on.
+    page_limit=2000,
+    # Measured from the target server: 32 threads read 16 scenes in 4.2 s, 16 in 5.5 s.
+    read_workers=32,
+    archive_start=date(2016, 11, 2),
+    archive_note=(
+        "Odczyty satelitarne pobrano z usługi zapasowej, która ma zdjęcia dopiero "
+        "od listopada 2016 r."
+    ),
     exclude=tuple(
         [f"assets.{name}" for name in _ES_OTHER]
         + [f"assets.{name}-jp2" for name in _ES_OTHER + _LAYERS]

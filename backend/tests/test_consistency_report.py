@@ -49,7 +49,9 @@ def test_consistent_check_leaves_the_confidence_alone():
     assert report.current_status.deficit_level > 0
     check = report.consistency_check
     assert check.result == "zgodne" and check.sentence.startswith("Zgodne.")
-    assert [item.period for item in check.items] == ["11.06.2023–20.06.2023", "10.06.2023"]
+    assert [item.period for item in check.items] == [
+        "11.06.2023–20.06.2023", "10.06.2023", "21.05.2023–20.06.2023", "wcześniejsze lata",
+    ]  # fmt: skip
     assert report.current_status.label in check.sentence
     assert report.current_status.confidence.level == "wysoka"
     assert not any("Sprawdzeni" in text for text in own_texts(report))
@@ -171,7 +173,9 @@ def test_check_is_made_on_the_whole_analysis_path(client):
     check = report.consistency_check
     # Recorded indicator files: class 2 in the dekad of 11-20 June 2023.
     assert check.result == "zgodne"
-    assert [item.period for item in check.items] == ["11.06.2023–20.06.2023", "19.06.2023"]
+    assert [item.period for item in check.items] == [
+        "11.06.2023–20.06.2023", "19.06.2023", "21.05.2023–20.06.2023", "wcześniejsze lata",
+    ]  # fmt: skip
     assert check.items[0].value.startswith("klasa 2:")
     assert report.trace[-1].rule_id == "consistency_check.result"
     assert not any("Sprawdzenia zgodności" in text for text in own_texts(report))

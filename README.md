@@ -215,7 +215,7 @@ Ustawienia wdrożenia są w pliku `.env` (wzór: `.env.example`); usługa `api` 
   lub inny kafel tej samej sceny).
 - **Przełączenie:** gdy usługa podstawowa zgłosi błąd albo w ciągu `SATELLITE_FALLBACK_AFTER_S` sekund nie dostarczy
   żadnego odczytu, jej praca jest porzucana, a zapytanie trafia do usługi zapasowej z pozostałym czasem
-  (cały etap ma limit 15 s). Usługa, która odpowiedziała, że nie ma czystych scen, nie jest zastępowana.
+  (cały etap ma limit 12 s). Usługa, która odpowiedziała, że nie ma czystych scen, nie jest zastępowana.
   W danych źródłowych raportu zapisana jest usługa, z której pochodzi odczyt.
 - **Skąd kolejność:** pomiar z serwera docelowego (21.11.2026, `scripts/probes/satellite_probe.py`): odczyt 16 scen
   po 5 pasm trwał 1,2 s z Planetary Computer i 5,5 s z Earth Search; archiwum Planetary Computer sięga lipca 2015 r.,
@@ -343,7 +343,7 @@ Bez działki i pogody Raport nie powstaje; każde inne źródło, które nie odp
 limit czasu, jest w Raporcie i w postępie oznaczone jako brak, a analiza biegnie dalej.
 
 Limity czasu (`backend/app/orchestrator/params.py`): całość 30 s, z czego 3 s rezerwy na obliczenia i zapis;
-pogoda 12 s, gleba 13 s (mapa kategorii 5 s, mapy uziarnienia 8 s), teren 17 s (po 8 s na każde z dwóch ogniw i sekunda zapasu), satelita 17 s, tło suszowe 5 s; żadne źródło poza pogodą nie czeka dłużej niż
+pogoda 12 s, gleba 13 s (mapa kategorii 5 s, mapy uziarnienia 8 s), teren 17 s (po 8 s na każde z dwóch ogniw i sekunda zapasu), satelita 13 s (limit własny adaptera 12 s), tło suszowe 5 s; żadne źródło poza pogodą nie czeka dłużej niż
 do sekundy przed końcem czasu na pobieranie. Wody mają limit 17 s (12 s odczyt na żywo, 4 s kopia lokalna i sekunda zapasu).
 Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego
 pozycji jest stała); jest na liście źródeł Raportu.
@@ -395,7 +395,7 @@ wykorzystania” to punkt 7. Na zewnątrz wysyłane są tylko współrzędne, Id
 | Grupa Uprawy w monitoringu suszy rolniczej (do opisu przyczyn; progów jeszcze nie używamy) | IUNG-PIB, System Monitoringu Suszy Rolniczej, `https://susza.iung.pulawy.pl/progi/` | nazwa grupy wpisana w kodzie przy Uprawie | odczyt 21.11.2026 | treść rozporządzenia ministra (akt urzędowy) opublikowana przez IUNG-PIB; podane źródło |
 | Gleba, źródło podstawowe: kategoria podatności gleby na suszę (I–IV) w siatce do 25 punktów wewnątrz obrysu działki; z udziałów kategorii pojemność wodna (110, 149, 186, 220 mm na metr gleby, wartości robocze wewnątrz przedziałów IUNG-PIB) | Instytut Uprawy Nawożenia i Gleboznawstwa – Państwowy Instytut Badawczy (IUNG-PIB), mapa kategorii podatności gleb na suszę Systemu Monitoringu Suszy Rolniczej (siatka 5 m, na podstawie mapy glebowo-rolniczej), usługa mapowa `https://sgeo.iung.pl/geoserver/ows`, warstwa `Susza:katgl_landuse2024` | na żywo | mapa statyczna, bez daty obserwacji; czas odczytu zapisany w raporcie | usługa publiczna i bezpłatna; warunków ponownego wykorzystania IUNG-PIB nie opublikował (przed wdrożeniem pełnoskalowym trzeba je uzyskać od IUNG-PIB); podajemy źródło; limitów zapytań nie opublikowano |
 | Gleba, zamiennik i kontrola: piasek, pył, ił i węgiel organiczny w warstwach do 100 cm w środku działki; z nich kategoria szacowana wzorem Saxtona i Rawlsa (2006) | ISRIC – World Soil Information, SoilGrids 2.0 (model globalny, siatka 250 m), usługa WCS `https://maps.isric.org/mapserv` | na żywo | mapy statyczne (wersja 2.0), bez daty obserwacji; czas odczytu zapisany w raporcie | CC BY 4.0, wymagane podanie źródła; limitów zapytań dla usługi WCS nie opublikowano |
-| Obserwacje satelitarne do Daty analizy: klasyfikacja sceny (SCL) oraz pasma czerwone, bliskiej podczerwieni i krótkofalowej podczerwieni nad działką; z nich udział czystych pikseli, NDVI i NDMI | Copernicus Sentinel-2, poziom L2A (ESA / Komisja Europejska), z dwóch wymiennych usług (kolejność w konfiguracji): podstawowa Microsoft Planetary Computer, `https://planetarycomputer.microsoft.com/api/stac/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w Azure West Europe, odczyt z bezpłatnym tokenem pobieranym bez konta; zapasowa Earth Search (Element 84), `https://earth-search.aws.element84.com/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w rejestrze otwartych danych AWS | na żywo | sceny z 30 dni przed Datą analizy i z tego samego okresu w 3 poprzednich latach (archiwum od 2015 r. w usłudze podstawowej, od 2016 r. w zapasowej); data każdej sceny i czas odczytu zapisane w raporcie | bezpłatny, pełny i otwarty dostęp do danych na warunkach noty prawnej danych Sentinel (`https://sentinel.esa.int/documents/247904/690755/Sentinel_Data_Legal_Notice`); wymagane podanie źródła i zaznaczenie przetworzenia danych; obie usługi obecnie w dostępie bezpłatnym, bez klucza i bez gwarancji dostępności (patrz „Konfiguracja”) |
+| Obserwacje satelitarne do Daty analizy: klasyfikacja sceny (SCL) oraz pasma B04, B08, B8A i B11 nad działką; z nich udział czystych pikseli, NDVI (siatka 10 m) i NDMI (siatka 20 m), mediana z czystych pikseli | Copernicus Sentinel-2, poziom L2A (ESA / Komisja Europejska), z dwóch wymiennych usług (kolejność w konfiguracji): podstawowa Microsoft Planetary Computer, `https://planetarycomputer.microsoft.com/api/stac/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w Azure West Europe, odczyt z bezpłatnym tokenem pobieranym bez konta; zapasowa Earth Search (Element 84), `https://earth-search.aws.element84.com/v1`, kolekcja `sentinel-2-l2a`, pliki pasm (COG) w rejestrze otwartych danych AWS | na żywo | do 6 najnowszych czystych scen z 30 dni przed Datą analizy oraz do 2 czystych scen z 15 dni przed i po tym samym dniu roku w każdym z 5 poprzednich lat, razem najwyżej 16 (archiwum od 11.07.2015 w usłudze podstawowej, od 2.11.2016 w zapasowej); data każdej sceny i czas odczytu zapisane w raporcie | bezpłatny, pełny i otwarty dostęp do danych na warunkach noty prawnej danych Sentinel (`https://sentinel.esa.int/documents/247904/690755/Sentinel_Data_Legal_Notice`); wymagane podanie źródła i zaznaczenie przetworzenia danych; obie usługi obecnie w dostępie bezpłatnym, bez klucza i bez gwarancji dostępności (patrz „Konfiguracja”) |
 | Metoda oceny: dzienny bilans wody w strefie korzeniowej, woda łatwo dostępna i współczynnik stresu wodnego Ks, z których powstają Bieżąca sytuacja wodna i Podatność wieloletnia | Allen R.G., Pereira L.S., Raes D., Smith M. (1998), „Crop evapotranspiration: guidelines for computing crop water requirements”, FAO Irrigation and Drainage Paper 56, rozdział 8 (równania 80, 82–86 i 88), tabela 19 | metoda zapisana w kodzie (`backend/app/engine/`); progi i wartości robocze w jednym pliku `backend/app/engine/params.py`, każda bez źródła oznaczona tam jako robocza | publikacja z 1998 r.; metoda zapisana w kodzie, nie jest pobierana | publikacja FAO; równania przytoczone z podaniem źródła |
 | Wody w otoczeniu działki (do 500 m od granicy): rowy melioracyjne, kanały, rzeki i strumienie, wody powierzchniowe; rodzaj, nazwa, geometria | Baza Danych Obiektów Topograficznych BDOT10k, Główny Urząd Geodezji i Kartografii (GUGiK); pliki GeoParquet klas `OT_SWRM_L`, `OT_SWRS_L`, `OT_SWKN_L`, `OT_PTWP_A` z `https://opendata.geoportal.gov.pl/bdot10k/schemat2021/GeoParquet/` | na żywo (części plików dla powiatu działki); zamiennik: kopia plików w `WATER_DATA_PATH`, gdy jest na serwerze (wtedy tryb „plik lokalny”) | data ostatniej zmiany plików (`sources[].data_date`); obiekty mogą być starsze niż rok; czas odczytu zapisany w raporcie | bezpłatnie: zbiory obiektów topograficznych są udostępniane bez opłat (Prawo geodezyjne i kartograficzne, art. 40a ust. 2 pkt 1 lit. h); podajemy źródło „BDOT10k, Główny Urząd Geodezji i Kartografii”; osobnego dokumentu licencji dla katalogu plików nie znaleźliśmy: do sprawdzenia przez człowieka przed wdrożeniem pełnoskalowym |
 
@@ -654,7 +654,9 @@ Wartości robocze. Progi i reguły bez źródła naukowego są w kodzie oznaczon
 parametrów (lista w [docs/metoda.md](docs/metoda.md)): definicja roku z niedoborem (co najmniej 10 dni stresu
 w Okresie krytycznym; wiadomo, że zbyt czuła, a po wpisaniu katalogu Upraw wymaga ponownego dobrania na nowej
 krzywej Kc i nowym Okresie krytycznym), progi Stopni niedoboru, wartości Upraw warunkowych wymienione wyżej,
-współczynnik gołej gleby, progi czterech Przyczyn, reguły Pewności oceny i Sprawdzenia zgodności, okna i próg czystości scen satelitarnych,
+współczynnik gołej gleby, progi czterech Przyczyn, reguły Pewności oceny i Sprawdzenia zgodności,
+dwa progi interpretacji odczytu satelitarnego (3 lata tej samej Uprawy do porównania, NDVI 0,4 w kwietniu dla
+Uprawy ozimej),
 zasadność i dolna granica nawadniania, czas przechowywania Raportów. Przy progu Kc 1,0 przyczyna „uprawa o dużych
 potrzebach wodnych” będzie stwierdzana dla większości Upraw polowych.
 
@@ -695,9 +697,16 @@ potrzebach wodnych” będzie stwierdzana dla większości Upraw polowych.
 - **Tło suszowe.** Wskaźnik CDI jest dostępny od 2016 r. i ukazuje się z opóźnieniem, więc dla Daty analizy równej
   dniowi bieżącemu Sprawdzenie zgodności zwykle daje „brak danych”, a Pewność oceny Bieżącej sytuacji wodnej jest
   wtedy najwyżej „średnia”. Pliki są dogrywane ręcznie.
-- **Satelita.** Odczyt NDVI i NDMI jest tylko opisowy i nie wpływa na żaden werdykt (nie ma reguły wyprowadzania
-  niedoboru z tych wskaźników). Archiwum zaczyna się w 2015 r. (usługa zapasowa: 2016 r.); Działka zbyt wąska nie ma
-  odczytu. Kilka okien bez czystej sceny obniża Pewność oceny mocniej niż całkowity brak danych satelitarnych.
+- **Satelita.** Zdjęcia pokazują stan roślin, nie ilość wody w glebie, a rośliny reagują na brak wody z opóźnieniem
+  od kilku dni do kilku tygodni. Odczyt NDVI i NDMI nie zmienia żadnego werdyktu ani wyniku Sprawdzenia zgodności:
+  jest opisany, a to, co mówi obok bilansu wodnego, zapisuje ślad decyzyjny. Kierunek zmiany i porównanie
+  z wcześniejszymi latami powstają tylko w Okresie krytycznym, porównanie tylko z Historią upraw (co najmniej 3 lata
+  tej samej Uprawy). Zgodność zdjęć z Uprawą ozimą jest sprawdzana tylko, gdy w odczytanych scenach są zdjęcia
+  z kwietnia (Data analizy do końca maja). Archiwum zaczyna się w lipcu 2015 r. (usługa zapasowa: listopad 2016 r.).
+  Działka wąska ma sam NDVI, a zbyt mała nie ma odczytu (minimum 8 pikseli). Reguły odczytu według Uprawy obejmują
+  zboża, kukurydzę, rzepak, ziemniak, burak cukrowy i użytki zielone; dla pozostałych Upraw odczyt jest tylko opisowy.
+  Braki odczytu dla wcześniejszych lat obniżają Pewność oceny Podatności wieloletniej, choć ten werdykt z nich nie
+  korzysta (reguła robocza).
 - Zachowanie usług po przekroczeniu ich limitów zapytań nie było sprawdzane; taka odpowiedź jest traktowana jak
   brak danych ze źródła.
 

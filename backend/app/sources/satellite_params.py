@@ -1,73 +1,86 @@
-"""Parameters of the satellite adapter, kept apart so they can change without code."""
+"""Parameters of the satellite adapter, kept apart so they can change without code.
 
-from app.sources.raster import DEFAULT_INWARD_BUFFER_M
+Values without a note come from the project's own measurement of the two
+scene services (ten years of scenes over four parcels in four regions, read
+from the target server) and from the literature named next to them.
+"""
 
 COLLECTION = "sentinel-2-l2a"
 USER_AGENT = "hydro-analysis/0.1"
 
-# Layers read from a scene: red and near infrared on a 10 m grid, short-wave
-# infrared and the scene classification on a 20 m grid. Each catalogue has
-# its own file names for them (see satellite_providers.py).
+# Layers read from a scene. Red (B04) and near infrared (B08) lie on a 10 m
+# grid and give NDVI; narrow near infrared (B8A), short-wave infrared (B11)
+# and the scene classification lie on a 20 m grid and give NDMI. Each
+# catalogue has its own file names for them (see satellite_providers.py).
+ASSET_SCL = "scl"
 ASSET_RED = "red"
 ASSET_NIR = "nir"
+ASSET_NIR_NARROW = "nir08"
 ASSET_SWIR = "swir16"
-ASSET_SCL = "scl"
-REQUIRED_ASSETS = (ASSET_SCL, ASSET_RED, ASSET_NIR, ASSET_SWIR)
+REQUIRED_ASSETS = (ASSET_SCL, ASSET_RED, ASSET_NIR, ASSET_NIR_NARROW, ASSET_SWIR)
 
 # --- Which scenes are looked for -------------------------------------------
 
-# PROVISIONAL: length of one search window ending on the analysis date (or on
-# the same day of an earlier year); no source yet for the right length.
-WINDOW_DAYS = 30
+# Current window: this many days before the analysis date, and the date
+# itself. Measured for every day of April-September 2018-2022: a 30-day
+# window had no clear scene on 0-3% of days (15 days: 8-10%).
+CURRENT_WINDOW_DAYS = 30
+# Bands are read for at most this many clear scenes of the current window,
+# the newest ones.
+CURRENT_SCENES = 6
 
-# PROVISIONAL: how many earlier years get the same window; no source yet.
-PREVIOUS_YEARS = 3
+# Earlier years: a window of this many days on each side of the same day of
+# the year, for this many years back, with at most this many clear scenes a
+# year, the ones nearest to that day.
+HISTORY_HALF_WINDOW_DAYS = 15
+HISTORY_YEARS = 5
+HISTORY_SCENES_PER_YEAR = 2
 
-# PROVISIONAL: clear scenes returned per window, newest first; no source yet.
-SCENES_PER_WINDOW = 1
+# Bands are never read for more scenes than this in one call.
+MAX_SCENES = CURRENT_SCENES + HISTORY_YEARS * HISTORY_SCENES_PER_YEAR  # 16
 
 # --- Which pixels count -----------------------------------------------------
 
-# PROVISIONAL: smallest share of clear pixels over the parcel for a scene to
-# be used; no source yet.
-MIN_CLEAR_SHARE_PCT = 80.0
-
-# Scene classification classes of the Sentinel-2 L2A product: 4 = vegetation,
-# 5 = not vegetated (bare soil).
-# PROVISIONAL: which classes count as clear has no source yet.
+# Scene classification classes of the Sentinel-2 L2A product counted as
+# clear: 4 = vegetation, 5 = not vegetated (bare soil).
 CLEAR_SCL_CLASSES = (4, 5)
 
-# Pixels closer to the parcel boundary than this are left out (see raster.py,
-# where the value is marked as provisional).
-INWARD_BUFFER_M = DEFAULT_INWARD_BUFFER_M
+# Smallest share of clear pixels over the parcel for a scene to be used.
+# Own choice backed by the measurement: scenes are either fully clear over a
+# parcel (22-25% of days) or fully covered (65-70%); a lower threshold gains
+# 2-4% of scenes and lets cloud edges in.
+MIN_CLEAR_SHARE_PCT = 95.0
+
+# Pixels closer to the parcel boundary than half a pixel are left out: 5 m on
+# the 10 m grid (Vajsova et al. 2020, Remote Sens. 12:2195; Sen4CAP ATBD,
+# parcels heterogeneity check), and by the same rule 10 m on the 20 m grid.
+FINE_BUFFER_M = 5.0
+COARSE_BUFFER_M = 10.0
+
+# An index is computed from at least this many pixels, counted separately on
+# each grid ("at least 8 full pixels inside a border", Vajsova et al. 2020).
+MIN_PIXELS = 8
 
 # reflectance = stored value * scale + offset. The offset depends on the
 # catalogue and on the processing version of the scene (satellite_providers.py).
 REFLECTANCE_SCALE = 0.0001
 
-# Decimal places of the reported index means.
+# Decimal places of the reported indices.
 INDEX_DECIMALS = 4
 
 # --- Engineering limits ------------------------------------------------------
 
-# Whole adapter call; when it runs out, scenes finished so far are returned.
-TIME_BUDGET_S = 15.0
+# Whole adapter call; when it runs out, scenes read so far are returned.
+# Measured worst case of the full path from the target server: about 3 s with
+# the primary service and about 9 s with the secondary one.
+TIME_BUDGET_S = 12.0
 
-# One catalogue request.
+# One catalogue request, and how many pages of one window are followed.
 SEARCH_TIMEOUT_S = 8.0
-SEARCH_PAGE_LIMIT = 100
 SEARCH_MAX_PAGES = 3
 
-# Raster reads running at the same time (each is one remote file).
-READ_WORKERS = 12
-
-# Acquisition days of one window whose classification is read at the same
-# time, newest first; the next batch is read only when this one had too few
-# clear scenes.
-SCL_BATCH_SIZE = 3
-
 # The 20 m windows are read with this margin so that they cover every pixel
-# of the 10 m window whatever the alignment of the two grids.
+# of the 10 m window around the parcel.
 COARSE_MARGIN_M = 20.0
 
 # A read token is asked for again when it expires sooner than this.
@@ -78,6 +91,6 @@ TOKEN_MARGIN_S = 300.0
 # token, so requests are not limited by file extension.
 GDAL_OPTIONS = {
     "GDAL_DISABLE_READDIR_ON_OPEN": "EMPTY_DIR",
-    "GDAL_HTTP_CONNECTTIMEOUT": 5,
-    "GDAL_HTTP_TIMEOUT": 10,
+    "GDAL_HTTP_CONNECTTIMEOUT": 10,
+    "GDAL_HTTP_TIMEOUT": 20,
 }

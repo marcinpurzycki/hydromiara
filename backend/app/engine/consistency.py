@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from app.catalog.crop_model import CatalogCrop
+from app.contracts.analyses import CropHistory
 from app.contracts.report import TraceEntry
 from app.contracts.source_data import SourceData, SourceTopic
 from app.contracts.verdicts import ConsistencyCheck
@@ -122,10 +123,15 @@ def check_consistency(
     crop: CatalogCrop,
     analysis_date: date,
     params: ConsistencyParams = DEFAULT_CONSISTENCY_PARAMS,
+    crop_history: CropHistory | None = None,
 ) -> ConsistencyOutcome:
-    """The consistency check for the current water status on the analysis date."""
+    """The consistency check for the current water status on the analysis date.
+
+    The crop history is read only by the satellite comparison with earlier years.
+    """
     verdict = assessment.current_status
-    state = season_status(crop, analysis_date).state
+    status = season_status(crop, analysis_date)
+    state = status.state
     cdi = compare_cdi(
         source_data.drought_background,
         verdict,
@@ -139,6 +145,15 @@ def check_consistency(
         analysis_date,
         season_state=satellite_season_state(state),
         params=params,
+        crop=crop,
+        season=status.last_season if status.in_season else None,
+        history=crop_history,
+        # In dormancy and outside the season the level refers to the soil water store.
+        deficit=(
+            verdict.deficit_level >= params.deficit_from_level
+            if verdict.assessed and not status.store_assessed
+            else None
+        ),
     )
     if verdict.assessed:
         result = combine((cdi.result, satellite.result))

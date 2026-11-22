@@ -11,7 +11,7 @@ from app.sources.satellite_search import SearchWindow, parse_items, search_body
 from tests.satellite_helpers import OUTLINE, recorded_answer
 from tests.test_satellite_chain import pc_answer
 
-JUNE = SearchWindow(start=date(2023, 6, 5), end=date(2023, 6, 20))
+JUNE = SearchWindow(start=date(2023, 6, 5), end=date(2023, 6, 20), anchor=date(2023, 6, 20))
 
 
 @pytest.mark.parametrize(
@@ -47,7 +47,7 @@ def test_recorded_planetary_computer_answer_is_read_with_token_and_offset():
     items = parse_items(pc_answer(), JUNE, PLANETARY_COMPUTER, token="t=1")
     assert len(items) == 23
     assert {item.date for item in items} == {date(2023, 6, d) for d in (6, 9, 11, 14, 16, 19)}
-    assert all(set(item.hrefs) == {"scl", "red", "nir", "swir16"} for item in items)
+    assert all(set(item.hrefs) == {"scl", "red", "nir", "nir08", "swir16"} for item in items)
     assert all(href.endswith(".tif?t=1") for item in items for href in item.hrefs.values())
     assert all(item.reflectance_offset == pytest.approx(-0.1) for item in items)
 
@@ -100,3 +100,8 @@ def test_unknown_service_name_is_refused(env):
 def test_fallback_time_must_be_a_positive_number(value):
     with pytest.raises(ValueError, match="positive number"):
         providers.configured_fallback_after_s({"SATELLITE_FALLBACK_AFTER_S": value})
+
+
+def test_each_service_reads_with_its_own_number_of_threads():
+    assert (PLANETARY_COMPUTER.read_workers, EARTH_SEARCH.read_workers) == (16, 32)
+    assert (PLANETARY_COMPUTER.page_limit, EARTH_SEARCH.page_limit) == (1000, 2000)

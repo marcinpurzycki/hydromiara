@@ -65,10 +65,10 @@ def test_report_of_an_analysis_has_confidence_and_the_permanent_limitations(clie
     assert len(set(texts(report))) == len(report.limitations)
     # Every source answered: nothing of this analysis concerns the current status.
     assert report.current_status.confidence.level == "wysoka"
-    # The recorded catalogue has no scenes for the three earlier years.
+    # The recorded catalogue has no scenes for the five earlier years: one limitation.
     multiyear = report.multiyear_susceptibility.confidence
-    assert multiyear.level == "niska"
-    assert multiyear.why.startswith("Pewność oceny obniżają: Katalog nie zawiera scen")
+    assert multiyear.level == "średnia"
+    assert multiyear.why.startswith("Pewność oceny obniża: Z tego samego okresu roku nie ma")
     assert not any("Pewności oceny" in text for text in texts(report))
 
 

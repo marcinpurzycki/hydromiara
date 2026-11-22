@@ -1,4 +1,4 @@
-"""Clear-pixel share, the common grid and the indices on rasters built in the test."""
+"""Clear-pixel share, buffers, pixel minimum and the indices on rasters built in the test."""
 
 import numpy as np
 import pytest
@@ -7,13 +7,12 @@ from app.sources import satellite_params as params
 from app.sources.raster import RasterWindow
 from app.sources.satellite_indices import (
     SceneReadError,
-    check_clear,
     compute_indices,
     is_clear,
     read_layer,
     to_grid,
 )
-from tests.satellite_helpers import OUTLINE, SceneFiles, hrefs_of, scene_id
+from tests.satellite_helpers import OUTLINE, SceneFiles
 
 UTM = "EPSG:32634"
 WEST, NORTH = 500_000.0, 5_800_000.0
@@ -81,79 +80,85 @@ def test_only_listed_classes_are_clear():
     assert params.CLEAR_SCL_CLASSES == (4, 5)
 
 
-def test_indices_on_known_values():
-    grid = np.ones((4, 4))
-    scl, swir = coarse(np.full((2, 2), 4)), coarse(np.full((2, 2), 2000))
-    result = compute_indices(scl, fine(1000 * grid), fine(3000 * grid), swir)
-    assert result.ndvi == pytest.approx(0.5)  # (3000 - 1000) / (3000 + 1000)
-    assert result.ndmi == pytest.approx(0.2)  # (3000 - 2000) / (3000 + 2000)
-    assert result.pixel_count == 16
+def scene(*, scl=4, red=1000, nir=3000, nir08=3000, swir=2000, fine_inside=None, coarse_inside=None):
+    """Windows of one scene: a 6 x 6 block of 10 m pixels over 3 x 3 pixels of 20 m."""
+    return (
+        coarse(np.broadcast_to(scl, (3, 3))),
+        fine(np.broadcast_to(red, (6, 6)), inside=fine_inside),
+        fine(np.broadcast_to(nir, (6, 6)), inside=fine_inside),
+        coarse(np.broadcast_to(nir08, (3, 3)), inside=coarse_inside),
+        coarse(np.broadcast_to(swir, (3, 3)), inside=coarse_inside),
+    )
 
 
-def test_indices_are_averaged_per_pixel_not_computed_from_band_means():
-    # West half: NDVI 0.5, NDMI 0.2. East half: NDVI 0.0, NDMI -0.5.
-    red = fine([[1000, 1000, 1000, 1000]] * 2)
-    nir = fine([[3000, 3000, 1000, 1000]] * 2)
-    swir = coarse([[2000, 3000]])
-    result = compute_indices(coarse([[4, 5]]), red, nir, swir)
-    assert result.ndvi == pytest.approx(0.25)
-    assert result.ndmi == pytest.approx(-0.15)
-    band_means_ndvi = (2000 - 1000) / (2000 + 1000)
-    assert result.ndvi != pytest.approx(band_means_ndvi)
+def test_ndvi_comes_from_the_fine_bands_and_ndmi_from_the_coarse_bands():
+    result = compute_indices(*scene(nir=3000, nir08=4000))
+    assert result.ndvi == pytest.approx(0.5)  # (3000 - 1000) / (3000 + 1000), B08 and B04
+    assert result.ndmi == pytest.approx(0.3333)  # (4000 - 2000) / (4000 + 2000), B8A and B11
+    assert (result.ndvi_pixels, result.ndmi_pixels) == (36, 9)
+
+
+def test_scene_value_is_the_median_not_the_mean():
+    nir = np.full((6, 6), 3000)
+    nir[0, :5] = 1000  # five pixels with NDVI 0.0 among 36 with NDVI 0.5
+    swir = np.full((3, 3), 2000)
+    swir[0, 0] = 3000  # one pixel with NDMI 0.0 among 9 with NDMI 0.2
+    result = compute_indices(*scene(nir=nir, swir=swir))
+    assert result.ndvi == pytest.approx(0.5)
+    assert result.ndmi == pytest.approx(0.2)
 
 
 def test_cloudy_missing_and_outside_pixels_do_not_count():
-    red = fine([[1000, 1000, 1000, 1000, 1000, 1000]] * 2)
-    nir = fine(
-        [[3000, 3000, 9000, 9000, 9000, 9000]] * 2,
-        masked=[[False, False, False, False, True, True]] * 2,
-    )
-    inside = [[True, False, True, True, True, True]] * 2
-    red = fine(np.ma.getdata(red.data), inside=inside)
-    scl = coarse([[4, 9, 4]])  # the middle coarse pixel is cloud
-    result = compute_indices(scl, red, nir, coarse([[2000, 2000, 2000]]))
-    # Left: column 0 only (column 1 outside); middle: cloud; right: no NIR data.
-    assert result.pixel_count == 2
-    assert result.ndvi == pytest.approx(0.5)
+    scl = np.full((3, 3), 4)
+    scl[0, 0] = 9  # cloud: four 10 m pixels and one 20 m pixel
+    inside = np.ones((6, 6), dtype=bool)
+    inside[5, :] = False  # six 10 m pixels outside the outline
+    windows = list(scene(scl=scl, fine_inside=inside))
+    nir = windows[2]
+    nir.data[4, 0] = np.ma.masked  # one pixel without data
+    result = compute_indices(*windows)
+    assert (result.ndvi_pixels, result.ndmi_pixels) == (36 - 4 - 6 - 1, 8)
+    assert (result.ndvi, result.ndmi) == (pytest.approx(0.5), pytest.approx(0.2))
 
 
-def test_no_usable_pixel_gives_no_indices():
-    grid = np.ones((2, 2))
-    result = compute_indices(coarse([[9]]), fine(1000 * grid), fine(3000 * grid), coarse([[2000]]))
-    assert (result.ndvi, result.ndmi, result.pixel_count) == (None, None, 0)
+def test_each_index_needs_its_own_eight_pixels():
+    assert params.MIN_PIXELS == 8
+    seven_fine = np.zeros((6, 6), dtype=bool)
+    seven_fine[0, :6] = True
+    seven_fine[1, 0] = True
+    only_ndmi = compute_indices(*scene(fine_inside=seven_fine))
+    assert (only_ndmi.ndvi, only_ndmi.ndvi_pixels) == (None, 7)
+    assert only_ndmi.ndmi == pytest.approx(0.2)
+    seven_coarse = np.ones((3, 3), dtype=bool)
+    seven_coarse[2, 1:] = False
+    only_ndvi = compute_indices(*scene(coarse_inside=seven_coarse))
+    assert (only_ndvi.ndmi, only_ndvi.ndmi_pixels) == (None, 7)
+    assert only_ndvi.ndvi == pytest.approx(0.5)
+    eight = seven_coarse.copy()
+    eight[2, 1] = True
+    assert compute_indices(*scene(coarse_inside=eight)).ndmi == pytest.approx(0.2)
+
+
+def test_bands_that_were_not_read_give_no_index():
+    scl, red, nir, _, _ = scene()
+    result = compute_indices(scl, red, nir, None, None)
+    assert (result.ndvi, result.ndmi, result.ndmi_pixels) == (pytest.approx(0.5), None, 0)
 
 
 def test_reflectance_offset_enters_the_indices():
-    grid = np.ones((2, 2))
-    result = compute_indices(
-        coarse([[4]]), fine(2000 * grid), fine(4000 * grid), coarse([[3000]]), -0.1
-    )
+    windows = scene(red=2000, nir=4000, nir08=4000, swir=3000)
+    result = compute_indices(*windows, -0.1)
     assert result.ndvi == pytest.approx((0.3 - 0.1) / (0.3 + 0.1))
+    assert result.ndmi == pytest.approx((0.3 - 0.2) / (0.3 + 0.2))
 
 
-def test_clear_share_is_counted_over_the_parcel(tmp_path):
-    files = SceneFiles(tmp_path)
-    scene = scene_id("20230619")
-    classes = np.full((30, 30), 4, dtype="uint8")
-    classes[:, 15:] = 9  # the east half of the raster is cloud
-    files.add(scene, scl=classes)
-    check = check_clear(files.opener, hrefs_of(scene)["scl"], GEOMETRY)
-    assert check.empty_reason is None
-    assert 0 < check.clear_share_pct < 100
-    inside = check.window.inside
-    expected = 100 * (inside & (np.ma.getdata(check.window.data) == 4)).sum() / inside.sum()
-    assert check.clear_share_pct == pytest.approx(expected, abs=0.05)
-    assert check.passes == (check.clear_share_pct >= params.MIN_CLEAR_SHARE_PCT)
-
-
-def test_threshold_decides_whether_a_scene_passes(tmp_path, monkeypatch):
-    files = SceneFiles(tmp_path)
-    scene = scene_id("20230619")
-    files.add(scene, scl=4)
-    check = check_clear(files.opener, hrefs_of(scene)["scl"], GEOMETRY)
-    assert check.clear_share_pct == 100.0 and check.passes
-    monkeypatch.setattr(params, "MIN_CLEAR_SHARE_PCT", 100.1)
-    assert not check.passes
+@pytest.mark.parametrize("band", ["red", "nir", "nir08", "swir"])
+def test_scene_whose_median_reflectance_is_not_positive_is_rejected(band):
+    # Stored 1000 with the shift of -1000 is reflectance 0: the shift does not fit the file.
+    values = {"red": 2000, "nir": 4000, "nir08": 4000, "swir": 3000, band: 1000}
+    with pytest.raises(SceneReadError):
+        compute_indices(*scene(**values), -0.1)
+    compute_indices(*scene(**values), 0.0)  # the same values without the shift are fine
 
 
 def test_file_that_cannot_be_opened_is_a_scene_read_error(tmp_path):
@@ -162,4 +167,4 @@ def test_file_that_cannot_be_opened_is_a_scene_read_error(tmp_path):
     files = SceneFiles(tmp_path)
     files._paths["https://example.invalid/broken.tif"] = broken
     with pytest.raises(SceneReadError):
-        read_layer(files.opener, "https://example.invalid/broken.tif", GEOMETRY)
+        read_layer(files.opener, "https://example.invalid/broken.tif", GEOMETRY, buffer_m=5.0)
