@@ -59,13 +59,15 @@ Let's Encrypt oraz pełnego przebiegu pod domeną. Skrypt ma testy z atrapami po
 ## 3. Pliki wskaźnika suszy
 
 Tło suszowe (wskaźnik CDI Europejskiego Obserwatorium Suszy) jest jedynym źródłem czytanym z plików lokalnych.
-Skrypt wdrożenia ich nie pobiera: tworzy katalog `EDO_DATA_PATH` (domyślnie `./data/edo`), sprawdza, czy użytkownik
-kontenera (uid 10001) może go czytać, i podaje liczbę znalezionych plików.
+Archiwa roczne (stan na 21.11.2026) są w repozytorium w `deploy/edo-archives/`. Skrypt wdrożenia tworzy katalog
+`EDO_DATA_PATH` (domyślnie `./data/edo`), rozpakowuje do niego te archiwa, gdy katalog jest pusty (wymaga `python3`
+na serwerze), sprawdza, czy użytkownik kontenera (uid 10001) może go czytać, i podaje liczbę znalezionych plików.
 
-1. Pobierz archiwa roczne z katalogu `EDO_Combined_Drought_Indicator` pod adresem
-   `https://drought.emergency.copernicus.eu/data/Drought_Observatories_datasets/`.
-2. Rozpakuj je: `python3 scripts/unpack_drought_files.py KATALOG_ARCHIWÓW` (restart usługi nie jest potrzebny).
-3. Nowa dekada pojawia się co 10 dni; w wersji pokazowej dogrywa się ją ręcznie tym samym poleceniem.
+1. Ręczne rozpakowanie, gdyby skrypt go nie wykonał: `python3 scripts/unpack_drought_files.py deploy/edo-archives`
+   (restart usługi nie jest potrzebny).
+2. Nowa dekada pojawia się co 10 dni. Nowsze archiwum pobiera się z katalogu `EDO_Combined_Drought_Indicator` pod
+   adresem `https://drought.emergency.copernicus.eu/data/Drought_Observatories_datasets/` i rozpakowuje tym samym
+   poleceniem; kroki, także aktualizacji archiwów w repozytorium, opisuje `deploy/edo-archives/README.md`.
 
 Bez tych plików wdrożenie działa, a raport podaje brak tła suszowego jako Ograniczenie.
 
