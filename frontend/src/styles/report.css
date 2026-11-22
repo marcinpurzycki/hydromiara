@@ -110,6 +110,10 @@ thead th { border-top: 0; font-size: 13px; text-transform: uppercase; letter-spa
 .link-row input { flex: 1 1 260px; height: 44px; padding: 0 14px; font-size: 15px; background: var(--sand-light); border-width: 1px; border-radius: 8px; }
 .link-status { font-size: 14px; font-weight: 600; color: #1f8a3f; }
 .print-footer { display: none; }
+/* the copy of the Report drawn into the PDF file */
+.pdf-export { padding: 4px; background: #fff; }
+.pdf-export .card, .pdf-export .cause-tile { box-shadow: none; }
+.pdf-export .cause-foot { display: none; }
 
 @media (max-width: 860px) {
   .flow { grid-template-columns: minmax(0, 1fr); }

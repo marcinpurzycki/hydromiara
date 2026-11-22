@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Link, Navigate, useParams } from "react-router";
 import type { Report } from "../api/types";
 import { datePl, dateTimePl } from "../lib/format";
+import { pdfFileName, saveElementAsPdf } from "../lib/report-pdf";
 import { missingTopics } from "../lib/report-view";
 import { useReport, type ReportLoad } from "../lib/use-report";
 import { Causes } from "../report/Causes";
@@ -73,6 +74,7 @@ export function ReportScreen() {
   const [extraOpen, setExtraOpen] = useState(false);
   const [allOpen, setAllOpen] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const page = useRef<HTMLDivElement>(null);
 
   // Printing shows the whole Report: every folded part is opened for the printout,
   // also when the user prints from the browser menu. flushSync makes the opened
@@ -94,8 +96,23 @@ export function ReportScreen() {
   const missing = missingTopics(report);
   const state = report.current_status.details.season_state;
 
+  /** The file shows the whole Report, like the printout: every folded part is opened for it. */
+  const savePdf = async () => {
+    if (!page.current) return;
+    flushSync(() => setPrinting(true));
+    try {
+      await saveElementAsPdf(
+        page.current,
+        pdfFileName(meta.parcel.parcel_id, meta.analysis_date),
+        `Hydromiara · ${window.location.href} · wygenerowano ${dateTimePl(meta.created_at)}`,
+      );
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   return (
-    <div className="screen screen-narrow report">
+    <div className="screen screen-narrow report" ref={page}>
       <div>
         <h1 className="wrap-anywhere">Raport dla działki {meta.parcel.parcel_id}</h1>
         <p className="lead lead-row">
@@ -161,7 +178,12 @@ export function ReportScreen() {
         <span>Wygenerowano: {dateTimePl(meta.created_at)}</span>
         <span>{window.location.host}</span>
       </div>
-      <ReportActions allOpen={allOpen} onToggleAll={() => setAllOpen(!allOpen)} onPrint={() => window.print()} />
+      <ReportActions
+        allOpen={allOpen}
+        onToggleAll={() => setAllOpen(!allOpen)}
+        onPrint={() => window.print()}
+        onPdf={savePdf}
+      />
     </div>
   );
 }
