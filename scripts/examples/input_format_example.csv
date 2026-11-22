@@ -1,0 +1,11 @@
+# Example of the input format of scripts/backtest.py and scripts/measure_sources.py.
+# It only shows the columns: the three parcels are the ones the smoke checks use,
+# not a selection made for verifying results.
+# Required: parcel_id, crop_id, analysis_date (YYYY-MM-DD or "today"). Optional: label, region.
+parcel_id,crop_id,analysis_date,label,region
+040704_2.0020.34/2,winter_wheat,2023-06-20,format example 1,kujawsko-pomorskie
+040704_2.0020.34/2,winter_wheat,2026-11-20,format example 1,kujawsko-pomorskie
+141201_1.0001.6509,winter_wheat,2023-06-20,format example 2,mazowieckie
+141201_1.0001.6509,winter_wheat,2026-11-20,format example 2,mazowieckie
+060405_2.0223.756,winter_wheat,2023-06-20,format example 3,lubelskie
+060405_2.0223.756,winter_wheat,2026-11-20,format example 3,lubelskie
