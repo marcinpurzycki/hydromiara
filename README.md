@@ -299,6 +299,8 @@ Raport przykładowy `/api/reports/demo` i trasy wywołane dla niego odpowiadają
   przesuwa mapę (ortofotomapa); działkę wybiera kliknięcie na mapie, po którym strona od razu rysuje jej obrys.
   Wybór można zmieniać dowolnie wiele razy przed uruchomieniem analizy. Uprawę wybiera się kaflem albo z listy,
   Datę analizy z ostatnich 10 lat. Przycisk „Demo” wypełnia formularz gotowym Przykładem.
+  Przycisk „O systemie” otwiera okno z krótkim opisem działania, listą źródeł danych (co z każdego jest brane
+  i do czego służy), źródłami naukowymi i możliwościami rozwoju.
 - **Analiza w toku.** Stan każdego źródła danych (czeka, sprawdzamy, gotowe, brak danych) i nieobowiązkowe pytanie
   o Historię upraw; Raport otwiera się sam.
 - **Raport.** Podsumowanie, dwie oceny ze skalą i Pewnością, kafle stwierdzonych przyczyn ze wskaźnikiem, po

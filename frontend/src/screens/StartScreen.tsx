@@ -6,6 +6,7 @@ import { CropPicker } from "../components/CropPicker";
 import { DateField } from "../components/DateField";
 import { ExamplesMenu } from "../components/ExamplesMenu";
 import { ParcelMap } from "../components/ParcelMap";
+import { SystemInfo } from "../components/SystemInfo";
 import { storeAnalysisInfo, useCrops } from "../lib/catalog";
 import { todayIso } from "../lib/format";
 import { parcelLabel } from "../lib/parcel-search";
@@ -100,9 +101,12 @@ export function StartScreen() {
 
   return (
     <div className="screen screen-wide">
-      <div>
-        <h1>Wybierz działkę i uprawę</h1>
-        <p className="lead">W dwie minuty sprawdzisz, ile wody ma Twoje pole.</p>
+      <div className="heading-row">
+        <div>
+          <h1>Wybierz działkę i uprawę</h1>
+          <p className="lead">W dwie minuty sprawdzisz, ile wody ma Twoje pole.</p>
+        </div>
+        <SystemInfo />
       </div>
       <div className="start-grid">
         <section className="card start-form">
