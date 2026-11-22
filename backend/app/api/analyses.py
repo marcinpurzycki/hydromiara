@@ -9,8 +9,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response
 
+from app.api.capacity import require_analysis_slot
 from app.api.crop_history import require_valid_history
 from app.api.errors import ApiError, error_responses
+from app.api.validation import ReportId, require_analysis_date, require_parcel_id
 from app.catalog.crops import has_crop, list_crops
 from app.contracts.analyses import AnalysisRequest, AnalysisStarted, AnalysisStatus, CropHistory
 from app.mock import data
@@ -18,7 +20,6 @@ from app.mock import store as mock_store
 from app.orchestrator import runtime
 from app.orchestrator.service import Orchestrator
 from app.orchestrator.sources import AnalysisSources, get_analysis_sources
-from app.sources.parcel_query import is_parcel_id
 
 router = APIRouter(prefix="/analyses", tags=["analyses"])
 
@@ -51,21 +52,14 @@ def not_found() -> ApiError:
     "",
     status_code=202,
     response_model=AnalysisStarted,
-    responses=error_responses(422),
+    responses=error_responses(422, 429, 503),
     summary="Start analizy",
+    dependencies=[Depends(require_analysis_slot)],
 )
 async def start(request: AnalysisRequest, service: Service, sources: Sources) -> AnalysisStarted:
     require_catalog_crop(request.crop_id)
-    if not is_parcel_id(request.parcel_id):
-        raise ApiError(
-            422,
-            "invalid_parcel_id",
-            "Podaj pełny identyfikator działki, np. 040704_2.0020.34/2.",
-        )
-    if request.analysis_date > runtime.local_today():
-        raise ApiError(
-            422, "analysis_date_in_future", "Data analizy nie może być późniejsza niż dzisiejsza."
-        )
+    require_parcel_id(request.parcel_id)
+    require_analysis_date(request.analysis_date, runtime.local_today())
     # Whether the parcel exists is checked in the background, so that the
     # identifier returns at once; a missing parcel ends the analysis as failed.
     return AnalysisStarted(report_id=await service.start(request, sources))
@@ -77,7 +71,7 @@ async def start(request: AnalysisRequest, service: Service, sources: Sources) ->
     responses=error_responses(404),
     summary="Postęp analizy i stan każdego źródła",
 )
-async def status(report_id: str, service: Service) -> AnalysisStatus:
+async def status(report_id: ReportId, service: Service) -> AnalysisStatus:
     if mock_store.exists(report_id):
         return mock_store.status(report_id)
     found = await service.status(report_id)
@@ -93,7 +87,7 @@ async def status(report_id: str, service: Service) -> AnalysisStatus:
     responses=error_responses(404, 409, 422),
     summary="Historia upraw podana w trakcie analizy",
 )
-async def put_crop_history(report_id: str, history: CropHistory, service: Service) -> Response:
+async def put_crop_history(report_id: ReportId, history: CropHistory, service: Service) -> Response:
     if mock_store.exists(report_id):
         for crop_id in (history.years or {}).values():
             require_known_crop(crop_id)

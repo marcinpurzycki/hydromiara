@@ -4,6 +4,9 @@ from fastapi import APIRouter, FastAPI
 
 from app.api import analyses, catalog, parcels, reports, simulation
 from app.api.errors import register_error_handlers
+from app.api.limits import settings_from_env
+from app.api.rate_limit import RateLimiter, RateLimitMiddleware
+from app.api.security import BodyLimitMiddleware, SecurityHeadersMiddleware
 from app.orchestrator.runtime import lifespan
 
 API_PREFIX = "/api"
@@ -20,6 +23,17 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     register_error_handlers(app)
+
+    # The limiter is kept on the application so that its limits can be replaced
+    # (tests, tools that run the application in their own process).
+    app.state.rate_limiter = RateLimiter(settings_from_env())
+    # Added last = outermost: the headers are also on answers of the two below.
+    app.add_middleware(BodyLimitMiddleware)
+    app.add_middleware(RateLimitMiddleware, limiter=app.state.rate_limiter, prefix=API_PREFIX)
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        docs_paths=(f"{API_PREFIX}/docs", f"{API_PREFIX}/docs/oauth2-redirect"),
+    )
 
     api = APIRouter(prefix=API_PREFIX)
     api.include_router(catalog.router)

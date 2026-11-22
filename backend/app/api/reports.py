@@ -17,8 +17,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Response
 
 from app.api.analyses import Sources, not_found, require_catalog_crop, require_known_crop
+from app.api.capacity import require_analysis_slot
 from app.api.crop_history import carried_history, require_valid_history
 from app.api.errors import ApiError, error_responses
+from app.api.validation import ReportId
 from app.catalog.crops import get_crop
 from app.contracts.analyses import (
     AnalysisRequest,
@@ -82,7 +84,7 @@ def require_ready(report_id: str) -> None:
     responses=error_responses(404, 425),
     summary="Gotowy Raport",
 )
-async def get_report(report_id: str, service: Service) -> Response | Report:
+async def get_report(report_id: ReportId, service: Service) -> Response | Report:
     if mock_store.exists(report_id):
         if not mock_store.is_done(report_id):
             raise _not_ready()
@@ -101,7 +103,7 @@ async def get_report(report_id: str, service: Service) -> Response | Report:
     responses=error_responses(404, 409, 422, 425),
     summary="Nowy Raport z tych samych danych źródłowych i podanej Historii upraw",
 )
-async def derive(report_id: str, request: DeriveRequest, service: Service) -> DerivedReport:
+async def derive(report_id: ReportId, request: DeriveRequest, service: Service) -> DerivedReport:
     if mock_store.exists(report_id):
         if not mock_store.is_done(report_id):
             raise _not_ready()
@@ -123,11 +125,12 @@ async def derive(report_id: str, request: DeriveRequest, service: Service) -> De
     "/{report_id}/critical-period",
     status_code=202,
     response_model=CriticalPeriodStarted,
-    responses=error_responses(404, 409, 422, 425),
+    responses=error_responses(404, 409, 422, 425, 429, 503),
     summary="Analiza na środek ostatniego Okresu krytycznego",
+    dependencies=[Depends(require_analysis_slot)],
 )
 async def critical_period(
-    report_id: str, service: Service, sources: Sources
+    report_id: ReportId, service: Service, sources: Sources
 ) -> CriticalPeriodStarted:
     if mock_store.exists(report_id):
         if not mock_store.is_done(report_id):
