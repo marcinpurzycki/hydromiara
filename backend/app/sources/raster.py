@@ -15,6 +15,7 @@ Only north-up rasters (no rotation) are supported.
 """
 
 import math
+import threading
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -44,6 +45,15 @@ DEFAULT_INWARD_BUFFER_M = 10.0
 # Bounds this close to a pixel edge count as lying on it, so that floating
 # point noise does not add a row or column to the window.
 _EDGE_TOLERANCE_PX = 1e-6
+
+# One rasterize call at a time. Adapters read rasters in parallel threads, and
+# concurrent calls now and then raised NotGeoreferencedWarning although every
+# mask was correct. The lock rules out parallel rasterize calls; it rests on
+# our own measurement (outline_mask alone from many threads: no warning with
+# the lock), not on the rasterio documentation, which does not describe
+# rasterize under threads. The warning still shows up now and then in the
+# full test run and its origin is not established.
+_RASTERIZE_LOCK = threading.Lock()
 
 EmptyReason = Literal["outside_raster", "parcel_too_small", "no_valid_data"]
 
@@ -151,14 +161,15 @@ def outline_mask(geometry: BaseGeometry, out_shape: tuple[int, int], transform: 
     """
     if geometry.is_empty or 0 in out_shape:
         return np.zeros(out_shape, dtype=bool)
-    burned = features.rasterize(
-        [(geometry, 1)],
-        out_shape=out_shape,
-        transform=transform,
-        fill=0,
-        all_touched=False,
-        dtype="uint8",
-    )
+    with _RASTERIZE_LOCK:
+        burned = features.rasterize(
+            [(geometry, 1)],
+            out_shape=out_shape,
+            transform=transform,
+            fill=0,
+            all_touched=False,
+            dtype="uint8",
+        )
     return burned == 1
 
 
