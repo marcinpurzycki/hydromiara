@@ -15,7 +15,8 @@ _SOURCE_TERMS: dict[SourceTopic, tuple[str, str, Mode]] = {
     "parcel": ("ULDK GUGiK", "bezpłatnie, bez rejestracji; wymagane podanie źródła", LIVE),
     "weather": (
         "Open-Meteo, archiwum pogodowe",
-        "CC BY 4.0, wymagane podanie źródła; bezpłatny dostęp tylko do zastosowań niekomercyjnych",
+        "CC BY 4.0, wymagane podanie źródła z odnośnikiem: Weather data by Open-Meteo.com "
+        "(https://open-meteo.com/); bezpłatny dostęp tylko do zastosowań niekomercyjnych",
         LIVE,
     ),
     "soil": ("ISRIC SoilGrids 2.0", "CC BY 4.0, wymagane podanie źródła", LIVE),

@@ -20,6 +20,12 @@ uprawy to Ks · Kc · ET0. Opad i ET0 pochodzą z archiwum pogodowego, współcz
 w ciągu roku z dat faz), pojemność wodna z profilu glebowego. Seria zaczyna się przed Oknem wieloletnim (rozruch
 bilansu), a dni po Dacie analizy są odrzucane na wejściu, więc wynik dla danej daty nie zależy od późniejszych danych.
 
+Seria pogodowa kończy się na Dacie analizy. Wyjątkiem jest analiza na dzień bieżący: wtedy ostatnim dniem serii jest
+dzień poprzedni (według czasu polskiego), bo dzień bieżący jeszcze trwa, a archiwum podaje jego sumy jako wynik modelu
+na resztę doby. Bieżąca sytuacja wodna opisuje wtedy stan z końca dnia poprzedniego i raport podaje ten dzień wprost
+(w nagłówku, w uzasadnieniu werdyktu i zdaniem „Dane pogodowe kończą się wczoraj”). Z archiwum pobierane są tylko
+opad i ET0; średnia temperatura nie jest pobierana, bo bilans jej nie używa.
+
 Uproszczenia: bez spływu powierzchniowego, podsiąku i nawodnień; stała głębokość korzeni; współczynnik p bez
 korekty na wielkość ewapotranspiracji; strefa korzeniowa ograniczona do 100 cm (zasięg danych o glebie) i brana
 z płytszego końca zakresu FAO-56; bilans zaczyna od pojemności polowej. Gdy profilu glebowego nie ma, przyjmowana
@@ -39,10 +45,14 @@ jest pojemność zastępcza 150 mm wody dostępnej na metr gleby, a raport podaj
 
 Każdy raport podaje Pewność oceny osobno dla Bieżącej sytuacji wodnej i dla Podatności wieloletniej (wysoka, średnia,
 niska) razem z powodami oraz pełną listę Ograniczeń raportu. Ograniczenia stałe (raport nie jest urzędowym stwierdzeniem
-suszy rolniczej, nie ocenia nadmiaru wody, nie korzysta z prognozy pogody, publiczne dane o rowach są niekompletne) są
-w każdym raporcie i Pewności nie obniżają. Pozostałe wynikają z danych tej analizy: brak kategorii danych, dane
+suszy rolniczej, nie ocenia nadmiaru wody, nie korzysta z prognozy pogody, publiczne dane o rowach są niekompletne,
+pogoda pochodzi z modelu o siatce około 9 km, a nie z deszczomierza na polu, i model ten podaje przeciętnie
+o kilkanaście procent więcej opadu niż pomiary IMGW) są w każdym raporcie i Pewności nie obniżają. Nie obniża jej też
+zdanie o serii pogodowej kończącej się wczoraj w analizie na dzień bieżący: to stan każdej takiej analizy, a nie
+brak danych. Pozostałe wynikają z danych tej analizy: brak kategorii danych, dane
 z mniej dokładnego zamiennika (Łańcuch zamienników: źródło podstawowe, zamiennik, brak danych), pojemność wodna gleby
-przyjęta zastępczo, dane pogodowe kończące się przed Datą analizy, dni bez pogody, niepełne Okno wieloletnie.
+przyjęta zastępczo, dane pogodowe kończące się przed Datą analizy (dla analizy na dzień bieżący: co najmniej 2 dni
+przed nią), dni bez pogody, niepełne Okno wieloletnie.
 Pewność werdyktu obniżają tylko Ograniczenia, które go dotyczą. Reguła jest robocza i nie ma źródła naukowego:
 Ograniczenie liczy się za 1 punkt, pojemność wodna przyjęta zastępczo i wynik „rozbieżne” Sprawdzenia zgodności
 za 2; od 1 punktu Pewność jest średnia, od 3 niska; werdykt bez oceny ma Pewność niską. Wagi i progi są nazwanymi

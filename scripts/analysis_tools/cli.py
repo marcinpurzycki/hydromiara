@@ -47,12 +47,12 @@ def parser(description: str, default_output: str) -> argparse.ArgumentParser:
     made.add_argument(
         "--max-per-hour", type=int, default=pacing.DEFAULT_PER_HOUR,
         help="starts allowed within an hour, 0 for no cap (default: %(default)s; "
-        "the free weather archive allows about 56 analyses per hour)",
+        "the free weather archive allows about 85 analyses per hour)",
     )  # fmt: skip
     made.add_argument(
         "--max-per-day", type=int, default=pacing.DEFAULT_PER_DAY,
         help="starts allowed within 24 hours, 0 for no cap (default: %(default)s; "
-        "the free weather archive allows about 113 analyses per day)",
+        "the free weather archive allows about 170 analyses per day)",
     )  # fmt: skip
     made.add_argument(
         "--concurrency", type=int, default=1,

@@ -1,27 +1,61 @@
 """Daily weather history from the Open-Meteo archive.
 
-One request returns precipitation, FAO-56 reference evapotranspiration and
-mean temperature per day for the grid cell nearest to the point. The series
-never reaches past the analysis date. When it ends earlier, or days inside
-it have no values, the gap is reported as a report limitation instead of
-being filled.
+One request returns precipitation and FAO-56 reference evapotranspiration per
+day for the grid cell nearest to the point. The series ends on the analysis
+date, or on the day before the current one when the analysis is made for the
+current day (see `weather_series`). When it ends earlier, or days inside it
+have no values, the gap is reported as a report limitation instead of being
+filled.
+
+The current moment comes from a clock given to the adapter; the same reading
+decides the last day to fetch and is stored as the time of the fetch.
+
+A request refused for the rate limit (429) is repeated once, after the wait
+the archive asks for, and only when that wait fits into the time the analysis
+gives this source; otherwise the fetch ends at once with its own message.
 """
 
+import asyncio
+import logging
 import time
-from datetime import UTC, datetime, timedelta
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from datetime import date as Date
 from typing import NamedTuple
 
 import httpx
-from pydantic import ValidationError
 
 from app.contracts.report import Limitation
-from app.contracts.source_data import SourceOutcome, WeatherData, WeatherDay
+from app.contracts.source_data import SourceOutcome, WeatherData
 from app.sources import weather_params as params
+from app.sources.weather_series import (
+    WeatherSourceError,
+    find_limitations,
+    parse_response,
+    series_end,
+    series_start,
+)
+
+__all__ = [
+    "WeatherFetch",
+    "WeatherRateLimited",
+    "WeatherSource",
+    "WeatherSourceError",
+    "find_limitations",
+    "parse_response",
+    "series_end",
+    "series_start",
+]
+
+logger = logging.getLogger("hydromiara.sources.weather")
 
 
-class WeatherSourceError(Exception):
-    """The weather archive did not answer or answered with something unreadable."""
+class WeatherRateLimited(WeatherSourceError):
+    """The archive refused the request because the free allowance is used up."""
+
+    def __init__(self, retry_after_s: float | None) -> None:
+        super().__init__("rate limit reached", params.REASON_RATE_LIMITED)
+        self.retry_after_s = retry_after_s
 
 
 class WeatherFetch(NamedTuple):
@@ -32,111 +66,59 @@ class WeatherFetch(NamedTuple):
     limitations: list[Limitation]
 
 
-def series_start(analysis_date: Date) -> Date:
-    """First day to fetch: start of the multi-year window minus the warm-up."""
-    window_start = Date(analysis_date.year - params.MULTIYEAR_WINDOW_YEARS, 1, 1)
-    return window_start - timedelta(days=params.BALANCE_WARMUP_DAYS)
+def utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
-def _is_complete(day: WeatherDay) -> bool:
-    """A day the water balance can use: both precipitation and ET0 are known."""
-    return day.precipitation_mm is not None and day.et0_mm is not None
-
-
-def parse_response(payload: object, analysis_date: Date) -> WeatherData:
-    """Normalised series from one archive answer.
-
-    Days after the analysis date are dropped, and so are trailing days without
-    values, so the series ends on the last day that has data.
-    """
+def retry_after_s(response: httpx.Response) -> float | None:
+    """Seconds the archive asks to wait; None when it does not say."""
     try:
-        daily = payload["daily"]
-        columns = [daily["time"], *(daily[name] for name in params.DAILY_VARIABLES)]
-        if len({len(column) for column in columns}) != 1:
-            raise WeatherSourceError("daily columns differ in length")
-        days = [
-            WeatherDay(
-                date=day, precipitation_mm=precipitation, et0_mm=et0, temperature_mean_c=temperature
-            )
-            for day, precipitation, et0, temperature in zip(*columns, strict=True)
-        ]
-        grid_lat, grid_lon = float(payload["latitude"]), float(payload["longitude"])
-    except (KeyError, TypeError, ValueError, ValidationError) as exc:
-        raise WeatherSourceError(f"unreadable answer: {type(exc).__name__}") from exc
-
-    days = sorted((day for day in days if day.date <= analysis_date), key=lambda day: day.date)
-    while days and not _is_complete(days[-1]):
-        days.pop()
-    if not days:
-        raise WeatherSourceError("no day with data up to the analysis date")
-    return WeatherData(grid_lat=grid_lat, grid_lon=grid_lon, days=days)
+        seconds = float(response.headers.get("Retry-After", ""))
+    except ValueError:
+        return None
+    return seconds if seconds >= 0 else None
 
 
-def _pl(day: Date) -> str:
-    return day.strftime("%d.%m.%Y")
-
-
-def _days_pl(count: int, genitive: bool = False) -> str:
-    if count == 1:
-        return "1 dnia" if genitive else "1 dzień"
-    return f"{count} dni"
-
-
-def find_limitations(data: WeatherData, start: Date, analysis_date: Date) -> list[Limitation]:
-    """Gaps of the series against the requested range, worded for the report."""
-    limitations: list[Limitation] = []
-    first, last = data.days[0].date, data.days[-1].date
-
-    if last < analysis_date:
-        missing = (analysis_date - last).days
-        limitations.append(
-            Limitation(
-                text=(
-                    f"Dane pogodowe kończą się {_pl(last)}, czyli {_days_pl(missing)} przed "
-                    f"Datą analizy ({_pl(analysis_date)}). Bieżąca sytuacja wodna nie "
-                    "uwzględnia opadów i parowania z tego okresu."
-                ),
-                affects="current",
-                permanent=False,
-            )
-        )
-
-    present = {day.date for day in data.days if _is_complete(day)}
-    inner_missing = (last - first).days + 1 - len(present)
-    if inner_missing > 0:
-        limitations.append(
-            Limitation(
-                text=(
-                    f"W danych pogodowych z okresu {_pl(first)}–{_pl(last)} brakuje "
-                    f"opadu lub parowania dla {_days_pl(inner_missing, genitive=True)}."
-                ),
-                affects="all",
-                permanent=False,
-            )
-        )
-
-    if first > start:
-        limitations.append(
-            Limitation(
-                text=(
-                    f"Dane pogodowe zaczynają się {_pl(first)} i nie obejmują całego "
-                    "Okna wieloletniego."
-                ),
-                affects="multiyear",
-                permanent=False,
-            )
-        )
-    return limitations
+def log_allowance(response: httpx.Response) -> None:
+    """Status and allowance headers of one answer; nothing about the request."""
+    seen = " ".join(
+        f"{name}={response.headers.get(name, '-')}" for name in params.RATE_LIMIT_HEADERS
+    )
+    logger.info("weather archive status=%s %s", response.status_code, seen)
 
 
 class WeatherSource:
     """Weather history for a point, up to the analysis date."""
 
-    def __init__(self, transport: httpx.AsyncBaseTransport | None = None) -> None:
+    def __init__(
+        self,
+        transport: httpx.AsyncBaseTransport | None = None,
+        *,
+        clock: Callable[[], datetime] = utc_now,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        budget_s: float = params.FETCH_BUDGET_S,
+    ) -> None:
         self._transport = transport
+        self._clock = clock
+        self._sleep = sleep
+        self._budget_s = budget_s
 
-    async def history(self, lat: float, lon: float, start: Date, end: Date) -> WeatherData:
-        """Daily series for the grid cell nearest to the point, from start to end."""
+    async def _ask(self, client: httpx.AsyncClient, query: dict[str, str]) -> object:
+        response = await client.get(params.ARCHIVE_URL, params=query)
+        log_allowance(response)
+        if response.status_code == params.RATE_LIMITED_STATUS:
+            raise WeatherRateLimited(retry_after_s(response))
+        response.raise_for_status()
+        return response.json()
+
+    async def history(
+        self, lat: float, lon: float, start: Date, end: Date, deadline: float | None = None
+    ) -> WeatherData:
+        """Daily series for the grid cell nearest to the point, from start to end.
+
+        `deadline` (monotonic clock) is when the caller stops waiting; without
+        it a refused request is never repeated.
+        """
         query = {
             "latitude": f"{lat:.5f}",
             "longitude": f"{lon:.5f}",
@@ -151,27 +133,36 @@ class WeatherSource:
                 timeout=params.TIMEOUT_S,
                 headers={"User-Agent": params.USER_AGENT},
             ) as client:
-                response = await client.get(params.ARCHIVE_URL, params=query)
-                response.raise_for_status()
-                payload = response.json()
+                try:
+                    payload = await self._ask(client, query)
+                except WeatherRateLimited as refusal:
+                    wait_s = refusal.retry_after_s
+                    left_s = 0.0 if deadline is None else deadline - time.monotonic()
+                    if wait_s is None or wait_s + params.RETRY_REQUEST_RESERVE_S > left_s:
+                        raise
+                    await self._sleep(wait_s)
+                    payload = await self._ask(client, query)
         except httpx.HTTPError as exc:
             raise WeatherSourceError(type(exc).__name__) from exc
         except ValueError as exc:
-            raise WeatherSourceError("answer is not JSON") from exc
+            raise WeatherSourceError("answer is not JSON", params.REASON_UNREADABLE) from exc
         return parse_response(payload, end)
 
     async def fetch(self, lat: float, lon: float, analysis_date: Date) -> WeatherFetch:
         """Weather for an analysis: the series, its outcome record and its gaps."""
+        now = self._clock()
         started = time.monotonic()
         start = series_start(analysis_date)
+        end = series_end(analysis_date, now)
         data, message, limitations = None, None, []
         try:
-            data = await self.history(lat, lon, start, analysis_date)
-            limitations = find_limitations(data, start, analysis_date)
+            data = await self.history(lat, lon, start, end, started + self._budget_s)
+            limitations = find_limitations(data, start, analysis_date, end)
             if limitations:
                 message = " ".join(limitation.text for limitation in limitations)
-        except WeatherSourceError:
-            message = "Archiwum pogodowe nie odpowiedziało lub nie ma danych dla tej daty."
+        except WeatherSourceError as failure:
+            logger.info("weather archive gave no series: reason=%s", failure.reason)
+            message = params.FAILURE_MESSAGES[failure.reason]
         outcome = SourceOutcome(
             topic="weather",
             source_name=params.SOURCE_NAME if data else None,
@@ -183,7 +174,9 @@ class WeatherSource:
                 if data
                 else None
             ),
-            fetched_at=datetime.now(UTC),
+            # The clock reading that decided the last day of the series, so that
+            # the stored data tell whether the analysis date was the current day.
+            fetched_at=now,
             message=message,
         )
         return WeatherFetch(data=data, outcome=outcome, limitations=limitations)

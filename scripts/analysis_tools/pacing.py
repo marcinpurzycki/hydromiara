@@ -11,10 +11,12 @@ to the weather archive, so the limits below are counted in starts.
   Far above anything the spacing allows.
 - Weather archive (Open-Meteo, free access): 600 per minute, 5 000 per hour,
   10 000 per day, counted by the cost of a request and not by the number of
-  requests. The request of one analysis (over ten years of daily values) was
-  measured to cost about 88, which leaves about 6 analyses per minute, 56 per
-  hour and 113 per day from one address. This is the limit that matters: the
-  defaults are 50 starts per hour and 100 per day.
+  requests. The request of one analysis (over ten years of daily values of two
+  variables) costs about 59, which leaves about 10 analyses per minute, 85 per
+  hour and 170 per day from one address. This is the limit that matters. The
+  defaults stay below it, at 50 starts per hour and 100 per day: the service
+  itself accepts 50 analyses per hour from one client, and the address is
+  shared with whatever else asks the archive.
 
 The counts cover what this tool started, including the rows already in its
 output file. Other programs calling the services from the same address (the

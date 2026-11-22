@@ -257,7 +257,8 @@ Aplikacja pobiera dane, liczy bilans wodny i zapisuje Raport pod własnym losowy
   z jedną wybraną, rok po roku, tą samą miarą co w Raporcie.
 - **Sprawdzenie zgodności** w każdym Raporcie: własny werdykt obok niezależnego wskaźnika suszy i odczytu satelitarnego.
 - **Ograniczenia raportu** podane wprost: stałe (Raport nie jest urzędowym stwierdzeniem suszy rolniczej, nie ocenia
-  nadmiaru wody, nie korzysta z prognozy pogody, publiczne dane o rowach są niekompletne) i wynikające z danych tej analizy.
+  nadmiaru wody, nie korzysta z prognozy pogody, publiczne dane o rowach są niekompletne, pogoda pochodzi z modelu
+  o siatce około 9 km, który podaje przeciętnie więcej opadu niż deszczomierze) i wynikające z danych tej analizy.
 - **Źródła i ślad decyzyjny**: Raport wymienia każde źródło z licencją, trybem pobrania, datą danych i czasem
   odczytu oraz każdą regułę z wartościami, które o niej zdecydowały.
 - **Krótkie podsumowanie** Raportu: z szablonu albo, gdy skonfigurowano model językowy, zredagowane przez model
@@ -342,7 +343,7 @@ wykorzystania” to punkt 7. Na zewnątrz wysyłane są tylko współrzędne, Id
 | Dane | Źródło | Tryb | Data danych / odczytu | Warunki wykorzystania |
 |---|---|---|---|---|
 | Działki ewidencyjne: identyfikator, położenie administracyjne, geometria | Główny Urząd Geodezji i Kartografii (GUGiK), Usługa Lokalizacji Działek Katastralnych (ULDK), `https://uldk.gugik.gov.pl/` | na żywo | stan rejestru w chwili analizy; czas odczytu zapisany w raporcie (`sources[].fetched_at`) | bezpłatnie, bez rejestracji; wymagane podanie źródła; limit zapytań na adres IP |
-| Pogoda dzienna do Daty analizy: suma opadu, ewapotranspiracja wskaźnikowa ET0 (FAO-56), średnia temperatura | Open-Meteo, archiwum pogodowe (reanaliza ERA5 / ECMWF IFS), `https://archive-api.open-meteo.com/v1/archive` | na żywo | wartości dzienne od 1 stycznia roku o 10 lat wcześniejszego niż Data analizy (z zapasem 120 dni na rozruch bilansu) do Daty analizy; czas odczytu zapisany w raporcie | dane na licencji CC BY 4.0, wymagane podanie źródła; bezpłatny dostęp bez klucza tylko do zastosowań niekomercyjnych; limit 600 zapytań na minutę, 5000 na godzinę i 10 000 na dobę |
+| Pogoda dzienna do Daty analizy: suma opadu, ewapotranspiracja wskaźnikowa ET0 (FAO-56) | Open-Meteo, archiwum pogodowe (reanaliza ERA5 / ECMWF IFS), `https://archive-api.open-meteo.com/v1/archive` | na żywo | wartości dzienne od 1 stycznia roku o 10 lat wcześniejszego niż Data analizy (z zapasem 120 dni na rozruch bilansu) do Daty analizy, a gdy Data analizy jest dniem bieżącym, do dnia poprzedniego (dzień bieżący jeszcze trwa, a archiwum podaje go jako wynik modelu na resztę doby); czas odczytu zapisany w raporcie | dane na licencji CC BY 4.0, wymagane podanie źródła z odnośnikiem [Weather data by Open-Meteo.com](https://open-meteo.com/); bezpłatny dostęp bez klucza tylko do zastosowań niekomercyjnych; limit 600 zapytań na minutę, 5000 na godzinę i 10 000 na dobę na adres IP; limity liczone kosztem zapytania, nie liczbą połączeń: jedna analiza to ok. 59 jednostek, czyli ok. 10 analiz na minutę, 85 na godzinę i 170 na dobę z jednego adresu IP; po wyczerpaniu limitu archiwum odmawia (`429`) i analiza kończy się bez Raportu z osobnym komunikatem |
 | Tło suszowe: klasa wskaźnika Combined Drought Indicator (CDI) w komórce siatki działki, co dekadę, od 2016 r. | European Drought Observatory (EDO), Komisja Europejska, Wspólne Centrum Badawcze (JRC); © Unia Europejska, 1995–2026; `https://drought.emergency.copernicus.eu/data/Drought_Observatories_datasets/` (katalog `EDO_Combined_Drought_Indicator`) | plik lokalny: archiwa roczne rozpakowane do `EDO_DATA_PATH` poleceniem `python3 scripts/unpack_drought_files.py KATALOG_ARCHIWÓW`; stan plików na 21.11.2026, dekady od 01.01.2016 do 01.11.2026 | pliki pobrane wcześniej: stan na 21.11.2026, dekady od 01.01.2016 do 01.11.2026; raport podaje dekadę użytą w Sprawdzeniu zgodności | CC BY 4.0; wymagane podanie źródła i zaznaczenie zmian (pliki testowe w `backend/tests/fixtures/edo/` to wycinki 3 × 3 komórki bez metadanych) |
 | Ukształtowanie terenu: siatka wysokości ok. 30 m wokół działki | Copernicus DEM GLO-30 (model pokrycia terenu z misji TanDEM-X, pomiary z lat 2011–2015; wysokości obejmują budynki i roślinność), pliki z `https://registry.opendata.aws/copernicus-dem/`, arkusz wyszukiwany w katalogu Earth Search (`https://earth-search.aws.element84.com/v1`, kolekcja `cop-dem-glo-30`) | na żywo | pomiary z lat 2011–2015; czas odczytu zapisany w raporcie | bezpłatnie dla każdego na warunkach licencji Copernicus DEM (GLO-30 Public), bez rejestracji; wymagane podanie źródła i informacji o prawach autorskich |
 | Parametry wodne Upraw: współczynniki Kc, głębokość korzeni, dopuszczalne wyczerpanie wody w glebie (p) | Allen R.G., Pereira L.S., Raes D., Smith M. (1998), „Crop evapotranspiration: guidelines for computing crop water requirements”, FAO Irrigation and Drainage Paper 56, tabele 12 i 22 | wartości wpisane w kodzie (`backend/app/catalog/crop_data.py`), każda ze wskazaniem tabeli; wartości bez źródła są tam oznaczone jako robocze | publikacja z 1998 r.; wartości wpisane w kodzie, nie są pobierane | publikacja FAO; wartości liczbowe przytoczone z podaniem źródła |
@@ -509,7 +510,7 @@ Wymagane informacje o pochodzeniu danych:
 
 Źródło: Główny Urząd Geodezji i Kartografii (GUGiK), Usługa Lokalizacji Działek Katastralnych (ULDK).
 
-Dane pogodowe: Open-Meteo.com (CC BY 4.0). Zawierają informacje usługi Copernicus Climate Change Service.
+Dane pogodowe: [Weather data by Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0). Zawierają informacje usługi Copernicus Climate Change Service.
 
 Wysokości terenu: produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved. Copernicus Digital Elevation Model (DEM) was accessed on 21.11.2026 from https://registry.opendata.aws/copernicus-dem.
 
@@ -578,12 +579,14 @@ potrzebach wodnych” będzie stwierdzana dla większości Upraw polowych.
   z danych SoilGrids nie jest zweryfikowana pomiarem (stałe Ograniczenie przy każdym profilu); to model globalny
   o siatce 250 m, a usługa jest w fazie beta, z limitem 5 zapytań na minutę.
 - **Pogoda.** Bezpłatny dostęp do archiwum Open-Meteo jest tylko do zastosowań niekomercyjnych, a jego limit
-  liczony kosztem zapytania pozwala na około 56 analiz na godzinę i 113 na dobę z adresu serwera. Opad i ET0
+  liczony kosztem zapytania pozwala na około 85 analiz na godzinę i 170 na dobę z adresu serwera. Opad i ET0
   pochodzą z modelu o siatce około 9 km (dla lat do 2016 r. około 25 km), a nie z deszczomierza na Działce;
   w porównaniu z opadami dobowymi ze stacji IMGW model podawał przeciętnie o kilkanaście procent więcej opadu,
-  więc rzeczywisty niedobór może być większy. Wartość dla dnia bieżącego jest niepełna (doba trwa), a przez
-  pierwszą godzinę lub dwie po północy czasu polskiego analiza na dzień bieżący może się nie udać, bo archiwum liczy dzień
-  według czasu UTC.
+  więc rzeczywisty niedobór może być większy. Analiza na dzień bieżący korzysta z pogody do dnia poprzedniego
+  (dzień bieżący jeszcze trwa), więc dzisiejszy opad nie jest w niej uwzględniony. Nie wiadomo, czy archiwum
+  poprawia później wartości z ostatnich dni: ta sama analiza powtórzona po kilku dniach może dać nieco inne liczby.
+  Po wyczerpaniu limitu archiwum odmawia odpowiedzi i analiza nowej Działki kończy się bez Raportu, z komunikatem
+  o limicie zapytań.
 - **Teren.** Model 30 m (Copernicus DEM) opisuje powierzchnię razem z budynkami i roślinnością; wystarcza do
   średniego spadku i kierunku, a najniższą część wskazuje tylko jako stronę Działki. Działki wąskie albo mniejsze
   niż około 0,5 ha mają za mało punktów siatki i spadek nie jest wyznaczany. Działka na granicy arkuszy 1° × 1°
@@ -664,7 +667,7 @@ Limity i dostępność zewnętrznych źródeł danych:
   razem z danymi źródłowymi, więc ponowne otwarcie Raportu, Symulacja i raport pochodny niczego nie pobierają.
   Usługa ogranicza liczbę zapytań na adres i liczbę analiz trwających jednocześnie (część „Bezpieczeństwo i dane
   osobowe”), a narzędzia pomiarowe trzymają własne tempo poniżej limitów usług.
-- Wąskie gardła: limit bezpłatnego archiwum pogodowego (około 56 analiz na godzinę z adresu serwera), limit
+- Wąskie gardła: limit bezpłatnego archiwum pogodowego (około 85 analiz na godzinę z adresu serwera), limit
   i czas odpowiedzi usługi gleby (5 zapytań na minutę, 11–35 s), brak gwarancji dostępności bezpłatnych usług
   satelitarnych.
 - Potrzebne przy większym ruchu: buforowanie danych, które się nie zmieniają (gleba, teren i geometria działki

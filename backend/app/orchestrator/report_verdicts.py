@@ -116,7 +116,10 @@ def headline(
         past = f"wody brakowało w {multiyear.deficit_years} z {multiyear.total_years} lat"
     else:
         past = NOT_ASSESSED_LABEL
-    first = current_sentence or f"Bieżąca sytuacja wodna na {_pl(analysis_date)}: {now}."
+    # The state is that of the last day with weather, which for an analysis of
+    # the current day is the day before.
+    state_day = current.state_date or analysis_date
+    first = current_sentence or f"Bieżąca sytuacja wodna na {_pl(state_day)}: {now}."
     return f"{first} Podatność wieloletnia: {past}."
 
 
