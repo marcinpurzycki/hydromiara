@@ -1,0 +1,51 @@
+@page { margin: 14mm 12mm 16mm; }
+
+@media print {
+  .no-print { display: none !important; }
+  html, body { background: #fff; }
+  body { font-size: 12px; }
+  main { padding: 0; max-width: none; }
+  .site-header-inner { padding: 6px 0; }
+  .logo-link img { height: 36px; margin: 0; }
+  /* keep the colours of the scale and of the dark blocks on paper */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h1 { font-size: 22px; }
+  .lead { font-size: 13px; }
+  .report { gap: 12px; }
+  .card, .notice { box-shadow: none; padding: 12px 14px; }
+  .notice b { font-size: 13px; }
+  .print-section, .print-break, .cause-tile, .flow-step, tr { break-inside: avoid; page-break-inside: avoid; }
+  .summary-headline { font-size: 14px; }
+  .status { font-size: 20px; }
+  .years-count { font-size: 16px; }
+  .hint, .scale-label { font-size: 10px; }
+  .eyebrow, .irrigation-cells dt { font-size: 9px; }
+  .irrigation-cells div { padding: 8px 10px; }
+  .cell-note { font-size: 10px; }
+  .cause-tiles { gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .cause-tile { padding: 12px 12px 0; gap: 10px; }
+  .cause-tile h2, .card-title, .cause-path-head h2 { font-size: 12px; letter-spacing: 0.03em; }
+  .cause-tile h2 .icon, .card-title .icon { width: 16px; height: 16px; }
+  .cause-finding { font-size: 12px; line-height: 1.35; }
+  .cause-indicator strong { font-size: 14px; }
+  .cause-foot { display: none; }
+  .cause-tile { padding-bottom: 12px; }
+  .cause-path { border-width: 1px; }
+  .cause-path-head { padding: 8px 14px; }
+  .flow { padding: 10px 14px; grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr) 16px minmax(0, 1fr); gap: 6px; }
+  .flow-arrow { width: 14px; height: 14px; transform: none; }
+  .flow-title { padding: 8px 12px; font-size: 10px; }
+  .flow-title span { width: 18px; height: 18px; }
+  .flow-body { padding: 10px 12px; font-size: 11px; gap: 8px; }
+  .flow-main { font-size: 12px; }
+  .sketch svg { max-width: 220px; }
+  .irrigation-main { font-size: 14px; }
+  .cell-value { font-size: 16px; }
+  .extra-toggle { padding: 10px 14px; font-size: 14px; }
+  .extra-toggle .chevron { display: none; }
+  .extra-body { padding: 0 14px 14px; gap: 12px; }
+  .extra-body *, .limitations { font-size: 10px; line-height: 1.35; }
+  th, td { padding: 4px 8px 4px 0; }
+  .print-footer { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--line); font-size: 10px; color: var(--muted); }
+  a { text-decoration: none; }
+}

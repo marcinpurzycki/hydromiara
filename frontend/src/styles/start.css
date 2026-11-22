@@ -1,0 +1,56 @@
+.screen-wide { max-width: 1360px; }
+.start-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 540px), 1fr)); gap: 24px; align-items: stretch; }
+.start-form { display: flex; flex-direction: column; gap: 22px; padding: 24px; }
+.search-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.search-row input { flex: 1 1 260px; }
+
+.place-list { list-style: none; margin: 0; padding: 6px; background: #fff; border: 1px solid var(--line); border-radius: 10px; }
+.place-list button, .suggestions button { display: block; width: 100%; padding: 10px 14px; font-size: 17px; font-weight: 600; text-align: left; background: none; border: 0; border-radius: 6px; }
+.place-list button:hover, .suggestions button:hover { background: var(--sand); }
+
+.crop-tiles { display: flex; flex-wrap: wrap; gap: 10px; }
+.tile { flex: 1 1 auto; min-height: 56px; padding: 0 22px; font-size: 19px; font-weight: 600; white-space: nowrap; border: 2px solid var(--line-strong); border-radius: 10px; background: #fff; }
+.tile:hover { border-color: var(--ink); }
+.tile-on { background: var(--sand-dark); border-color: var(--ink); font-weight: 700; }
+
+.field-other-crop input, .field-date .date-box { height: 50px; }
+.field-other-crop input { font-size: 18px; padding: 0 16px; }
+.suggestions { position: absolute; z-index: 600; left: 0; right: 0; top: 86px; max-height: 280px; overflow: auto; margin: 0; padding: 6px; list-style: none; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(42, 37, 33, 0.16); }
+.suggestions-empty { padding: 10px 14px; font-size: 16px; color: var(--muted); }
+
+.field-date { max-width: 270px; }
+.date-box { display: flex; align-items: stretch; border: 1.5px solid var(--line-strong); border-radius: 10px; background: #fff; overflow: hidden; }
+.date-box input { flex: 1; min-width: 0; padding: 0 12px; font-size: 17px; border: 0; outline: none; background: transparent; }
+.date-box input::-webkit-calendar-picker-indicator { display: none; }
+.date-button { width: 44px; display: grid; place-items: center; background: none; border: 0; padding: 0; }
+.date-info { font: italic 800 17px/1 Georgia, serif; background: var(--sand-light); border-left: 1.5px solid var(--line-strong); }
+.date-info-on { background: var(--ink); color: #fff; }
+
+.start-actions { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-top: auto; padding-top: 8px; }
+.start-actions .button-huge { flex: 1 1 260px; }
+.examples { position: relative; }
+.examples > .button { min-height: 64px; font-size: 22px; }
+.examples-list { position: absolute; right: 0; bottom: 74px; z-index: 700; width: min(440px, calc(100vw - 48px)); max-height: min(520px, calc(100vh - 140px)); overflow: auto; padding: 16px; background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 30px rgba(42, 37, 33, 0.22); display: flex; flex-direction: column; gap: 8px; }
+.examples-group { display: flex; flex-direction: column; gap: 8px; }
+.examples-group button { padding: 10px 14px; text-align: left; background: var(--sand); border: 0; border-radius: 10px; display: flex; flex-direction: column; gap: 2px; }
+.examples-group button:hover { background: var(--sand-dark); }
+.examples-group b { font-size: 17px; }
+.examples-group span { font-size: 14px; color: var(--muted); overflow-wrap: anywhere; }
+
+.start-map { display: flex; flex-direction: column; gap: 10px; min-height: 460px; min-width: 0; }
+.chosen-parcel { font-size: 22px; font-weight: 700; overflow-wrap: anywhere; }
+.chosen-parcel i { color: var(--faint); font-weight: 600; }
+.map-frame { position: relative; flex: 1; min-height: 460px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: #3a3328; }
+.map-canvas { position: absolute; inset: 0; z-index: 0; cursor: crosshair; }
+.map-canvas.leaflet-container { font-family: inherit; background: #3a3328; }
+.map-caption { position: absolute; left: 14px; top: 14px; max-width: calc(100% - 100px); padding: 8px 14px; border-radius: 8px; background: #fff; font-size: 15px; font-weight: 600; line-height: 1.3; pointer-events: none; z-index: 500; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2); }
+.map-zoom { position: absolute; top: 14px; right: 14px; display: flex; flex-direction: column; gap: 8px; z-index: 500; }
+.map-zoom button { width: 48px; height: 48px; font-size: 28px; font-weight: 700; background: #fff; border: 0; border-radius: 10px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2); }
+.leaflet-control-attribution { font-size: 10px; }
+
+.choice-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.choice-list button { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 20px; padding: 18px 22px; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
+.choice-list button:hover { border-color: var(--ink); background: var(--sand); }
+.choice-list b { font-size: 20px; }
+.choice-list .muted { grid-column: 1; overflow-wrap: anywhere; }
+.choice-pick { grid-column: 2; grid-row: 1 / span 3; font-weight: 700; white-space: nowrap; }

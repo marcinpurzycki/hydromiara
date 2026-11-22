@@ -1,0 +1,115 @@
+// State of the parcel choice on the Start screen: text search, map clicks, list of matches.
+import { useCallback, useRef, useState } from "react";
+import { api, errorMessage } from "../api/client";
+import type { ParcelMatch } from "../api/types";
+import type { Place } from "../lib/geocoder";
+import { resolveQuery, withGeometry } from "../lib/parcel-search";
+
+export type PickerView = { kind: "form" } | { kind: "choice"; matches: ParcelMatch[] } | { kind: "missing" };
+
+const CAPTION_START = "Kliknij na mapie, aby wskazać działkę";
+const CAPTION_PLACE = "Kliknij swoją działkę na mapie";
+
+export function useParcelPicker(initialText: string) {
+  const [text, setTextValue] = useState(initialText);
+  const [parcel, setParcel] = useState<ParcelMatch | null>(null);
+  const [view, setView] = useState<PickerView>({ kind: "form" });
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [place, setPlace] = useState<Place | null>(null);
+  const [caption, setCaption] = useState(CAPTION_START);
+  const [error, setError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  const clicks = useRef(0);
+
+  const select = useCallback((chosen: ParcelMatch) => {
+    setParcel(chosen);
+    setTextValue(chosen.parcel_id);
+    setPlaces([]);
+    setError(null);
+    setView({ kind: "form" });
+    setCaption(`Wybrano działkę ${chosen.number}${chosen.region ? `, ${chosen.region}` : ""}`);
+  }, []);
+
+  const setText = (value: string) => {
+    setTextValue(value);
+    setError(null);
+    setPlaces([]);
+    if (parcel && value.trim() !== parcel.parcel_id) setParcel(null);
+  };
+
+  const goToPlace = (target: Place) => {
+    setPlace({ ...target });
+    setPlaces([]);
+    setCaption(CAPTION_PLACE);
+  };
+
+  /** A click picks the parcel under it; a newer click overrides an answer still on its way. */
+  const pickOnMap = async (lat: number, lon: number) => {
+    const turn = ++clicks.current;
+    setCaption("Szukamy działki w tym miejscu…");
+    try {
+      const found = await api.parcelAt(lon, lat);
+      if (turn !== clicks.current) return;
+      if (found) select(found);
+      else setCaption("W tym miejscu nie ma działki w ewidencji. Kliknij w inne miejsce.");
+    } catch (failure) {
+      if (turn === clicks.current) setCaption(errorMessage(failure));
+    }
+  };
+
+  /** Runs the text search; resolves to the parcel when the text names exactly one. */
+  const search = async (): Promise<ParcelMatch | null> => {
+    if (!text.trim()) {
+      setError("Wpisz adres, numer działki z nazwą obrębu albo identyfikator działki.");
+      return null;
+    }
+    setSearching(true);
+    setError(null);
+    try {
+      const outcome = await resolveQuery(text);
+      if (outcome.kind === "parcel") {
+        select(outcome.parcel);
+        return outcome.parcel;
+      }
+      if (outcome.kind === "choice") setView({ kind: "choice", matches: outcome.matches });
+      else if (outcome.kind === "none") setView({ kind: "missing" });
+      else if (outcome.places.length === 1) goToPlace(outcome.places[0]);
+      else setPlaces(outcome.places);
+      if (outcome.kind === "places") setError("Znaleźliśmy adres. Teraz kliknij swoją działkę na mapie.");
+      return null;
+    } catch (failure) {
+      setError(errorMessage(failure));
+      return null;
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const choose = async (match: ParcelMatch) => {
+    try {
+      select(await withGeometry(match));
+    } catch (failure) {
+      setView({ kind: "form" });
+      setError(errorMessage(failure));
+    }
+  };
+
+  /** Fills the field with a known identifier and outlines the parcel. */
+  const load = useCallback(
+    async (parcelId: string) => {
+      setTextValue(parcelId);
+      try {
+        select(await api.parcel(parcelId));
+      } catch {
+        // The outline is a convenience here; the search runs again on submit.
+      }
+    },
+    [select],
+  );
+
+  return {
+    text, parcel, view, places, place, caption, error, searching,
+    setText, setError, pickOnMap, search, choose, load, goToPlace,
+    backToForm: () => setView({ kind: "form" }),
+  };
+}
