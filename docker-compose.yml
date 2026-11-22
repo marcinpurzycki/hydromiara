@@ -17,6 +17,20 @@ services:
       AI_BASE_URL: ${AI_BASE_URL:-}
       AI_TIMEOUT_S: ${AI_TIMEOUT_S:-}
       AI_REASONING_EFFORT: ${AI_REASONING_EFFORT:-}
+      # Addresses whose X-Forwarded-For is trusted (the reverse proxy); the
+      # request limits count per client address only when this names the proxy.
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
+      # Request limits per client address and the limit of analyses running at
+      # the same time; empty = defaults of the service (backend/app/api/limits.py).
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-}
+      RATE_LIMIT_ANALYSIS_PER_MINUTE: ${RATE_LIMIT_ANALYSIS_PER_MINUTE:-}
+      RATE_LIMIT_ANALYSIS_PER_HOUR: ${RATE_LIMIT_ANALYSIS_PER_HOUR:-}
+      RATE_LIMIT_DERIVE_PER_MINUTE: ${RATE_LIMIT_DERIVE_PER_MINUTE:-}
+      RATE_LIMIT_LOOKUP_PER_MINUTE: ${RATE_LIMIT_LOOKUP_PER_MINUTE:-}
+      RATE_LIMIT_SIMULATION_PER_MINUTE: ${RATE_LIMIT_SIMULATION_PER_MINUTE:-}
+      RATE_LIMIT_STATUS_PER_MINUTE: ${RATE_LIMIT_STATUS_PER_MINUTE:-}
+      RATE_LIMIT_OTHER_PER_MINUTE: ${RATE_LIMIT_OTHER_PER_MINUTE:-}
+      MAX_CONCURRENT_ANALYSES: ${MAX_CONCURRENT_ANALYSES:-}
     volumes:
       - reports:/data/reports
       - ${EDO_DATA_PATH:-./data/edo}:/data/edo:ro
