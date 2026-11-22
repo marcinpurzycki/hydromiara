@@ -42,21 +42,24 @@ CASES = [
     ("precipitation", {"multiyear_level": 0, "recent": (80.0, 100.0)}, "not_found", 80.0),
     ("precipitation", {"multiyear_level": 0, "recent": (None, None)}, "no_data", None),
     ("precipitation", {"multiyear_level": 0, "recent": (0.0, 0.0)}, "no_data", None),
-    # Available water per metre of soil; found below 140 mm.
+    # Available water per metre of soil; found below 150 mm.
     ("soil", {"root_zone": zone(110.0)}, "found", 110.0),
-    ("soil", {"root_zone": zone(139.4)}, "found", 139.0),
-    ("soil", {"root_zone": zone(140.0)}, "not_found", 140.0),
+    ("soil", {"root_zone": zone(149.4)}, "found", 149.0),
+    ("soil", {"root_zone": zone(140.0)}, "found", 140.0),
+    ("soil", {"root_zone": zone(150.0)}, "not_found", 150.0),
     ("soil", {"root_zone": zone(216.0)}, "not_found", 216.0),
     ("soil", {"root_zone": zone(110.0, "texture_estimate")}, "found", 110.0),
     ("soil", {"root_zone": zone(150.0, "fallback")}, "no_data", None),
     ("soil", {"root_zone": zone(100.0, "fallback")}, "no_data", None),
-    # Mean slope; found above 2%.
-    ("runoff", {"land": terrain(3.4)}, "found", 3.4),
-    ("runoff", {"land": terrain(2.06)}, "found", 2.1),
-    ("runoff", {"land": terrain(2.0)}, "not_found", 2.0),
-    ("runoff", {"land": terrain(2.04)}, "not_found", 2.0),
+    # Mean slope; found from 6% (at or above).
+    ("runoff", {"land": terrain(8.4)}, "found", 8.4),
+    ("runoff", {"land": terrain(6.0)}, "found", 6.0),
+    ("runoff", {"land": terrain(5.96)}, "found", 6.0),
+    ("runoff", {"land": terrain(5.94)}, "not_found", 5.9),
+    ("runoff", {"land": terrain(3.4)}, "not_found", 3.4),
+    ("runoff", {"land": terrain(2.06)}, "not_found", 2.1),
     ("runoff", {"land": terrain(0.6, 0.5)}, "not_found", 0.6),
-    ("runoff", {"land": terrain(3.0, 2.5)}, "no_data", None),
+    ("runoff", {"land": terrain(7.0, 6.5)}, "no_data", None),
     ("runoff", {"land": terrain(status="too_few_cells")}, "no_data", None),
     ("runoff", {"land": terrain(status="unsupported_grid")}, "no_data", None),
     ("runoff", {"land": None}, "no_data", None),
@@ -96,16 +99,16 @@ def test_precipitation_just_below_the_threshold_is_found():
 
 
 def test_thresholds_are_parameters():
-    params = CauseParams(soil_min_available_water_mm_per_m=220.0, runoff_max_slope_pct=5.0)
+    params = CauseParams(soil_min_available_water_mm_per_m=220.0, runoff_min_slope_pct=9.0)
     assert check("soil", root_zone=zone(216.0), params=params).state == "found"
-    assert check("runoff", land=terrain(3.4), params=params).state == "not_found"
+    assert check("runoff", land=terrain(8.4), params=params).state == "not_found"
     with pytest.raises(ValueError):
-        CauseParams(runoff_max_slope_pct=0.0)
+        CauseParams(runoff_min_slope_pct=0.0)
 
 
 def test_facts_give_numbers_of_the_parcel_with_their_source():
     sources = SourceNames(weather="Open-Meteo", soil="SoilGrids", terrain="Copernicus DEM")
-    outcome = deficit_causes(assessment(years=window(6, rain=160.0)), WHEAT, terrain(3.4), sources=sources)
+    outcome = deficit_causes(assessment(years=window(6, rain=160.0)), WHEAT, terrain(8.4), sources=sources)
     facts = {result.id: result.facts for result in outcome.results}
     rain = facts["precipitation"][0]
     assert "2014, 2015, 2016, 2017, 2018, 2019" in rain.text
@@ -113,7 +116,7 @@ def test_facts_give_numbers_of_the_parcel_with_their_source():
     assert "80%" in facts["precipitation"][1].text
     assert "180 mm" in facts["soil"][0].text and facts["soil"][0].source == "SoilGrids"
     slope = facts["runoff"][0]
-    assert "3,4%" in slope.text and "na północny wschód" in slope.text
+    assert "8,4%" in slope.text and "na północny wschód" in slope.text
     assert slope.source == "Copernicus DEM"
     assert "północno-wschodnia część Działki" in facts["runoff"][1].text
     assert "1,15" in facts["crop_demand"][0].text and facts["crop_demand"][0].source
@@ -121,8 +124,8 @@ def test_facts_give_numbers_of_the_parcel_with_their_source():
 
 
 def test_slope_above_threshold_but_within_the_scatter_says_why():
-    result = check("runoff", land=terrain(3.0, 2.5))
-    assert "3,0%" in result.finding and "± 2,5" in result.finding
+    result = check("runoff", land=terrain(7.0, 6.5))
+    assert "7,0%" in result.finding and "± 6,5" in result.finding
     assert result.trace_values["direction_resolved"] is False
 
 
@@ -177,7 +180,7 @@ def test_field_without_a_crop_gets_no_causes_and_no_new_rule():
 
 def test_trace_is_complete_and_deterministic():
     def run():
-        return deficit_causes(assessment(root_zone=zone(110.0)), WHEAT, terrain(3.4))
+        return deficit_causes(assessment(root_zone=zone(110.0)), WHEAT, terrain(8.4))
 
     trace = run().trace()
     assert [entry.rule_id for entry in trace] == [
@@ -185,7 +188,7 @@ def test_trace_is_complete_and_deterministic():
     ]
     assert trace[0].values == {"current_deficit_level": 2, "multiyear_deficit_level": 2}
     assert trace[2].values["available_water_mm_per_m"] == 110.0
-    assert trace[3].values["slope_pct"] == 3.4
+    assert trace[3].values["slope_pct"] == 8.4
     assert all(entry.condition and entry.result for entry in trace)
     assert run() == run()
     assert [cause.model_dump_json() for cause in run().causes()] == [

@@ -3,7 +3,8 @@
 Everything that decides whether a cause is found is listed here, so replacing
 a working value is a change of data, not of code. `CauseParams` carries the
 same values as an object: callers pass a changed copy instead of editing the
-module. None of the thresholds has a scientific source yet.
+module. The soil and slope thresholds have a source; the other two cause thresholds
+are still working values and are marked PROVISIONAL.
 """
 
 from dataclasses import dataclass
@@ -15,16 +16,20 @@ from dataclasses import dataclass
 # evapotranspiration ET0 of the same period, in percent.
 PRECIPITATION_MIN_SHARE_OF_ET0_PCT: float = 50.0
 
-# PROVISIONAL: no source; "the soil stores water poorly" is found when the
-# available water capacity is below this many millimetres per metre of soil.
-SOIL_MIN_AVAILABLE_WATER_MM_PER_M: float = 140.0
+# "The soil stores water poorly" is found when the available water capacity is
+# below this many millimetres per metre of soil. Source: FAO-56, table 19, where
+# 150 is the upper bound of sandy loam, and the CDR e-poradnik, table 12 (p. 244),
+# where the capacity falls from 173 (light loam) to 139 (loamy sand) around it.
+SOIL_MIN_AVAILABLE_WATER_MM_PER_M: float = 150.0
 
-# PROVISIONAL: no source; "water runs off the field quickly" is found when the
-# mean slope of the parcel is above this value, in percent.
-RUNOFF_MAX_SLOPE_PCT: float = 2.0
+# "Water runs off the field quickly" is found when the mean slope of the parcel
+# is at least this value, in percent. Source: Wawer, Nowocien 2018, IUNG-PIB
+# Studia i Raporty 58(12), table 1 (p. 59): from 6% surface runoff that washes
+# the soil occurs on every soil.
+RUNOFF_MIN_SLOPE_PCT: float = 6.0
 
-# PROVISIONAL: no source for a threshold; "a crop with high water needs" is
-# found when the mid-season crop coefficient Kc is above this value. Kc = 1 is
+# PROVISIONAL: working rule, replaced when the crop comparison is available;
+# "a crop with high water needs" is found when the mid-season crop coefficient Kc is above this value. Kc = 1 is
 # the reference surface ET0 is defined for, so above it the crop at full cover
 # uses more water than that surface.
 CROP_DEMAND_MAX_KC_MID: float = 1.0
@@ -69,7 +74,7 @@ class CauseParams:
 
     precipitation_min_share_of_et0_pct: float = PRECIPITATION_MIN_SHARE_OF_ET0_PCT
     soil_min_available_water_mm_per_m: float = SOIL_MIN_AVAILABLE_WATER_MM_PER_M
-    runoff_max_slope_pct: float = RUNOFF_MAX_SLOPE_PCT
+    runoff_min_slope_pct: float = RUNOFF_MIN_SLOPE_PCT
     crop_demand_max_kc_mid: float = CROP_DEMAND_MAX_KC_MID
     terrain_min_cells: int = TERRAIN_MIN_CELLS
     terrain_min_cross_spread_cells: float = TERRAIN_MIN_CROSS_SPREAD_CELLS
@@ -82,7 +87,7 @@ class CauseParams:
         thresholds = (
             self.precipitation_min_share_of_et0_pct,
             self.soil_min_available_water_mm_per_m,
-            self.runoff_max_slope_pct,
+            self.runoff_min_slope_pct,
             self.crop_demand_max_kc_mid,
         )
         if min(thresholds) <= 0:

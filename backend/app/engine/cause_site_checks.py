@@ -5,11 +5,10 @@
   from a category estimated from texture. A stand-in capacity (no soil data,
   organic soil) is never a basis for the cause: the state is then "no data".
 - "Water runs off the field quickly": mean slope of the parcel from the
-  terrain analysis. A slope above the threshold that cannot be told apart from
+  terrain analysis. A slope at or above the threshold that cannot be told apart from
   the scatter of the elevations is "no data", not a found cause.
 
-The thresholds are working values without a scientific source, kept in
-`cause_params`.
+The thresholds, with their sources, are kept in `cause_params`.
 """
 
 from app.contracts.causes import Fact
@@ -114,10 +113,10 @@ def _terrain_facts(terrain: TerrainAnalysis, source: str) -> tuple[Fact, ...]:
 def runoff_cause(
     terrain: TerrainAnalysis | None, params: CauseParams, sources: SourceNames
 ) -> CauseResult:
-    threshold = params.runoff_max_slope_pct
+    threshold = params.runoff_min_slope_pct
     name = "Średni spadek terenu na Działce"
     condition = (
-        f"średni spadek terenu powyżej {pl_number(threshold, 1)}% i co najmniej "
+        f"średni spadek terenu co najmniej {pl_number(threshold, 1)}% i co najmniej "
         f"{pl_number(params.slope_min_signal_to_error, 1)} razy większy od swojej niepewności"
     )
 
@@ -153,7 +152,7 @@ def runoff_cause(
         "direction_resolved": terrain.direction_resolved,
         "cells_used": terrain.cells_used,
     }
-    above = value > threshold
+    above = value >= threshold
     if above and not terrain.direction_resolved:
         return no_data(
             f"wyliczony spadek ({pl_number(value, 1)}%) jest zbyt mały względem rozrzutu "
@@ -167,7 +166,7 @@ def runoff_cause(
         value=value, threshold=threshold, condition=condition, facts=facts,
         finding=(
             f"{start}: średni spadek terenu wynosi {pl_number(value, 1)}% "
-            f"(próg: powyżej {pl_number(threshold, 1)}%)."
+            f"(próg: co najmniej {pl_number(threshold, 1)}%)."
         ),
         trace_values=trace_values,
     )
