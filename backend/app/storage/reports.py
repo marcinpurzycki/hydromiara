@@ -9,83 +9,31 @@ even before they are physically deleted.
 
 import sqlite3
 from contextlib import closing
-from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Literal
-
-from pydantic import TypeAdapter
 
 from app.contracts.analyses import AnalysisRequest, CropHistory, SourceProgress
 from app.contracts.report import Limitation, Report
 from app.contracts.source_data import SourceData
 from app.storage import params
-from app.storage.schema import SCHEMA, UNFINISHED_STATES
-
-StoredState = Literal["running", "finalizing", "done", "failed"]
-
-_PROGRESS = TypeAdapter(list[SourceProgress])
-_LIMITATIONS = TypeAdapter(list[Limitation])
-_UNFINISHED = ", ".join(f"'{state}'" for state in UNFINISHED_STATES)
-_SUMMARY_COLUMNS = (
-    "report_id, state, parcel_id, crop_id, analysis_date, created_ts, finished_ts, "
-    "error_code, error_message, sources_json, crop_history_json"
+from app.storage.records import (
+    LIMITATIONS,
+    PROGRESS,
+    SUMMARY_COLUMNS,
+    UNFINISHED,
+    AnalysisRecord,
+    StoredInputs,
+    StoredState,
+    history_of,
+    record_of,
 )
+from app.storage.schema import SCHEMA
+
+__all__ = ["AnalysisNotOpenError", "AnalysisRecord", "ReportStore", "StoredInputs", "StoredState"]
 
 
 class AnalysisNotOpenError(Exception):
     """The analysis is unknown or no longer in the state the write needs."""
-
-
-@dataclass(frozen=True)
-class AnalysisRecord:
-    """An analysis without its large payloads."""
-
-    report_id: str
-    state: StoredState
-    parcel_id: str
-    crop_id: str
-    analysis_date: date
-    created_at: datetime
-    finished_at: datetime | None
-    error_code: str | None
-    error_message: str | None
-    sources: list[SourceProgress]
-    crop_history: CropHistory | None
-
-    @property
-    def finished(self) -> bool:
-        return self.state in ("done", "failed")
-
-
-@dataclass(frozen=True)
-class StoredInputs:
-    """Everything a finished analysis was computed from; enough to compute it again."""
-
-    record: AnalysisRecord
-    source_data: SourceData
-    source_limitations: list[Limitation]
-
-
-def _history(text: str | None) -> CropHistory | None:
-    return None if text is None else CropHistory.model_validate_json(text)
-
-
-def _record(row: sqlite3.Row) -> AnalysisRecord:
-    finished = row["finished_ts"]
-    return AnalysisRecord(
-        report_id=row["report_id"],
-        state=row["state"],
-        parcel_id=row["parcel_id"],
-        crop_id=row["crop_id"],
-        analysis_date=date.fromisoformat(row["analysis_date"]),
-        created_at=datetime.fromtimestamp(row["created_ts"], UTC),
-        finished_at=None if finished is None else datetime.fromtimestamp(finished, UTC),
-        error_code=row["error_code"],
-        error_message=row["error_message"],
-        sources=_PROGRESS.validate_json(row["sources_json"]),
-        crop_history=_history(row["crop_history_json"]),
-    )
 
 
 class ReportStore:
@@ -122,24 +70,26 @@ class ReportStore:
         request: AnalysisRequest,
         sources: list[SourceProgress],
         created_at: datetime,
+        crop_history: CropHistory | None = None,
     ) -> None:
-        """Register a started analysis."""
+        """Register a started analysis; `crop_history` is the one it starts with."""
         self._write(
             "INSERT INTO analyses (report_id, state, parcel_id, crop_id, analysis_date, "
-            "created_ts, sources_json) VALUES (?, 'running', ?, ?, ?, ?, ?)",
+            "created_ts, sources_json, crop_history_json) VALUES (?, 'running', ?, ?, ?, ?, ?, ?)",
             (
                 report_id,
                 request.parcel_id,
                 request.crop_id,
                 request.analysis_date.isoformat(),
                 created_at.timestamp(),
-                _PROGRESS.dump_json(sources).decode(),
+                PROGRESS.dump_json(sources).decode(),
+                None if crop_history is None else crop_history.model_dump_json(),
             ),
         )
 
     def get(self, report_id: str, now: datetime) -> AnalysisRecord | None:
-        row = self._read(_SUMMARY_COLUMNS, report_id, now)
-        return None if row is None else _record(row)
+        row = self._read(SUMMARY_COLUMNS, report_id, now)
+        return None if row is None else record_of(row)
 
     def report_json(self, report_id: str, now: datetime) -> str | None:
         """The Report exactly as it was written; None when there is none."""
@@ -149,14 +99,14 @@ class ReportStore:
     def inputs(self, report_id: str, now: datetime) -> StoredInputs | None:
         """Stored source data of a finished analysis, for results derived from it."""
         row = self._read(
-            f"{_SUMMARY_COLUMNS}, source_data_json, source_limitations_json", report_id, now
+            f"{SUMMARY_COLUMNS}, source_data_json, source_limitations_json", report_id, now
         )
         if row is None or row["source_data_json"] is None:
             return None
         return StoredInputs(
-            record=_record(row),
+            record=record_of(row),
             source_data=SourceData.model_validate_json(row["source_data_json"]),
-            source_limitations=_LIMITATIONS.validate_json(row["source_limitations_json"]),
+            source_limitations=LIMITATIONS.validate_json(row["source_limitations_json"]),
         )
 
     def set_crop_history(self, report_id: str, history: CropHistory) -> bool:
@@ -177,7 +127,7 @@ class ReportStore:
         )
         if not rows:
             raise AnalysisNotOpenError(report_id)
-        return _history(rows[0]["crop_history_json"])
+        return history_of(rows[0]["crop_history_json"])
 
     def save_report(
         self,
@@ -194,15 +144,43 @@ class ReportStore:
             "WHERE report_id = ? AND state = 'finalizing' RETURNING report_id",
             (
                 finished_at.timestamp(),
-                _PROGRESS.dump_json(sources).decode(),
+                PROGRESS.dump_json(sources).decode(),
                 source_data.model_dump_json(),
-                _LIMITATIONS.dump_json(source_limitations).decode(),
+                LIMITATIONS.dump_json(source_limitations).decode(),
                 report.model_dump_json(),
                 report.meta.report_id,
             ),
         )
         if not rows:
             raise AnalysisNotOpenError(report.meta.report_id)
+
+    def save_derived(
+        self, report: Report, source_id: str, history: CropHistory, created_at: datetime
+    ) -> bool:
+        """Write a Report computed from the stored data of the Report `source_id`.
+
+        The new row is a finished analysis of its own: it gets a copy of the
+        source data, so it stays complete when the source Report is deleted and
+        can itself be derived from. False when the source is no longer there.
+        """
+        rows = self._write(
+            "INSERT INTO analyses (report_id, state, parcel_id, crop_id, analysis_date, "
+            "created_ts, finished_ts, sources_json, crop_history_json, source_data_json, "
+            "source_limitations_json, report_json) "
+            "SELECT ?, 'done', parcel_id, crop_id, analysis_date, ?, ?, sources_json, ?, "
+            "source_data_json, source_limitations_json, ? FROM analyses "
+            "WHERE report_id = ? AND state = 'done' AND created_ts >= ? RETURNING report_id",
+            (
+                report.meta.report_id,
+                created_at.timestamp(),
+                created_at.timestamp(),
+                history.model_dump_json(),
+                report.model_dump_json(),
+                source_id,
+                self._oldest_kept(created_at),
+            ),
+        )
+        return bool(rows)
 
     def save_failure(
         self,
@@ -216,12 +194,12 @@ class ReportStore:
         rows = self._write(
             "UPDATE analyses SET state = 'failed', finished_ts = ?, error_code = ?, "
             f"error_message = ?, sources_json = ? WHERE report_id = ? "
-            f"AND state IN ({_UNFINISHED}) RETURNING report_id",
+            f"AND state IN ({UNFINISHED}) RETURNING report_id",
             (
                 finished_at.timestamp(),
                 code,
                 message,
-                _PROGRESS.dump_json(sources).decode(),
+                PROGRESS.dump_json(sources).decode(),
                 report_id,
             ),
         )
@@ -231,7 +209,7 @@ class ReportStore:
         """Close every unfinished analysis as failed; used after a process restart."""
         rows = self._write(
             "UPDATE analyses SET state = 'failed', finished_ts = ?, error_code = ?, "
-            f"error_message = ? WHERE state IN ({_UNFINISHED}) RETURNING report_id",
+            f"error_message = ? WHERE state IN ({UNFINISHED}) RETURNING report_id",
             (finished_at.timestamp(), code, message),
         )
         return len(rows)

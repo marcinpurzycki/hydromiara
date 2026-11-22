@@ -56,6 +56,16 @@ def _usable(scene: SatelliteScene) -> bool:
     return scene.ndvi is not None or scene.ndmi is not None
 
 
+def scene_values(scene: SatelliteScene) -> str:
+    """Both indices of the scene as shown to the user."""
+    return _values(scene)
+
+
+def usable(scene: SatelliteScene) -> bool:
+    """True when the scene has at least one of the two indices."""
+    return _usable(scene)
+
+
 def _item(scene: SatelliteScene, meaning: str) -> ConsistencyItem:
     return ConsistencyItem(
         source=SOURCE, period=pl(scene.date), value=_values(scene), meaning=f"{meaning} {NO_EFFECT}"

@@ -6,7 +6,6 @@ its call replaces the function here and its entry in `PENDING_PARTS`.
 """
 
 from app.contracts.report import Limitation, Summary
-from app.contracts.verdicts import HistoricalCourse
 
 # Names of the parts below as they appear in the limitation shown to the user.
 PENDING_PARTS = (
@@ -21,10 +20,6 @@ REASON_PENDING = (
 
 def pending_summary() -> Summary:
     return Summary(text="Podsumowanie nie jest jeszcze dostępne w tej wersji.", source="template")
-
-
-def pending_historical_course() -> HistoricalCourse | None:
-    return None
 
 
 def pending_limitation() -> Limitation:
