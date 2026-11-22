@@ -78,7 +78,7 @@ def test_terrain_goes_to_the_map_and_the_trace():
     assert report.map.retention_sites == [] and report.map.water_objects == []
     assert [entry.rule_id for entry in report.trace] == [
         "root_zone.capacity", "current_status.level", "multiyear.deficit_years",
-        "terrain.slope", "causes.gate", "cause.precipitation", "cause.soil",
+        "season.state", "terrain.slope", "causes.gate", "cause.precipitation", "cause.soil",
         "cause.runoff", "cause.crop_demand", "consistency_check.result",
     ]
     slope = next(entry for entry in report.trace if entry.rule_id == "terrain.slope")

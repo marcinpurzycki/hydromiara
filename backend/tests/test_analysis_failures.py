@@ -156,7 +156,6 @@ def test_placeholder_routes_do_not_answer_for_a_real_report(client, weather):
     report_id = start(client)
     urls = [
         ("post", f"/api/reports/{report_id}/derive", {"crop_history": {"same_every_year": True}}),
-        ("post", f"/api/reports/{report_id}/critical-period", None),
         ("get", f"/api/reports/{report_id}/simulation/ranking", None),
     ]
     for method, url, body in urls:

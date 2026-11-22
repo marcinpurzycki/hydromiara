@@ -1,8 +1,11 @@
 """Reading a Report, and the routes that create Reports from an existing one.
 
 Reading is real: the stored Report is returned exactly as written and nothing
-is computed again. Deriving a Report and the critical-period analysis are
-still placeholders: they work for the fixed example report only and answer
+is computed again. The critical-period route is real too: it starts an
+ordinary analysis (new fetch of the data) of the same parcel and crop for the
+middle day of the latest critical period that is not later than the analysis
+date of the given Report; the given Report is never changed. Deriving a Report
+is still a placeholder: it works for the fixed example report only and answers
 "not available yet" for a Report of a real analysis instead of placeholder data.
 """
 
@@ -11,10 +14,17 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response
 
-from app.api.analyses import not_found, require_known_crop
+from app.api.analyses import Sources, not_found, require_catalog_crop, require_known_crop
 from app.api.errors import ApiError, error_responses
-from app.contracts.analyses import CriticalPeriodStarted, DerivedReport, DeriveRequest
+from app.catalog.crops import get_crop
+from app.contracts.analyses import (
+    AnalysisRequest,
+    CriticalPeriodStarted,
+    DerivedReport,
+    DeriveRequest,
+)
 from app.contracts.report import Report
+from app.engine.season import critical_period_date
 from app.mock import data
 from app.mock import store as mock_store
 from app.orchestrator import runtime
@@ -99,11 +109,39 @@ def derive(report_id: str, request: DeriveRequest) -> DerivedReport:
     "/{report_id}/critical-period",
     status_code=202,
     response_model=CriticalPeriodStarted,
-    responses=error_responses(404, 425, 501),
+    responses=error_responses(404, 409, 422, 425),
     summary="Analiza na środek ostatniego Okresu krytycznego",
 )
-def critical_period(report_id: str) -> CriticalPeriodStarted:
-    require_ready(report_id)
-    return CriticalPeriodStarted(
-        report_id=mock_store.start(), analysis_date=_MOCK_CRITICAL_PERIOD_DATE
+async def critical_period(
+    report_id: str, service: Service, sources: Sources
+) -> CriticalPeriodStarted:
+    if mock_store.exists(report_id):
+        if not mock_store.is_done(report_id):
+            raise _not_ready()
+        return CriticalPeriodStarted(
+            report_id=mock_store.start(), analysis_date=_MOCK_CRITICAL_PERIOD_DATE
+        )
+    record = await service.record(report_id)
+    require_report(record)
+    require_catalog_crop(record.crop_id)
+    target = critical_period_date(get_crop(record.crop_id), record.analysis_date)
+    if target is None:
+        raise ApiError(
+            409,
+            "no_critical_period",
+            "Pole bez uprawy nie ma Okresu krytycznego, więc nie ma okresu największego "
+            "zapotrzebowania na wodę, który można pokazać.",
+        )
+    if target == record.analysis_date:
+        raise ApiError(
+            409,
+            "already_critical_period",
+            f"Ten raport już dotyczy środka Okresu krytycznego ({target:%d.%m.%Y}).",
+        )
+    # The same path as an ordinary analysis; the new date is never later than
+    # the date of the given Report, so it cannot lie in the future.
+    request = AnalysisRequest(
+        parcel_id=record.parcel_id, crop_id=record.crop_id, analysis_date=target
     )
+    started = await service.start(request, sources, changed_from_date=record.analysis_date)
+    return CriticalPeriodStarted(report_id=started, analysis_date=target)

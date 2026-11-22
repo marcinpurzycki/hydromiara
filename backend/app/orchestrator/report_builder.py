@@ -19,11 +19,13 @@ from app.contracts.analyses import CropHistory
 from app.contracts.report import Limitation, Report, ReportMap, ReportMeta, ReportParcel
 from app.contracts.source_data import SourceData
 from app.contracts.verdicts import CropRef
+from app.engine import season_store, season_texts
 from app.engine.assessment import assess_water
 from app.engine.confidence import verdict_confidences
 from app.engine.consistency import check_consistency
 from app.engine.limitations import limitations_of, report_findings
 from app.engine.params import DEFAULT_PARAMS, EngineParams
+from app.engine.season import critical_period_date, past_season, season_status
 from app.orchestrator import report_pending as pending
 from app.orchestrator import report_sources as sources
 from app.orchestrator import report_verdicts as verdicts
@@ -63,7 +65,9 @@ def _meta(inputs: ReportInputs) -> ReportMeta:
 def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) -> Report:
     source_data, crop, analysis_date = inputs.source_data, inputs.crop, inputs.analysis_date
     assessment = assess_water(source_data, crop, analysis_date, params)
-    season = verdicts.season(crop, analysis_date)
+    status = season_status(crop, analysis_date)
+    current = assessment.current_status
+    past = past_season(assessment.balance, crop, status) if status.store_assessed else None
     causes = causes_part(source_data, assessment, crop)
 
     consistency = check_consistency(source_data, assessment, crop, analysis_date)
@@ -89,16 +93,25 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
     )
     return Report(
         meta=_meta(inputs),
-        headline=verdicts.headline(assessment, analysis_date),
+        headline=verdicts.headline(
+            assessment,
+            analysis_date,
+            season_texts.headline_sentence(status, analysis_date, current),
+        ),
         summary=pending.pending_summary(),
-        season=season,
-        current_status=verdicts.current_status(assessment, confidence.current),
+        season=season_texts.season_section(crop, status, analysis_date),
+        current_status=season_store.current_status(
+            verdicts.current_status(assessment, confidence.current),
+            crop, status, analysis_date, current, past,
+        ),
         multiyear_susceptibility=verdicts.multiyear_susceptibility(
             assessment, crop, confidence.multiyear
         ),
         historical_course=pending.pending_historical_course(),
         causes=causes.causes,
-        irrigation=pending.pending_irrigation(season.in_season),
+        # Outside the season the answer is final; otherwise irrigation is still pending.
+        irrigation=season_texts.off_season_irrigation(crop, status)
+        or pending.pending_irrigation(status.in_season),
         consistency_check=consistency.check,
         sources=sources.report_sources(source_data),
         limitations=limitations_of(findings),
@@ -108,5 +121,10 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
             retention_sites=[],
             water_objects=[],
         ),
-        trace=[*verdicts.trace(assessment, params), *causes.trace, consistency.trace],
+        trace=[
+            *verdicts.trace(assessment, params),
+            season_texts.trace_entry(status, critical_period_date(crop, analysis_date)),
+            *causes.trace,
+            consistency.trace,
+        ],
     )

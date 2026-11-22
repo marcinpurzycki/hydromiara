@@ -1,4 +1,4 @@
-"""Report parts taken from the engine: season, the two verdicts, headline, trace.
+"""Report parts taken from the engine: the two verdicts, headline, trace.
 
 TEMPORARY, open decision: the contract requires a deficit level 0-3 for both
 verdicts, while the engine leaves a verdict without a level when it cannot be
@@ -11,16 +11,9 @@ says the level is not a result. No agronomic rule is applied here.
 from datetime import date
 
 from app.catalog.crop_model import CatalogCrop
-from app.catalog.crops import in_season, last_season
 from app.contracts.common import Confidence
 from app.contracts.report import Limitation, TraceEntry
-from app.contracts.verdicts import (
-    CurrentStatus,
-    DateRange,
-    MultiyearSusceptibility,
-    MultiyearYear,
-    Season,
-)
+from app.contracts.verdicts import CurrentStatus, MultiyearSusceptibility, MultiyearYear
 from app.engine.assessment import WaterAssessment
 from app.engine.params import DEFICIT_LEVEL_LABELS, EngineParams
 from app.engine.susceptibility import SusceptibilityVerdict
@@ -42,16 +35,6 @@ def _pl(day: date) -> str:
 
 def _number(value: float) -> str:
     return f"{value:g}".replace(".", ",")
-
-
-def season(crop: CatalogCrop, analysis_date: date) -> Season:
-    """Season facts from the crop catalogue; their interpretation comes later."""
-    latest = last_season(crop, analysis_date)
-    return Season(
-        in_season=in_season(crop, analysis_date),
-        last_season=None if latest is None else DateRange(start=latest.start, end=latest.end),
-        note=None if crop.season is not None else "Pole bez uprawy nie ma Sezonu uprawy.",
-    )
 
 
 def not_assessed_sentence(verdict: CurrentVerdict | SusceptibilityVerdict) -> str | None:
@@ -112,17 +95,22 @@ def multiyear_susceptibility(
     )
 
 
-def headline(assessment: WaterAssessment, analysis_date: date) -> str:
-    """Both verdicts side by side in one line; plain restatement, no interpretation."""
+def headline(
+    assessment: WaterAssessment, analysis_date: date, current_sentence: str | None = None
+) -> str:
+    """Both verdicts side by side in one line; plain restatement, no interpretation.
+
+    `current_sentence` replaces the sentence about the current water status
+    (used when the level describes the soil water store).
+    """
     current, multiyear = assessment.current_status, assessment.multiyear_susceptibility
     now = current.label if current.assessed else NOT_ASSESSED_LABEL
     if multiyear.assessed:
         past = f"wody brakowało w {multiyear.deficit_years} z {multiyear.total_years} lat"
     else:
         past = NOT_ASSESSED_LABEL
-    return (
-        f"Bieżąca sytuacja wodna na {_pl(analysis_date)}: {now}. Podatność wieloletnia: {past}."
-    )
+    first = current_sentence or f"Bieżąca sytuacja wodna na {_pl(analysis_date)}: {now}."
+    return f"{first} Podatność wieloletnia: {past}."
 
 
 def not_assessed_limitation(assessment: WaterAssessment) -> Limitation | None:
