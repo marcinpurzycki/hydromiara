@@ -36,7 +36,7 @@ gleba 24 s, teren i satelita po 17 s, tło suszowe 5 s; żadne źródło poza po
 przed końcem czasu na pobieranie. Usługa gleby odpowiada wolno (zmierzone 11–35 s), więc część analiz kończy się
 bez gleby. Dane o wodach (cieki, rowy, zbiorniki) nie są jeszcze pobierane: w postępie analizy to źródło ma stan
 `missing`. Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego pozycji jest stała); jest na liście
-źródeł raportu. Części raportu, których jeszcze nie liczy żaden moduł (rekomendacje, nawadnianie,
+źródeł raportu. Części raportu, których jeszcze nie liczy żaden moduł (nawadnianie,
 podsumowanie), są w nim opisane wprost jako nieocenione.
 Lista upraw, przykłady, symulacja i raport pochodny odpowiadają na obecnym etapie danymi przykładowymi (atrapą)
 i działają tylko dla raportu przykładowego `/api/reports/demo`. Analiza na Okres krytyczny
@@ -132,6 +132,21 @@ nowy raport podaje pierwotną datę w `meta.changed_from_date`, a pierwotny rapo
 data już jest takim środkowym dniem, oraz Pole bez uprawy (nie ma Okresu krytycznego) dostają `409` z wyjaśnieniem
 (`already_critical_period`, `no_critical_period`). Datę, którą da to przejście, raport podaje w śladzie decyzyjnym
 (`trace`, reguła `season.state`).
+
+Rekomendacje pochodzą z zamkniętego katalogu (`backend/app/catalog/recommendation_data.py`). Pozycja katalogu to
+dane, nie kod: grupa, Przyczyny niedoboru, na które odpowiada, wymagane dane, warunki z zamkniętego zestawu rodzajów
+(porównanie wartości z progiem, znana wartość, stwierdzona Przyczyna, uruchomiona inna pozycja oraz ich połączenia),
+szablon tekstu, szablon „Co uzyskasz” i źródło. Silnik reguł (`backend/app/engine/rules.py`) sprawdza pozycję tylko
+wtedy, gdy stwierdzono co najmniej jedną z jej Przyczyn; bez wymaganych danych reguła się nie uruchamia, a raport
+podaje to jako Ograniczenie. Każda Rekomendacja stoi w raporcie raz, przy najsilniejszej ze stwierdzonych Przyczyn,
+na które odpowiada, i podaje regułę, wartości, które ją uruchomiły, oraz źródło; każda sprawdzona pozycja zostawia
+wpis w śladzie decyzyjnym. Bez stwierdzonej Przyczyny raport nie zawiera Rekomendacji i mówi to wprost. Rekomendacje
+nigdy nie podają wymiarów, kosztów ani parametrów budowli. Katalog zawiera na razie po jednej pozycji wzorcowej na
+grupę; ich treść opiera się na treści zadania konkursowego i materiale „Podstawy naukowe” organizatora, a nie na
+publikacjach źródłowych, więc wszystkie są oznaczone jako robocze, podobnie jak progi ich reguł (Stopień niedoboru
+od „lekki niedobór”). Pozycja z grupy nawadnianie nie trafia do sekcji Przyczyn: o nawadnianiu raport mówi w jednym
+miejscu, na końcu, a ta część nie jest jeszcze wyznaczana. Pozycje wymagające danych o wodach nie uruchamiają się,
+dopóki dane o ciekach, rowach i zbiornikach nie są pobierane.
 
 ## Konfiguracja
 

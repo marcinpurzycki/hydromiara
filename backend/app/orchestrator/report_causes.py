@@ -1,8 +1,12 @@
-"""Report parts about the deficit causes and the terrain of the parcel.
+"""Report parts about the deficit causes, their recommendations and the terrain.
 
-Runs the terrain analysis and the cause checks of the engine once and keeps
-their results together: the cause sections, the downhill direction for the
-map, the trace entries and the limitations.
+Runs the terrain analysis, the cause checks and the recommendation rules of
+the engine once and keeps their results together: the cause sections with
+their recommendations, the downhill direction for the map, the trace entries
+and the limitations.
+
+Irrigation recommendations are not placed in the cause sections; they are
+kept apart for the irrigation part of the Report, which stands at its end.
 
 The contract has no field for the sentence that explains an empty cause list
 (no deficit, or verdicts without a level), so it is carried by a limitation
@@ -19,6 +23,8 @@ from app.engine.assessment import WaterAssessment
 from app.engine.cause_model import SourceNames
 from app.engine.cause_params import DEFAULT_CAUSE_PARAMS, CauseParams
 from app.engine.causes import CausesOutcome, deficit_causes
+from app.engine.rule_facts import rule_facts
+from app.engine.rules import Placed, recommend
 from app.engine.terrain_analysis import TerrainAnalysis, analyse_terrain
 from app.engine.terrain_report import downhill_direction, terrain_limitations, terrain_trace
 from app.orchestrator.report_sources import report_source
@@ -32,6 +38,8 @@ class CausesPart:
     downhill_direction: DownhillDirection | None
     limitations: tuple[Limitation, ...]
     trace: list[TraceEntry]
+    # Triggered irrigation entries with the cause each answers.
+    irrigation: tuple[Placed, ...] = ()
 
 
 def source_names(source_data: SourceData) -> SourceNames:
@@ -64,14 +72,20 @@ def causes_part(
         limitations.insert(
             0, Limitation(text=outcome.statement, affects="recommendations", permanent=False)
         )
-    trace = outcome.trace()
+    facts = rule_facts(
+        assessment, crop, terrain, water_available=source_data.hydro is not None
+    )
+    rules = recommend(outcome, facts)
+    limitations.extend(rules.limitations)
+    trace = [*outcome.trace(), *rules.trace]
     if terrain is not None:
         trace.insert(0, terrain_trace(terrain, params))
     return CausesPart(
         outcome=outcome,
         terrain=terrain,
-        causes=outcome.causes(),
+        causes=outcome.causes(rules.by_cause),
         downhill_direction=downhill_direction(terrain),
         limitations=tuple(limitations),
         trace=trace,
+        irrigation=rules.irrigation,
     )
