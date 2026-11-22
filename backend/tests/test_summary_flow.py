@@ -106,7 +106,7 @@ def test_accepted_answer_is_stored_with_the_report_and_never_asked_for_again(
         (lambda m: setattr(m, "status_code", 500), "provider_error"),
         (lambda m: setattr(m, "status_code", 401), "provider_auth"),
         (lambda m: setattr(m, "raw_body", "<html>"), "provider_bad_answer"),
-        (lambda m: setattr(m, "answer", "Wody zabraknie za 5 dni, a ryzyko suszy rośnie." * 2),
+        (lambda m: setattr(m, "answer", "Wody zabraknie za 7 dni, a ryzyko suszy rośnie." * 2),
          "number_not_in_report"),
     ],
 )

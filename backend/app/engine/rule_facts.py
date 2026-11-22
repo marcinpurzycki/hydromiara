@@ -62,6 +62,8 @@ def _crop_facts(assessment: WaterAssessment, crop: CatalogCrop) -> dict[str, Sca
     return {
         "crop_name": crop.name,
         "crop_name_genitive": crop.name_genitive,
+        "crop_perennial": crop.perennial,
+        "harvest_by_august_end": crop.season is not None and crop.season.end.month <= 8,
         # A dormant winter crop is in its season; the two facts tell them apart.
         "in_season": status.in_season,
         "dormant": status.state == "dormant",

@@ -55,7 +55,7 @@ def by_id(report: Report) -> dict:
 
 
 def test_deficit_gives_four_causes_with_indicator_threshold_and_value():
-    report = build(data_with(grid(plane(3.0, 45))))
+    report = build(data_with(grid(plane(8.0, 45))))
     assert max(report.current_status.deficit_level, report.multiyear_susceptibility.deficit_level) >= 1
     causes = by_id(report)
     assert set(causes) == CAUSE_IDS and len(report.causes) == 4
@@ -67,7 +67,7 @@ def test_deficit_gives_four_causes_with_indicator_threshold_and_value():
     assert causes["soil"].indicator.value == 186 and not causes["soil"].found
     assert causes["soil"].facts[0].source == SOIL_SOURCE_NAME
     assert "kategoria III na 92% powierzchni" in causes["soil"].facts[1].text
-    assert causes["runoff"].found and causes["runoff"].indicator.value == 3.0
+    assert causes["runoff"].found and causes["runoff"].indicator.value == 8.0
     assert causes["runoff"].facts[0].source == COPERNICUS_SOURCE_NAME
     assert causes["precipitation"].facts[0].source.startswith("Open-Meteo")
     assert [cause.found for cause in report.causes] == sorted(
@@ -76,7 +76,7 @@ def test_deficit_gives_four_causes_with_indicator_threshold_and_value():
 
 
 def test_terrain_goes_to_the_map_and_the_trace():
-    report = build(data_with(grid(plane(3.0, 45))))
+    report = build(data_with(grid(plane(8.0, 45))))
     direction = report.map.downhill_direction
     assert (direction.label, direction.azimuth_deg) == ("północny wschód", 45)
     assert report.map.retention_sites == [] and report.map.water_objects == []
@@ -88,18 +88,18 @@ def test_terrain_goes_to_the_map_and_the_trace():
         "irrigation.need", "consistency_check.result",
     ]
     slope = next(entry for entry in report.trace if entry.rule_id == "terrain.slope")
-    assert slope.values["slope_pct"] == 3.0 and slope.values["downhill_azimuth_deg"] == 45
+    assert slope.values["slope_pct"] == 8.0 and slope.values["downhill_azimuth_deg"] == 45
     assert slope.result == "teren opada na północny wschód"
 
 
 def test_surface_model_is_named_once_as_a_limitation():
-    report = build(data_with(grid(plane(3.0, 45))))
+    report = build(data_with(grid(plane(8.0, 45))))
     named = [text for text in texts(report) if "razem z budynkami i roślinnością" in text]
     assert len(named) == 1 and COPERNICUS_SOURCE_NAME in named[0]
     limitation = next(item for item in report.limitations if item.text == named[0])
     assert limitation.affects == "recommendations" and not limitation.permanent
     assert len(set(texts(report))) == len(report.limitations)
-    other = build(data_with(grid(plane(3.0, 45)), terrain_name="GUGiK NMT 1 m"))
+    other = build(data_with(grid(plane(8.0, 45)), terrain_name="GUGiK NMT 1 m"))
     assert not any("razem z budynkami" in text for text in texts(other))
     # Limitations about the terrain do not lower the confidence of a verdict.
     assert report.current_status.confidence == other.current_status.confidence
@@ -118,7 +118,7 @@ def test_missing_terrain_and_soil_are_no_data_not_found():
 
 
 def test_small_parcel_says_that_the_grid_is_too_coarse():
-    report = build(data_with(grid(plane(3.0, 45)), outline=rectangle(40.0, 40.0)))
+    report = build(data_with(grid(plane(8.0, 45)), outline=rectangle(40.0, 40.0)))
     assert by_id(report)["runoff"].indicator.value is None
     assert "za mało punktów siatki wysokości" in by_id(report)["runoff"].finding
     assert report.map.downhill_direction is None
@@ -143,7 +143,7 @@ def wet_days(data: SourceData) -> SourceData:
 
 
 def test_no_deficit_means_no_causes_and_the_report_says_so():
-    report = build(wet_days(data_with(grid(plane(3.0, 45)))))
+    report = build(wet_days(data_with(grid(plane(8.0, 45)))))
     assert report.current_status.deficit_level == 0
     assert report.multiyear_susceptibility.deficit_level == 0
     assert report.causes == []
@@ -159,7 +159,7 @@ def test_no_deficit_means_no_causes_and_the_report_says_so():
 
 
 def test_field_without_a_crop_gets_no_causes():
-    report = build(data_with(grid(plane(3.0, 45))), "bare_field")
+    report = build(data_with(grid(plane(8.0, 45))), "bare_field")
     assert report.causes == []
     assert sum("Przyczyn niedoboru nie wyznaczono" in text for text in texts(report)) == 1
     assert NO_DEFICIT_SENTENCE not in texts(report)

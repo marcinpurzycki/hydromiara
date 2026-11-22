@@ -118,6 +118,7 @@ def test_a_faithful_answer_is_accepted():
         (GOOD + " Wilgotność gleby jest mała.", "avoided_word"),
         (GOOD.replace("silny niedobór", "lekki niedobór"), "term_not_in_report"),
         (GOOD.replace("silny niedobór", "stan w normie"), "term_not_in_report"),
+        (GOOD + " Pomoże też to, że należy nawadniać.", "term_not_in_report"),
         (GOOD + " Sprawdzenie zgodności wypadło jako rozbieżne.", "term_not_in_report"),
         (GOOD + " Trzeba też głęboko spulchnić glebę.", "term_not_in_report"),
         (GOOD.replace("jest wysoka", "jest niska"), "confidence_changed"),
@@ -139,7 +140,7 @@ def test_fixed_phrases_with_the_drought_word_are_allowed():
 
 
 def test_advice_words_are_allowed_only_when_the_report_uses_them():
-    advice = " W Okresie krytycznym warto częściej sprawdzać stan Uprawy."
+    advice = " Wynik jest zgodne z danymi."  # a guarded term the deficit Report contains
     assert answer_problem(GOOD + advice, DEFICIT) is None
     no_deficit = summary_facts(CASES["no_deficit"])
     plain = (

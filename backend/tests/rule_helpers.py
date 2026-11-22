@@ -15,10 +15,10 @@ from tests.cause_helpers import assessment, terrain, window, zone
 WHEAT = get_crop("winter_wheat")
 BARE_FIELD = get_crop("bare_field")
 
-LANDSCAPE = "hold_rainwater_in_lowest_part"
+LANDSCAPE = "grassed_runoff_path"
 DITCH = "ditch_water_retention"
-SOIL = "catch_crops_and_residues"
-AGRONOMY = "watch_crop_in_critical_period"
+SOIL = "catch_crops"
+AGRONOMY = "critical_period_watch"
 IRRIGATION = "irrigation_when_water_is_short"
 
 
@@ -29,7 +29,7 @@ def run(
     soil_mm: float = 180.0,
     soil_source: str = "iung_category",
     dry: bool = True,
-    slope: float | None = 3.0,
+    slope: float | None = 8.0,
     slope_error: float = 0.2,
     day: date | None = None,
     crop=WHEAT,
