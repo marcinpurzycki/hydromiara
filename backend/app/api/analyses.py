@@ -9,6 +9,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response
 
+from app.api.crop_history import require_valid_history
 from app.api.errors import ApiError, error_responses
 from app.catalog.crops import has_crop, list_crops
 from app.contracts.analyses import AnalysisRequest, AnalysisStarted, AnalysisStatus, CropHistory
@@ -93,15 +94,19 @@ async def status(report_id: str, service: Service) -> AnalysisStatus:
     summary="Historia upraw podana w trakcie analizy",
 )
 async def put_crop_history(report_id: str, history: CropHistory, service: Service) -> Response:
-    is_mock = mock_store.exists(report_id)
-    for crop_id in (history.years or {}).values():
-        (require_known_crop if is_mock else require_catalog_crop)(crop_id)
-    if is_mock:
+    if mock_store.exists(report_id):
+        for crop_id in (history.years or {}).values():
+            require_known_crop(crop_id)
         accepted = not mock_store.is_done(report_id)
     else:
-        accepted = await service.put_crop_history(report_id, history)
-        if not accepted and await service.record(report_id) is None:
+        record = await service.record(report_id)
+        if record is None:
             raise not_found()
+        # A finished analysis answers "too late" whatever the history says.
+        accepted = not record.finished
+        if accepted:
+            require_valid_history(history, record.crop_id, record.analysis_date)
+            accepted = await service.put_crop_history(report_id, history)
     if not accepted:
         raise ApiError(
             409,

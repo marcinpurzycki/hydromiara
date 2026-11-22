@@ -14,7 +14,9 @@ from app.catalog.crop_model import CatalogCrop
 from app.contracts.common import Confidence
 from app.contracts.report import Limitation, TraceEntry
 from app.contracts.verdicts import CurrentStatus, MultiyearSusceptibility, MultiyearYear
+from app.engine import history_texts
 from app.engine.assessment import WaterAssessment
+from app.engine.history import CourseResult
 from app.engine.params import DEFICIT_LEVEL_LABELS, EngineParams
 from app.engine.susceptibility import SusceptibilityVerdict
 from app.engine.verdicts import CurrentVerdict
@@ -68,8 +70,12 @@ def current_status(assessment: WaterAssessment, confidence: Confidence) -> Curre
 
 
 def multiyear_susceptibility(
-    assessment: WaterAssessment, crop: CatalogCrop, confidence: Confidence
+    assessment: WaterAssessment,
+    crop: CatalogCrop,
+    confidence: Confidence,
+    course: CourseResult | None = None,
 ) -> MultiyearSusceptibility:
+    """`course` is the historical course; it changes only the assumption sentence."""
     verdict = assessment.multiyear_susceptibility
     # Years without weather are left out, so the list matches `total_years`.
     years = [
@@ -78,9 +84,10 @@ def multiyear_susceptibility(
         if year.assessed
     ]
     if verdict.assessed:
-        assumption = (
+        assumption = history_texts.assumption(
             f"Podatność wieloletnia jest liczona tak, jakby wybrana Uprawa ({crop.name}) "
-            "rosła na Działce w każdym roku Okna wieloletniego."
+            "rosła na Działce w każdym roku Okna wieloletniego.",
+            course,
         )
     else:
         assumption = _NOT_ASSESSED_REASONS[verdict.not_assessed_reason]

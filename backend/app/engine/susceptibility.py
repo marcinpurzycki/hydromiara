@@ -127,6 +127,16 @@ def _year_result(
     )
 
 
+def assess_period(
+    balance: WaterBalance, period: DateRange, params: EngineParams = DEFAULT_PARAMS
+) -> YearResult:
+    """One critical period judged by the measure of a deficit year.
+
+    The balance must have been run for the crop the period belongs to.
+    """
+    return _year_result(balance, period, balance.analysis_date, params)
+
+
 def multiyear_susceptibility(
     balance: WaterBalance,
     crop: CatalogCrop,

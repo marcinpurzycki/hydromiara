@@ -19,10 +19,11 @@ from app.contracts.analyses import CropHistory
 from app.contracts.report import Limitation, Report, ReportMap, ReportMeta, ReportParcel
 from app.contracts.source_data import SourceData
 from app.contracts.verdicts import CropRef
-from app.engine import season_store, season_texts
+from app.engine import history_texts, season_store, season_texts
 from app.engine.assessment import assess_water
 from app.engine.confidence import verdict_confidences
 from app.engine.consistency import check_consistency
+from app.engine.history import historical_course
 from app.engine.irrigation import assess_irrigation
 from app.engine.limitations import limitations_of, report_findings
 from app.engine.params import DEFAULT_PARAMS, EngineParams
@@ -42,7 +43,8 @@ class ReportInputs:
     source_data: SourceData
     crop: CatalogCrop
     analysis_date: date
-    # Kept with the analysis; the historical course computed from it comes later.
+    # Read only by the historical course and the assumption sentence next to
+    # the susceptibility; no verdict, cause or recommendation depends on it.
     crop_history: CropHistory | None = None
     # Limitations the sources returned next to their data.
     source_limitations: tuple[Limitation, ...] = ()
@@ -71,6 +73,8 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
     past = past_season(assessment.balance, crop, status) if status.store_assessed else None
     causes = causes_part(source_data, assessment, crop)
     irrigation = assess_irrigation(assessment, crop, status)
+    susceptibility = assessment.multiyear_susceptibility
+    course = historical_course(source_data, assessment, crop, inputs.crop_history, params)
 
     consistency = check_consistency(source_data, assessment, crop, analysis_date)
 
@@ -107,9 +111,11 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
             crop, status, analysis_date, current, past,
         ),
         multiyear_susceptibility=verdicts.multiyear_susceptibility(
-            assessment, crop, confidence.multiyear
+            assessment, crop, confidence.multiyear, course
         ),
-        historical_course=pending.pending_historical_course(),
+        historical_course=(
+            None if course is None else history_texts.course_section(course, susceptibility, crop)
+        ),
         causes=causes.causes,
         irrigation=irrigation.section,
         consistency_check=consistency.check,
@@ -127,5 +133,6 @@ def build_report(inputs: ReportInputs, params: EngineParams = DEFAULT_PARAMS) ->
             *causes.trace,
             irrigation.trace,
             consistency.trace,
+            *([] if course is None else [history_texts.trace_entry(course, susceptibility)]),
         ],
     )

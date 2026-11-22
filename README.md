@@ -38,9 +38,10 @@ bez gleby. Dane o wodach (cieki, rowy, zbiorniki) nie są jeszcze pobierane: w p
 `missing`. Tło suszowe nie ma własnej pozycji w postępie analizy (lista jego pozycji jest stała); jest na liście
 źródeł raportu. Część raportu, której jeszcze nie liczy żaden moduł (podsumowanie), jest w nim opisana
 wprost jako nieoceniona.
-Lista upraw, przykłady, symulacja i raport pochodny odpowiadają na obecnym etapie danymi przykładowymi (atrapą)
+Lista upraw, przykłady i symulacja odpowiadają na obecnym etapie danymi przykładowymi (atrapą)
 i działają tylko dla raportu przykładowego `/api/reports/demo`. Analiza na Okres krytyczny
-(`POST /api/reports/{report_id}/critical-period`) jest prawdziwa; dla raportu przykładowego odpowiada atrapą.
+(`POST /api/reports/{report_id}/critical-period`) i raport pochodny z Historią upraw
+(`POST /api/reports/{report_id}/derive`) są prawdziwe; dla raportu przykładowego odpowiadają atrapą.
 Opis interfejsu: `/api/docs` (Swagger UI) i `/api/openapi.json`.
 
 Lokalnie, bez Dockera:
@@ -54,6 +55,7 @@ REPORTS_DB_PATH=./data/reports.sqlite3 .venv/bin/fastapi dev app/main.py   # htt
 .venv/bin/python -m tests.smoke.satellite_smoke # sprawdzenie na żywych usługach scen satelitarnych, w tym przełączenia (wymaga sieci)
 .venv/bin/python -m tests.smoke.analysis_smoke  # cała analiza jednej działki na żywych źródłach, z czasem każdego źródła (wymaga sieci)
 .venv/bin/python -m tests.smoke.season_smoke    # raport poza sezonem lub w spoczynku i przejście na Okres krytyczny, na żywych źródłach (wymaga sieci)
+.venv/bin/python -m tests.smoke.history_smoke   # analiza i raport pochodny z Historią upraw: czas, Przebieg historyczny, niezmieniona Podatność wieloletnia (wymaga sieci)
 EDO_DATA_PATH=./data/edo .venv/bin/python -m tests.smoke.full_analysis_smoke  # analizy trzech działek, dwie daty, kilka przebiegów: tabela czasów i wyników każdego źródła (wymaga sieci; kilka minut)
 ```
 
@@ -160,6 +162,31 @@ strat przy nawadnianiu, sprawności urządzeń ani dawek jednorazowych raport ni
 raport podaje „nie jest teraz zasadne” z wartością bilansu; w spoczynku uprawy ozimej także, bo Stopień niedoboru
 dotyczy wtedy Zapasu wody w glebie; dla Pola bez uprawy część o nawadnianiu ma postać „nie dotyczy”. Gdy pojemność
 wodna gleby jest przyjęta zastępczo, tekst mówi, że podane ilości są mniej pewne.
+
+Historia upraw (`backend/app/engine/history.py`, teksty w `history_texts.py`) jest opcjonalna. Bez niej raport
+przyjmuje tę samą Uprawę w każdym roku i mówi to zdaniem przy Podatności wieloletniej (`history_assumption`); to samo
+zdanie odróżnia potwierdzenie „ta sama Uprawa co roku” od Historii z innymi Uprawami. Podana Historia dokłada
+Przebieg historyczny (`historical_course`): dla każdego roku Okna wieloletniego Uprawę, która wtedy rosła, wynik roku
+i notę o odczycie satelitarnym, oraz zdanie porównujące z Podatnością wieloletnią. Przebieg stoi obok Podatności
+i jej nie zastępuje: Podatność wieloletnia, Bieżąca sytuacja wodna, Pewność oceny, Przyczyny niedoboru, Rekomendacje
+i część o nawadnianiu są takie same z Historią i bez niej. Zasady: lata Historii to lata Okna wieloletniego tej
+analizy (rok to rok, w którym zaczyna się Okres krytyczny Uprawy, czyli dla uprawy ozimej rok zbioru); lata niepodane
+przyjmują Uprawę z sezonu Daty analizy; rok jest oceniany tą samą miarą i tymi samymi parametrami co rok w Podatności
+wieloletniej, na bilansie wodnym policzonym dla Uprawy z tego roku na tej samej pogodzie i glebie. Bilans każdej
+Uprawy jest liczony osobno na całej serii, więc zapas wody na początku roku jest taki, jakby ta Uprawa rosła także
+wcześniej; wpływu poprzedniej, innej Uprawy na ten zapas raport nie uwzględnia. Roku z Polem bez uprawy raport nie
+ocenia (nie ma dla niego reguły Stopnia niedoboru), podobnie roku bez danych pogodowych i roku, w którym Okres
+krytyczny Uprawy zaczyna się po Dacie analizy; taki rok ma w raporcie `deficit = false`, a jego nota zaczyna się od
+„Roku nie oceniono” z powodem. Nota satelitarna podaje datę i wartości najnowszej sceny z danego roku oraz to, czy
+dzień odczytu wypada w Sezonie uprawy Uprawy z tego roku; niczego nie ocenia, a dla lat bez sceny mówi „brak odczytu”.
+Historię można podać w trakcie analizy (`PUT /api/analyses/{report_id}/crop-history`, po jej zakończeniu `409`) albo
+później: `POST /api/reports/{report_id}/derive` z `{crop_history}` tworzy nowy raport z danych źródłowych zapisanych
+z raportem źródłowym, bez pobierania czegokolwiek, i odpowiada `201 {report_id}`. Nowy raport ma własny adres i kopię
+danych źródłowych, wskazuje raport źródłowy w `meta.derived_from` i sam może być źródłem kolejnego; raport źródłowy się
+nie zmienia. Odpowiedzi z błędem: `404` (nie ma raportu, analiza się nie powiodła albo raport został już usunięty),
+`425` (analiza trwa), `422 unknown_crop` (Uprawa spoza listy), `422 crop_history_year_outside_window` (rok spoza Okna
+wieloletniego; komunikat podaje dozwolone lata), `409 crop_history_not_applicable` (Pole bez uprawy). Przejście na
+Okres krytyczny przenosi Historię upraw raportu do nowej analizy, z pominięciem lat, które wypadły z jej Okna.
 
 ## Konfiguracja
 

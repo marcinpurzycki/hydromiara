@@ -4,9 +4,11 @@ Reading is real: the stored Report is returned exactly as written and nothing
 is computed again. The critical-period route is real too: it starts an
 ordinary analysis (new fetch of the data) of the same parcel and crop for the
 middle day of the latest critical period that is not later than the analysis
-date of the given Report; the given Report is never changed. Deriving a Report
-is still a placeholder: it works for the fixed example report only and answers
-"not available yet" for a Report of a real analysis instead of placeholder data.
+date of the given Report; the given Report is never changed, and its crop
+history goes with the new analysis. Deriving a Report is real as well: a new
+Report with another crop history is computed from the source data stored with
+the given one, nothing is fetched, and the new Report names the given one as
+its source. Only the fixed example report keeps its placeholder answers.
 """
 
 from datetime import date
@@ -15,6 +17,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Response
 
 from app.api.analyses import Sources, not_found, require_catalog_crop, require_known_crop
+from app.api.crop_history import carried_history, require_valid_history
 from app.api.errors import ApiError, error_responses
 from app.catalog.crops import get_crop
 from app.contracts.analyses import (
@@ -95,14 +98,25 @@ async def get_report(report_id: str, service: Service) -> Response | Report:
     "/{report_id}/derive",
     status_code=201,
     response_model=DerivedReport,
-    responses=error_responses(404, 422, 425, 501),
+    responses=error_responses(404, 409, 422, 425),
     summary="Nowy Raport z tych samych danych źródłowych i podanej Historii upraw",
 )
-def derive(report_id: str, request: DeriveRequest) -> DerivedReport:
-    require_ready(report_id)
-    for crop_id in (request.crop_history.years or {}).values():
-        require_known_crop(crop_id)
-    return DerivedReport(report_id=mock_store.start(finished=True))
+async def derive(report_id: str, request: DeriveRequest, service: Service) -> DerivedReport:
+    if mock_store.exists(report_id):
+        if not mock_store.is_done(report_id):
+            raise _not_ready()
+        for crop_id in (request.crop_history.years or {}).values():
+            require_known_crop(crop_id)
+        return DerivedReport(report_id=mock_store.start(finished=True))
+    record = await service.record(report_id)
+    require_report(record)
+    require_catalog_crop(record.crop_id)
+    require_valid_history(request.crop_history, record.crop_id, record.analysis_date)
+    derived = await service.derive(report_id, request.crop_history)
+    if derived is None:
+        # Deleted by the retention between the two reads.
+        raise not_found()
+    return DerivedReport(report_id=derived)
 
 
 @router.post(
@@ -143,5 +157,10 @@ async def critical_period(
     request = AnalysisRequest(
         parcel_id=record.parcel_id, crop_id=record.crop_id, analysis_date=target
     )
-    started = await service.start(request, sources, changed_from_date=record.analysis_date)
+    started = await service.start(
+        request,
+        sources,
+        changed_from_date=record.analysis_date,
+        crop_history=carried_history(record.crop_history, record.crop_id, target),
+    )
     return CriticalPeriodStarted(report_id=started, analysis_date=target)

@@ -3,6 +3,8 @@
 `start` registers the analysis, returns its random identifier at once and runs
 the work as an asyncio task: fetch the sources within the time budget, freeze
 the crop history, build the Report, store it together with its source data.
+`derive` builds another Report from the source data stored with a finished
+one, with another crop history and without fetching anything.
 Clock and randomness live here and in the adapters, never in the engine.
 
 Progress of a running analysis is kept in memory; the final state is in the
@@ -20,6 +22,7 @@ from datetime import UTC, date, datetime
 
 from app.catalog.crops import get_crop
 from app.contracts.analyses import AnalysisRequest, AnalysisStatus, CropHistory
+from app.contracts.report import Report
 from app.orchestrator import params
 from app.orchestrator.fetching import AnalysisFailed, fetch_source_data
 from app.orchestrator.progress import Progress
@@ -71,16 +74,20 @@ class Orchestrator:
         sources: AnalysisSources,
         *,
         changed_from_date: date | None = None,
+        crop_history: CropHistory | None = None,
     ) -> str:
         """Register the analysis and run it in the background; returns its identifier.
 
         `changed_from_date` is the analysis date of the Report this analysis was
         started from with another date; it is written into the new Report.
+        `crop_history` is the history the analysis starts with; the user can
+        still replace it while the analysis runs.
         """
         report_id = new_report_id()
         progress = Progress(sources.specs)
         await asyncio.to_thread(
-            self.store.create, report_id, request, progress.snapshot(), self._clock()
+            self.store.create, report_id, request, progress.snapshot(), self._clock(),
+            crop_history,
         )
         self._running[report_id] = progress
         task = asyncio.create_task(
@@ -187,6 +194,42 @@ class Orchestrator:
     async def put_crop_history(self, report_id: str, history: CropHistory) -> bool:
         """Attach the crop history to a running analysis; False when it is too late."""
         return await asyncio.to_thread(self.store.set_crop_history, report_id, history)
+
+    async def derive(self, source_id: str, history: CropHistory) -> str | None:
+        """A new Report from the stored data of a finished one, with another history.
+
+        Nothing is fetched and the source Report is not touched. Returns the
+        new identifier, or None when the source has no stored data (any more).
+        """
+        started = time.monotonic()
+        return await asyncio.to_thread(self._derive, source_id, history, started)
+
+    def _derive(self, source_id: str, history: CropHistory, started: float) -> str | None:
+        now = self._clock()
+        stored = self.store.inputs(source_id, now)
+        source_json = self.store.report_json(source_id, now)
+        if stored is None or source_json is None:
+            return None
+        record = stored.record
+        inputs = ReportInputs(
+            report_id=new_report_id(),
+            created_at=now,
+            source_data=stored.source_data,
+            crop=get_crop(record.crop_id),
+            analysis_date=record.analysis_date,
+            crop_history=history,
+            source_limitations=tuple(stored.source_limitations),
+            derived_from=source_id,
+            changed_from_date=Report.model_validate_json(source_json).meta.changed_from_date,
+        )
+        if not self.store.save_derived(build_report(inputs), source_id, history, now):
+            return None
+        logger.info(
+            "report %s derived from %s duration_s=%.3f",
+            inputs.report_id[: params.LOG_ID_CHARS], source_id[: params.LOG_ID_CHARS],
+            time.monotonic() - started,
+        )
+        return inputs.report_id
 
     async def shutdown(self) -> None:
         """Stop running analyses; the next start closes them as interrupted."""
