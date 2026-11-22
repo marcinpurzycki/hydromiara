@@ -24,12 +24,18 @@ from app.engine.verdicts import CurrentVerdict
 from app.orchestrator.report_pending import REASON_PENDING
 
 NOT_ASSESSED_LABEL = "nie oceniono"
+NO_CROP_LABEL = "bez uprawy, nie oceniane"
 NOT_ASSESSED_LEVEL = 0
 
 _NOT_ASSESSED_REASONS = {
     "no_crop": "Dla Pola bez uprawy Stopień niedoboru nie jest wyznaczany.",
     "no_weather": "Brak danych pogodowych, z których można wyznaczyć Stopień niedoboru.",
 }
+
+
+def not_assessed_label(reason: str) -> str:
+    """Label of a verdict that has no level: the field without a crop has its own."""
+    return NO_CROP_LABEL if reason == "no_crop" else NOT_ASSESSED_LABEL
 
 
 def _pl(day: date) -> str:
@@ -63,7 +69,7 @@ def current_status(assessment: WaterAssessment, confidence: Confidence) -> Curre
     details["not_assessed_reason"] = verdict.not_assessed_reason
     return CurrentStatus(
         deficit_level=NOT_ASSESSED_LEVEL,
-        label=NOT_ASSESSED_LABEL,
+        label=not_assessed_label(verdict.not_assessed_reason),
         reason=_NOT_ASSESSED_REASONS[verdict.not_assessed_reason],
         confidence=confidence,
         details=details,
@@ -112,11 +118,11 @@ def headline(
     (used when the level describes the soil water store).
     """
     current, multiyear = assessment.current_status, assessment.multiyear_susceptibility
-    now = current.label if current.assessed else NOT_ASSESSED_LABEL
+    now = current.label if current.assessed else not_assessed_label(current.not_assessed_reason)
     if multiyear.assessed:
         past = f"wody brakowało w {multiyear.deficit_years} z {multiyear.total_years} lat"
     else:
-        past = NOT_ASSESSED_LABEL
+        past = not_assessed_label(multiyear.not_assessed_reason)
     # The state is that of the last day with weather, which for an analysis of
     # the current day is the day before.
     state_day = current.state_date or analysis_date
@@ -133,9 +139,10 @@ def not_assessed_limitation(assessment: WaterAssessment) -> Limitation | None:
     if not reasons:
         return None
     explained = " ".join(_NOT_ASSESSED_REASONS[reason] for reason in sorted(reasons))
+    labels = " lub ".join(f"„{not_assessed_label(reason)}”" for reason in sorted(reasons, reverse=True))
     return Limitation(
         text=(
-            f"{explained} Werdykt oznaczony jako „{NOT_ASSESSED_LABEL}” nie jest wynikiem "
+            f"{explained} Werdykt oznaczony jako {labels} nie jest wynikiem "
             "„w normie”."
         ),
         affects="all",
@@ -179,7 +186,11 @@ def trace(assessment: WaterAssessment, params: EngineParams) -> list[TraceEntry]
                 "stress_coefficient": current.details()["stress_coefficient"],
                 "state_date": None if current.state_date is None else current.state_date.isoformat(),
             },
-            result=current.label if current.assessed else NOT_ASSESSED_LABEL,
+            result=(
+                current.label
+                if current.assessed
+                else not_assessed_label(current.not_assessed_reason)
+            ),
         ),
         TraceEntry(
             rule_id="multiyear.deficit_years",
@@ -192,6 +203,10 @@ def trace(assessment: WaterAssessment, params: EngineParams) -> list[TraceEntry]
                 "deficit_years": multiyear.deficit_years,
                 "total_years": multiyear.total_years,
             },
-            result=multiyear.label if multiyear.assessed else NOT_ASSESSED_LABEL,
+            result=(
+                multiyear.label
+                if multiyear.assessed
+                else not_assessed_label(multiyear.not_assessed_reason)
+            ),
         ),
     ]

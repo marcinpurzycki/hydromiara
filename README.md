@@ -647,18 +647,22 @@ Zakres danych i katalogów:
   Miejsce zatrzymania wody z analizy terenu (najniższa część działki) nie ma jeszcze geometrii na mapie.
   Kopii danych o wodach usługa sama nie pobiera: bez plików w `WATER_DATA_PATH` łańcuch ma jedno ogniwo.
 - Dla Pola bez uprawy żaden werdykt nie dostaje Stopnia niedoboru (nie ma reguły); Raport zapisuje wtedy stopień
-  techniczny 0 z etykietą „nie oceniono” i znacznikiem `details.assessed = false`. Nie ma dla niego Przyczyn,
+  techniczny 0 z etykietą „bez uprawy, nie oceniane” i znacznikiem `details.assessed = false`. Nie ma dla niego Przyczyn,
   Rekomendacji, Historii upraw ani Symulacji.
 
 Wartości robocze. Progi i reguły bez źródła naukowego są w kodzie oznaczone `PROVISIONAL` i zebrane w plikach
 parametrów (lista w [docs/metoda.md](docs/metoda.md)): definicja roku z niedoborem (co najmniej 10 dni stresu
-w Okresie krytycznym; wiadomo, że zbyt czuła, a po wpisaniu katalogu Upraw wymaga ponownego dobrania na nowej
-krzywej Kc i nowym Okresie krytycznym), progi Stopni niedoboru, wartości Upraw warunkowych wymienione wyżej,
+w Okresie krytycznym; zbyt czuła, zob. niżej), progi Stopni niedoboru, wartości Upraw warunkowych wymienione wyżej,
 współczynnik gołej gleby, progi czterech Przyczyn, reguły Pewności oceny i Sprawdzenia zgodności,
 dwa progi interpretacji odczytu satelitarnego (3 lata tej samej Uprawy do porównania, NDVI 0,4 w kwietniu dla
 Uprawy ozimej),
 zasadność i dolna granica nawadniania, czas przechowywania Raportów. Przy progu Kc 1,0 przyczyna „uprawa o dużych
 potrzebach wodnych” będzie stwierdzana dla większości Upraw polowych.
+
+Liczba lat z niedoborem jest liczona regułą roboczą „co najmniej 10 dni z brakiem wody w Okresie krytycznym”, która
+zawyża tę liczbę (dla wielu Działek daje 9–10 lat na 10). Definicja oparta na względnym niedoborze ewapotranspiracji
+została opracowana, ale nie jest włączona, bo jej próg wymaga ponownego dobrania po zmianie katalogu Upraw
+i źródła danych o glebie.
 
 Źródła danych:
 
