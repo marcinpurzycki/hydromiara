@@ -307,8 +307,9 @@ Raport przykładowy `/api/reports/demo` i trasy wywołane dla niego odpowiadają
 - **Raport.** Podsumowanie, dwie oceny ze skalą i Pewnością, kafle stwierdzonych przyczyn ze wskaźnikiem, po
   rozwinięciu ścieżka Przyczyna → Zalecenia → Efekt ze szkicem działki (kierunek spływu, wody, Miejsce zatrzymania
   wody), nawadnianie oraz „Dodatkowe informacje”: Ograniczenia, źródła danych z datami i licencjami, Sprawdzenie
-  zgodności i ślad decyzji. Raport ma własny adres, drukuje się w całości i zapisuje do PDF przez okno druku
-  przeglądarki.
+  zgodności i ślad decyzji. Raport ma własny adres i drukuje się w całości. Przycisk „Zapisz PDF”
+  tworzy plik PDF w przeglądarce (strony A4, wszystkie części rozwinięte, układ jak na szerokim ekranie także na
+  telefonie) i od razu go pobiera; plik jest obrazem Raportu, więc tekstu nie da się w nim zaznaczyć.
 - **Historia upraw i Symulacja** otwierają się z Raportu; zapisanie Historii tworzy nowy Raport pod nowym adresem.
 
 Do uzupełnienia przed zgłoszeniem: sześć Przykładów podpowiadanych w aplikacji (dziś dane zastępcze).
@@ -443,6 +444,8 @@ Biblioteki strony dla rolnika (usługa `web`, katalog `frontend/`):
 | React, React DOM | interfejs strony | MIT |
 | React Router | adresy ekranów (Raport pod własnym adresem) | MIT |
 | Leaflet | mapa wyboru działki | BSD-2-Clause |
+| html2canvas | rysowanie Raportu do obrazu przy zapisie PDF (ładowana dopiero po kliknięciu) | MIT |
+| jsPDF | składanie pliku PDF ze stron A4 (ładowana dopiero po kliknięciu) | MIT |
 | Open Sans (paczka `@fontsource/open-sans`) | czcionka, serwowana z własnego serwera | SIL Open Font License 1.1 |
 | Vite, `@vitejs/plugin-react` | budowanie strony | MIT |
 | TypeScript | sprawdzanie typów przy budowaniu | Apache-2.0 |
@@ -869,7 +872,8 @@ frame-ancestors 'none'`, `Cross-Origin-Resource-Policy: same-origin` i `Cache-Co
 zostaje w pamięci podręcznej po drodze). Serwer aplikacji nie wysyła nagłówka `Server`. CORS nie jest otwarty,
 bo strona i API są pod jedną domeną. TLS, przekierowanie na HTTPS i HSTS zapewnia Traefik; nagłówki strony dla
 rolnika ustawia usługa `web` (`frontend/nginx/headers.conf`): jej polityka treści pozwala tylko na własne pliki,
-kafle ortofotomapy z Geoportalu i zapytania do geokodera GUGiK.
+kafle ortofotomapy z Geoportalu i zapytania do geokodera GUGiK. Jedynym wyjątkiem od zakazu stylów wpisanych
+w stronę jest jeden stały arkusz biblioteki html2canvas, dopuszczony przez skrót SHA-256 jego treści.
 
 **Opis interfejsu jest publiczny.** `/api/docs` i `/api/openapi.json` są dostępne bez ograniczeń: korzysta z nich
 zespół budujący stronę, a interfejs nie ma tras administracyjnych. Strona `/api/docs` ładuje skrypt z publicznej

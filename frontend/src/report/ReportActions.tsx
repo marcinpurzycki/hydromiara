@@ -6,14 +6,27 @@ interface Props {
   allOpen: boolean;
   onToggleAll: () => void;
   onPrint: () => void;
+  /** Makes the PDF file; rejects when the file could not be made. */
+  onPdf: () => Promise<void>;
 }
 
-/** Print, PDF (the browser's print dialog), link to the Report, expand all, start over. */
-export function ReportActions({ allOpen, onToggleAll, onPrint }: Props) {
+/** Print, PDF file, link to the Report, expand all, start over. */
+export function ReportActions({ allOpen, onToggleAll, onPrint, onPdf }: Props) {
   const navigate = useNavigate();
   const [linkShown, setLinkShown] = useState(false);
   const [copied, setCopied] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [pdf, setPdf] = useState<"idle" | "working" | "failed">("idle");
+
+  const savePdf = async () => {
+    setPdf("working");
+    try {
+      await onPdf();
+      setPdf("idle");
+    } catch {
+      setPdf("failed");
+    }
+  };
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const url = window.location.href;
 
@@ -55,14 +68,19 @@ export function ReportActions({ allOpen, onToggleAll, onPrint }: Props) {
           </span>
         </div>
       )}
+      {pdf === "failed" && (
+        <p className="field-error no-print" role="alert">
+          Nie udało się utworzyć pliku PDF. Użyj przycisku „Drukuj raport” i wybierz w oknie drukowania zapis do PDF.
+        </p>
+      )}
       <div className="button-row no-print">
         <button type="button" className="button button-primary" onClick={onPrint}>
           <Icon name="print" size={22} />
           Drukuj raport
         </button>
-        <button type="button" className="button button-soft" onClick={onPrint}>
+        <button type="button" className="button button-soft" disabled={pdf === "working"} onClick={() => void savePdf()}>
           <Icon name="pdf" size={22} />
-          Zapisz PDF
+          {pdf === "working" ? "Tworzymy PDF…" : "Zapisz PDF"}
         </button>
         <button type="button" className="button button-soft" onClick={() => void copyLink()}>
           <Icon name="link" size={22} />
